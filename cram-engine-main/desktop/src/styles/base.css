@@ -1,0 +1,174 @@
+/* ================================================================
+   Scholar's Study — base.css
+   暖白学术工作台设计系统：CSS 变量 + 字体 + 全局复位
+   ================================================================ */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@450&display=swap');
+
+:root {
+  /* ---- Scholar's Study Color Tokens ---- */
+  --color-primary: #5e39e0;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #7757fa;
+  --color-on-primary-container: #fffbff;
+  --color-primary-fixed: #e6deff;
+  --color-primary-fixed-dim: #cabeff;
+  --color-on-primary-fixed: #1c0062;
+  --color-on-primary-fixed-variant: #4816cb;
+
+  --color-secondary: #00687a;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #57dffe;
+  --color-on-secondary-container: #006172;
+
+  --color-tertiary: #8f4a00;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #b35e00;
+  --color-on-tertiary-container: #fffbff;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-background: #f9f9f6;
+  --color-on-background: #1a1c1b;
+
+  --color-surface: #f9f9f6;
+  --color-surface-dim: #dadad7;
+  --color-surface-bright: #f9f9f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f4f1;
+  --color-surface-container: #eeeeeb;
+  --color-surface-container-high: #e8e8e5;
+  --color-surface-container-highest: #e2e3e0;
+
+  --color-on-surface: #1a1c1b;
+  --color-on-surface-variant: #484555;
+
+  --color-outline: #797587;
+  --color-outline-variant: #c9c4d8;
+
+  --color-inverse-surface: #2f312f;
+  --color-inverse-on-surface: #f1f1ee;
+  --color-inverse-primary: #cabeff;
+
+  --color-surface-tint: #603ce2;
+  --color-surface-variant: #e2e3e0;
+
+  /* ---- Stage Semantic Colors ---- */
+  --stage-deconstruct: #7c5cff;
+  --stage-deconstruct-bg: #f4f0ff;
+  --stage-teach: #00687a;
+  --stage-teach-bg: #e7f9fc;
+  --stage-test: #8f4a00;
+  --stage-test-bg: #fff5eb;
+  --stage-fix: #ba1a1a;
+  --stage-fix-bg: #fef2f2;
+
+  /* ---- Typography ---- */
+  --font-display: 'Source Serif 4', serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+
+  --text-hero: 700 48px/1.1 'Source Serif 4', serif;
+  --text-headline: 600 32px/1.2 'Source Serif 4', serif;
+  --text-title: 600 18px/1.5 'Inter', sans-serif;
+  --text-body: 400 15px/1.6 'Inter', sans-serif;
+  --text-body-sm: 400 13px/1.5 'Inter', sans-serif;
+  --text-label: 600 11px/1 'Inter', sans-serif;
+  --text-code: 450 14px/1.5 'JetBrains Mono', monospace;
+
+  letter-spacing: normal;
+
+  /* ---- Spacing ---- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ---- Shadows ---- */
+  --shadow-ambient: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  /* ---- Transitions ---- */
+  --ease-out: 0.2s ease;
+  --ease-spring: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Global Reset ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 1200px;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-on-background);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+/* Scrollbar — desktop native feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-dim);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline-variant);
+}
