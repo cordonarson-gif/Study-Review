@@ -1,0 +1,510 @@
+/* ================================================================
+   Scholar's Study — layout.css
+   新布局系统：顶栏 + 侧栏 240px + 主内容区 + 底栏 + AI 抽屉
+   ================================================================ */
+
+/* ---- App Shell ---- */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ---- Top Navigation Bar ---- */
+.topnav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 56px;
+  padding: 0 var(--space-lg);
+  background: var(--color-surface-bright);
+  border-bottom: 1px solid var(--color-outline-variant);
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.topnav-brand {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.topnav-brand-icon {
+  font-size: 22px;
+}
+
+.topnav-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.topnav-search {
+  display: flex;
+  align-items: center;
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  gap: var(--space-sm);
+  width: 220px;
+}
+
+.topnav-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  width: 100%;
+  color: var(--color-on-surface);
+}
+
+.topnav-search input::placeholder {
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+}
+
+.topnav-stages {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.topnav-stages a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  transition: color var(--ease-out);
+  cursor: pointer;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+
+.topnav-stages a:hover {
+  color: var(--color-primary);
+}
+
+.topnav-stages a.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.topnav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.topnav-right button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-full);
+  color: var(--color-on-surface-variant);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: background var(--ease-out), color var(--ease-out);
+}
+
+.topnav-right button:hover {
+  background: var(--color-surface-container);
+  color: var(--color-primary);
+}
+
+.topnav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-fixed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-on-primary-fixed);
+  overflow: hidden;
+  border: 1px solid var(--color-outline-variant);
+}
+
+/* ---- Body Layout (below topnav) ---- */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--color-surface-container-low);
+  border-right: 1px solid var(--color-outline-variant);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-section {
+  padding: var(--space-md);
+}
+
+.sidebar-section + .sidebar-section {
+  border-top: 1px solid var(--color-outline-variant);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm);
+}
+
+.sidebar-nav a,
+.sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-on-surface-variant);
+  transition: background var(--ease-out), color var(--ease-out);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav button:hover {
+  background: var(--color-surface-container);
+  color: var(--color-on-surface);
+}
+
+.sidebar-nav a.active,
+.sidebar-nav button.active {
+  background: rgba(94, 57, 224, 0.08);
+  color: var(--color-primary);
+  font-weight: 600;
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding-left: 13px;
+}
+
+.sidebar-nav .nav-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface-variant);
+  opacity: 0.5;
+  padding: var(--space-sm) var(--space-md) var(--space-xs);
+}
+
+/* ---- Main Content Area ---- */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.main-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-lg);
+}
+
+.main-scroll > * {
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- AI Drawer (Right Sidebar) ---- */
+.ai-drawer {
+  width: 360px;
+  flex-shrink: 0;
+  background: var(--color-surface-container-low);
+  border-left: 1px solid var(--color-outline-variant);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--ease-spring), opacity var(--ease-spring);
+  overflow: hidden;
+  z-index: 30;
+}
+
+.ai-drawer.collapsed {
+  width: 0;
+  opacity: 0;
+  border-left: none;
+}
+
+.ai-drawer-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-outline-variant);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.ai-drawer-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ai-drawer-header p {
+  font-size: 11px;
+  color: var(--color-on-surface-variant);
+  opacity: 0.7;
+  margin: 2px 0 0;
+}
+
+.ai-drawer-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-on-surface-variant);
+  font-size: 20px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+}
+
+.ai-drawer-header button:hover {
+  color: var(--color-primary);
+}
+
+.ai-drawer-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.ai-drawer-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+  position: relative;
+  transition: opacity var(--ease-out), color var(--ease-out);
+}
+
+.ai-drawer-tabs button.active {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.ai-drawer-tabs button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-primary);
+}
+
+.ai-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.ai-drawer-footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-outline-variant);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ---- AI Chat Messages ---- */
+.chat-msg {
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-msg.assistant {
+  align-self: flex-start;
+}
+
+.chat-bubble {
+  padding: var(--space-md);
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-msg.user .chat-bubble {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-bottom-right-radius: 4px;
+  box-shadow: var(--shadow-card);
+}
+
+.chat-msg.assistant .chat-bubble {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-outline-variant);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-card);
+}
+
+.chat-time {
+  font-size: 10px;
+  color: var(--color-on-surface-variant);
+  opacity: 0.5;
+}
+
+/* ---- Floating AI Toggle FAB ---- */
+.ai-fab {
+  position: fixed;
+  bottom: 48px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: var(--shadow-ambient);
+  z-index: 40;
+  transition: transform var(--ease-out);
+}
+
+.ai-fab:hover {
+  transform: scale(1.06);
+}
+
+.ai-fab:active {
+  transform: scale(0.96);
+}
+
+/* ---- Status Bar ---- */
+.statusbar {
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-md);
+  background: var(--color-surface-container);
+  border-top: 1px solid var(--color-outline-variant);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 50;
+}
+
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.statusbar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: #28c840;
+}
+
+.statusbar-right a {
+  color: var(--color-on-surface-variant);
+  transition: color var(--ease-out);
+  cursor: pointer;
+}
+
+.statusbar-right a:hover {
+  color: var(--color-primary);
+}
+
+/* ---- Page Sections ---- */
+.hero,
+.workspace,
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.hero h1,
+.workspace h2 {
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* ---- Grids ---- */
+.cards,
+.summary-grid,
+.settings-grid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-grid.app-grid {
+  grid-template-columns: 320px minmax(0, 1fr) 380px;
+  align-items: start;
+}
+
+@media (max-width: 1180px) {
+  .workspace-grid.app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-drawer {
+    display: none;
+  }
+}

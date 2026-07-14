@@ -1,0 +1,27 @@
+# Claude 本地配置（含个人 token / 权限）
+.claude/settings.local.json
+.claude/launch.json
+
+# Agent 相关
+.agents/
+
+# npx skills add 产生的锁文件
+skills-lock.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/

@@ -1,0 +1,434 @@
+/* ================================================================
+   Scholar's Study — workspace.css
+   面板、卡片、题卡、选项、答案、进度条、知识库等工具区样式
+   ================================================================ */
+
+/* ---- Panel (通用白色卡片) ---- */
+.panel,
+.card,
+.status-card {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---- Scholar Card (设计稿核心卡片) ---- */
+.scholar-card {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-surface-variant);
+  border-radius: var(--radius-lg);
+  transition: all var(--ease-out);
+}
+
+.scholar-card:hover {
+  box-shadow: var(--shadow-ambient);
+}
+
+/* ---- Card Title ---- */
+.card-title,
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.card-value {
+  margin: 8px 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.muted {
+  color: var(--color-on-surface-variant);
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+/* ---- Workspace Layout ---- */
+.workspace-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.left-rail,
+.center-pane,
+.right-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ---- Stack Lists ---- */
+.stage-list,
+.project-list,
+.stack-list,
+.mini-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ---- Summary Grid (概览统计) ---- */
+.summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summary-grid div {
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-grid span {
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-grid strong {
+  font-size: 22px;
+  color: var(--color-on-surface);
+}
+
+/* ---- Document View / Rich Content ---- */
+.document-view h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.document-view p {
+  margin: 0 0 12px;
+  color: var(--color-on-surface);
+  line-height: 1.7;
+}
+
+.rich-content {
+  color: var(--color-on-surface);
+  line-height: 1.7;
+}
+
+.rich-content > :first-child {
+  margin-top: 0;
+}
+
+.rich-content > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-content p,
+.rich-content ul,
+.rich-content ol,
+.rich-content blockquote,
+.rich-content pre {
+  margin: 0 0 12px;
+}
+
+.rich-content ul,
+.rich-content ol {
+  padding-left: 22px;
+}
+
+.rich-content code {
+  background: var(--color-surface-container);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* ---- LaTeX 块 ---- */
+.latex-block {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  background: var(--color-surface-container-low);
+}
+
+.latex-block code,
+.latex-inline code {
+  font-family: var(--font-mono);
+  background: var(--color-surface-container);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface);
+}
+
+/* ---- Upload Card ---- */
+.upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upload-kind {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(94, 57, 224, 0.08);
+  color: var(--color-on-primary-fixed-variant);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---- Parsed Preview ---- */
+.parsed-preview {
+  color: var(--color-on-surface);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 13px;
+}
+
+/* ---- Knowledge Entry ---- */
+.knowledge-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.knowledge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.knowledge-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---- History Project ---- */
+.history-project {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.history-project.active .project-open {
+  background: rgba(94, 57, 224, 0.08);
+  border-color: rgba(94, 57, 224, 0.25);
+}
+
+.project-open {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-open small,
+.resource-item small {
+  color: var(--color-on-surface-variant);
+  font-size: 11px;
+}
+
+.project-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.project-actions button {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+/* ---- Practice Card (刷题卡片) ---- */
+.practice-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.practice-card h3 {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* ---- Option Grid ---- */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-lowest);
+  cursor: pointer;
+  transition: all var(--ease-out);
+}
+
+.option-row:hover {
+  border-color: var(--color-primary);
+  background: rgba(94, 57, 224, 0.03);
+}
+
+.option-row .option-key-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-container-high);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-on-surface);
+  transition: all var(--ease-out);
+}
+
+.option-row:hover .option-key-circle {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* ---- Answer Box ---- */
+.answer-box {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: rgba(143, 74, 0, 0.05);
+  border-left: 4px solid var(--color-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.answer-box strong {
+  font-size: 16px;
+}
+
+.answer-box p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  font-size: 14px;
+}
+
+/* ---- Empty Practice ---- */
+.empty-practice {
+  text-align: center;
+  padding: 40px var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* ---- Resource Panel ---- */
+.resource-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.resource-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.resource-item {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+}
+
+.resource-item.read {
+  opacity: 0.65;
+}
+
+.resource-item em {
+  color: var(--color-primary);
+  font-style: normal;
+  font-size: 11px;
+}
+
+/* ---- Import Panel ---- */
+.import-panel,
+.draft-list,
+.question-draft,
+.resource-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ---- Progress Strip ---- */
+.progress-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.progress-strip div {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-container-highest);
+  overflow: hidden;
+}
+
+.progress-strip i {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+/* ---- Practice Controls ---- */
+.practice-controls select {
+  min-width: 220px;
+}
+
+/* ---- Chat Window (in right pane) ---- */
+.chat-window {
+  min-height: 300px;
+  max-height: 480px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ---- Markdown Preview ---- */
+.markdown-preview {
+  padding: var(--space-md);
+}
+
+/* ---- Status Card ---- */
+.status-card {
+  margin-top: auto;
+}
+
+/* ---- Ink Sidebar Active Indicator ---- */
+.ink-sidebar-active {
+  border-left: 2px solid var(--color-primary);
+  background: rgba(94, 57, 224, 0.05);
+}
