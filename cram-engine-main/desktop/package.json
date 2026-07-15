@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "test:electron": "tsc -p electron/tsconfig.json && node --test electron/*.test.cjs",
     "test:renderer": "node --test src/lib/*.test.mjs",
-    "test": "npm run test:electron && npm run test:renderer"
+    "test:settings-ui": "node --test src/components/settings/*.test.mjs",
+    "test": "npm run test:electron && npm run test:renderer && npm run test:settings-ui"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
