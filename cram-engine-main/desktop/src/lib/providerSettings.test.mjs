@@ -22,7 +22,25 @@ test('hideOrShowModel clears a selected model without a visible fallback', () =>
   assert.equal(next.selectedModelId, '');
 });
 
-test('removeCustomModel refuses to remove a non-custom model', () => {
+test('hideOrShowModel moves selection to the first visible fallback', () => {
+  const profile = {
+    ...providers[0],
+    selectedModelId: 'gpt',
+    models: [
+      { id: 'gpt', label: 'GPT', enabled: true, source: 'preset' },
+      { id: 'fallback', label: 'Fallback', enabled: true, source: 'custom' }
+    ]
+  };
+  const next = hideOrShowModel(profile, 'gpt', false);
+
+  assert.equal(next.selectedModelId, 'fallback');
+});
+
+test('removeCustomModel refuses to remove preset and fetched models', () => {
   assert.equal(removeCustomModel(providers[0], 'gpt').models.length, 2);
+  assert.equal(removeCustomModel(providers[0], 'hidden').models.length, 2);
+});
+
+test('removeCustomModel removes custom models', () => {
   assert.equal(removeCustomModel(providers[1], 'deepseek-chat').models.length, 0);
 });
