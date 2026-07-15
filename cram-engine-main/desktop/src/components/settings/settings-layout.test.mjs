@@ -25,3 +25,11 @@ test('ProviderDetail exposes connection testing and model management', async () 
   assert.match(source, /<ModelManager\b/);
   assert.match(source, /测试连接/);
 });
+
+test('App mounts ProviderSettingsPage instead of the flat settings form', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+
+  assert.match(app, /<ProviderSettingsPage\b/);
+  assert.doesNotMatch(app, /showAddProvider/);
+  assert.doesNotMatch(app, /settings:fetchModels/);
+});

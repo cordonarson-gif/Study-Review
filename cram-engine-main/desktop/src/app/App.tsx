@@ -10,20 +10,20 @@ import type {
   ProjectSourceFile,
   KnowledgeBaseEntry,
   KnowledgeResource,
-  ProviderOption,
-  ModelOption,
   QuestionDraft,
   ReviewQuestion,
   ProjectSortKey
 } from '../lib/types';
-import { defaultSettings, examOptions, providerOptions, stageOrder } from '../lib/types';
+import { defaultSettings, examOptions, stageOrder } from '../lib/types';
 import { sanitizeRichHtml } from '../lib/richContent.js';
-import { createEmptyChatGreeting, formatDate, resolveProviderDefaults } from '../lib/utils';
+import { createEmptyChatGreeting, formatDate, getActiveProviderProfile } from '../lib/utils';
+import { getSelectableModels } from '../lib/providerSettings.js';
 import { appendWizardFileList, appendWizardValue, resolveWizardQuestionImportText } from '../lib/wizardImports.js';
 import { buildWizardProjectPayload, canCreateWizardProject, getWizardStepError, validateWizardProject } from '../lib/wizardProject.js';
 import ProjectListPanel from '../components/ProjectListPanel';
 import QuestionImportPanel from '../components/QuestionImportPanel';
 import PracticePanel from '../components/PracticePanel';
+import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
 
 type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export';
 type EditorTab = 'overview' | 'practice' | 'import' | 'config' | 'progress';
@@ -55,8 +55,8 @@ const initialWizardState: WizardState = {
   mustKnow: '',
   keyPoints: '',
   initialQuestionText: '',
-  provider: providerOptions[0].id,
-  model: providerOptions[0].models[0]
+  provider: defaultSettings.activeProviderId,
+  model: getActiveProviderProfile(defaultSettings).selectedModelId
 };
 
 const wizardFieldLabels: Partial<Record<keyof WizardState, string>> = {
@@ -191,8 +191,6 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [notificationCount, setNotificationCount] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
-  const [showAddProvider, setShowAddProvider] = useState(false);
-  const [newProviderForm, setNewProviderForm] = useState({ label: '', baseUrl: '', apiKey: '' });
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -232,18 +230,35 @@ export default function App() {
     setSettings(loadedSettings);
     setProjects(loadedProjects);
     setLatexStatus(loadedLatex);
-    setStatus(loadedSettings.apiKey ? '模型已连接' : '请先在设置中配置 API Key');
+    const activeProfile = getActiveProviderProfile(loadedSettings);
+    setStatus(activeProfile.apiKey ? '模型已连接' : '请先在设置中配置 API Key');
   }
 
-  const currentProvider = useMemo<ProviderOption>(
-    () => providerOptions.find((item: ProviderOption) => item.id === settings.provider) ?? providerOptions[0],
-    [settings.provider]
-  );
+  const currentProvider = useMemo(() => getActiveProviderProfile(settings), [settings]);
+  const selectableModels = useMemo(() => getSelectableModels(settings.providers), [settings.providers]);
+  const currentModelLabel = useMemo(() => {
+    const model = currentProvider.models.find((item) => item.id === currentProvider.selectedModelId);
+    return model?.label || currentProvider.selectedModelId || '未选择模型';
+  }, [currentProvider]);
+  const settingsHasApiKey = Boolean(currentProvider.apiKey?.trim());
 
-  const availableProjectModels = useMemo<ModelOption[]>(() => {
-    if (!activeProject) return settings.availableModels;
-    return settings.availableModels.filter((model: ModelOption) => model.provider === activeProject.meta.provider);
-  }, [settings.availableModels, activeProject]);
+  const availableProjectModels = useMemo(() => {
+    if (!activeProject) return selectableModels;
+    const projectProfiles = settings.providers.filter((profile) =>
+      profile.id === activeProject.meta.provider || profile.provider === activeProject.meta.provider
+    );
+    const allowedProviderIds = new Set(projectProfiles.map((profile) => profile.id));
+    const options = selectableModels.filter((model) => allowedProviderIds.has(model.providerId));
+    if (options.some((model) => model.id === activeProject.meta.model)) return options;
+    return [
+      ...options,
+      {
+        providerId: activeProject.meta.provider,
+        id: activeProject.meta.model,
+        label: '当前项目模型（已隐藏）'
+      }
+    ];
+  }, [settings.providers, selectableModels, activeProject]);
 
   const filteredKnowledgeBase = useMemo<KnowledgeBaseEntry[]>(() => {
     if (!activeProject) return [];
@@ -386,25 +401,24 @@ export default function App() {
     }
   }
 
-  async function saveSettings() {
-    const saved = await ce.saveSettings(settings);
+  async function saveSettings(nextSettings: AppSettings) {
+    const saved = await ce.saveSettings(nextSettings);
     setSettings(saved);
-    setStatus('全局设置已保存');
+    const activeProfile = getActiveProviderProfile(saved);
+    setWizard((current: WizardState) => ({
+      ...current,
+      provider: activeProfile.id,
+      model: activeProfile.selectedModelId || current.model
+    }));
+    setStatus('???????');
+    return saved;
   }
 
-  async function fetchModels() {
-    try {
-      const nextSettings = await ce.fetchModels();
-      setSettings(nextSettings);
-      setWizard((current: WizardState) => ({
-        ...current,
-        model: nextSettings.model,
-        provider: nextSettings.provider
-      }));
-      setStatus(`已同步模型列表，共 ${nextSettings.availableModels.length} 个模型`);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : '获取模型失败');
-    }
+  async function discardSettings() {
+    const loaded = await ce.getSettings();
+    setSettings(loaded);
+    setStatus('??????????');
+    return loaded;
   }
 
   async function updateActiveProjectModel(model: string) {
@@ -666,33 +680,6 @@ export default function App() {
     }
   }
 
-  function updateSettings<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
-    setSettings((current: AppSettings) => ({ ...current, [key]: value }));
-  }
-
-  function dismissChanges() {
-    void (async () => {
-      const loaded = await ce.getSettings();
-      setSettings(loaded);
-      showToast('已恢复上次保存的设置');
-    })();
-  }
-
-  function applyNewProviderSettings() {
-    const label = newProviderForm.label.trim();
-    const baseUrl = newProviderForm.baseUrl.trim();
-    const apiKey = newProviderForm.apiKey.trim();
-    if (!label || !baseUrl) {
-      showToast('请至少填写服务商名称和 Base URL');
-      return;
-    }
-    updateSettings('baseUrl', baseUrl);
-    if (apiKey) updateSettings('apiKey', apiKey);
-    setShowAddProvider(false);
-    setNewProviderForm({ label: '', baseUrl: '', apiKey: '' });
-    showToast(`已切换到服务商配置：${label}`);
-  }
-
   function syncChatToQuestions() {
     if (!activeProject) return;
     const latestAssistant = [...chatMessages].reverse().find(m => m.role === 'assistant');
@@ -860,7 +847,7 @@ export default function App() {
                   <p style={{ margin: '8px 0 4px' }}>🔧 <strong>系统信息</strong></p>
                   <p style={{ margin: '2px 0', color: 'var(--color-on-surface-variant)' }}>
                     LaTeX: {latexStatus?.available ? `✅ ${latexStatus.engine}` : '❌ 未安装'}<br/>
-                    API: {settings.apiKey ? '✅ 已配置' : '⚠️ 未配置'}<br/>
+                    API: {settingsHasApiKey ? '✅ 已配置' : '⚠️ 未配置'}<br/>
                     项目: {projects.length} 个
                   </p>
                 </div>
@@ -868,9 +855,9 @@ export default function App() {
             </nav>
             <div className="status-card" style={{ padding: '10px', fontSize: '11px', marginTop: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: settings.apiKey ? '#28c840' : '#ff5f57', display: 'inline-block' }} />
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: settingsHasApiKey ? '#28c840' : '#ff5f57', display: 'inline-block' }} />
                 <span style={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>
-                  {settings.apiKey ? `${currentProvider.label}` : '未配置 API'}
+                  {settingsHasApiKey ? `${currentProvider.label}` : '未配置 API'}
                 </span>
               </div>
               <div className="muted" style={{ fontSize: '10px' }}>
@@ -1063,110 +1050,17 @@ export default function App() {
             {viewMode === 'settings' && (
               <div className="page-stack">
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>设置</h2>
-                  <p className="muted">配置您的学者工作空间及 AI 集成偏好。</p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>??</h2>
+                  <p className="muted">?????????????????</p>
                 </div>
-
-                {/* 模型服务商 */}
-                <div className="panel" style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 600 }}>模型服务商管理</h3>
-                    <button onClick={() => setShowAddProvider(!showAddProvider)} style={{ fontSize: '13px' }}>
-                      {showAddProvider ? '✕ 取消' : '+ 添加服务商'}
-                    </button>
-                  </div>
-                  {showAddProvider && (
-                    <div style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '8px', padding: '16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <p style={{ fontSize: '13px', fontWeight: 600 }}>配置新的 API 服务商</p>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--color-on-surface-variant)' }}>
-                        服务商名称
-                        <input value={newProviderForm.label} onChange={(e) => setNewProviderForm(f => ({ ...f, label: e.target.value }))} placeholder="例如：DeepSeek" style={{ fontSize: '14px', padding: '10px 14px' }} />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--color-on-surface-variant)' }}>
-                        Base URL
-                        <input value={newProviderForm.baseUrl} onChange={(e) => setNewProviderForm(f => ({ ...f, baseUrl: e.target.value }))} placeholder="https://api.deepseek.com" style={{ fontSize: '14px', padding: '10px 14px' }} />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--color-on-surface-variant)' }}>
-                        API Key（可选，可稍后在设置中填入）
-                        <input type="password" value={newProviderForm.apiKey} onChange={(e) => setNewProviderForm(f => ({ ...f, apiKey: e.target.value }))} placeholder="sk-..." style={{ fontSize: '14px', padding: '10px 14px' }} />
-                      </label>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => { setShowAddProvider(false); setNewProviderForm({ label: '', baseUrl: '', apiKey: '' }); }}>取消</button>
-                        <button className="primary" onClick={applyNewProviderSettings}>应用配置</button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="settings-grid">
-                    <label>
-                      Provider
-                      <select value={settings.provider} onChange={(e) => {
-                        const defaults = resolveProviderDefaults(e.target.value, providerOptions);
-                        setSettings((c) => ({ ...c, ...defaults }));
-                      }}>
-                        {providerOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      Model
-                      <select value={settings.model} onChange={(e) => updateSettings('model', e.target.value)}>
-                        {settings.availableModels.filter((m) => m.provider === settings.provider).map((m) => (
-                          <option key={m.id} value={m.id}>{m.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="full-span">
-                      Base URL
-                      <input value={settings.baseUrl} onChange={(e) => updateSettings('baseUrl', e.target.value)} />
-                    </label>
-                    <label className="full-span">
-                      API Key
-                      <input type="password" value={settings.apiKey} onChange={(e) => updateSettings('apiKey', e.target.value)} placeholder="在本地 settings.json 中保存" />
-                    </label>
-                  </div>
-                </div>
-
-                {/* 生成参数 */}
-                <div className="panel" style={{ marginBottom: '16px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>生成参数</h3>
-                  <div style={{ maxWidth: '400px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--color-on-surface-variant)' }}>Temperature (随机性)</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--color-primary)' }}>{settings.temperature}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="2"
-                      step="0.1"
-                      value={settings.temperature}
-                      onChange={(e) => updateSettings('temperature', Number(e.target.value))}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--color-on-surface-variant)', marginTop: '4px' }}>
-                      <span>精确</span>
-                      <span>平衡</span>
-                      <span>创意</span>
-                    </div>
-                  </div>
-                  <label className="checkbox-row" style={{ marginTop: '16px' }}>
-                    <input type="checkbox" checked={settings.enableLatexPreview} onChange={(e) => updateSettings('enableLatexPreview', e.target.checked)} />
-                    启用 LaTeX 预览
-                  </label>
-                  <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button onClick={() => void fetchModels()}>同步模型列表</button>
-                    <span className="muted" style={{ fontSize: '12px' }}>
-                      {settings.lastModelSyncAt ? `上次同步：${formatDate(settings.lastModelSyncAt)}` : '尚未同步'}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                  <button onClick={dismissChanges}>舍弃更改</button>
-                  <button className="primary" onClick={() => void saveSettings()}>保存设置</button>
-                </div>
+                <ProviderSettingsPage
+                  initialSettings={settings}
+                  onSave={saveSettings}
+                  onDiscard={discardSettings}
+                />
               </div>
             )}
 
-            {/* ======== 新建项目向导 ======== */}
             {viewMode === 'wizard' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
                 <div style={{ textAlign: 'center' }}>
@@ -1205,9 +1099,16 @@ export default function App() {
                         </label>
                         <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
                           默认 AI 模型
-                          <select value={wizard.model} onChange={(e) => updateWizard('model', e.target.value)} style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }}>
-                            {settings.availableModels.filter((m) => m.provider === wizard.provider).map((m) => (
-                              <option key={m.id} value={m.id}>{m.label}</option>
+                          <select
+                            value={`${wizard.provider}:${wizard.model}`}
+                            onChange={(e) => {
+                              const [providerId, modelId] = e.target.value.split(':');
+                              setWizard((current) => ({ ...current, provider: providerId, model: modelId }));
+                            }}
+                            style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }}
+                          >
+                            {selectableModels.map((m) => (
+                              <option key={`${m.providerId}:${m.id}`} value={`${m.providerId}:${m.id}`}>{m.label}</option>
                             ))}
                           </select>
                         </label>
@@ -1495,7 +1396,7 @@ export default function App() {
                       项目聊天模型
                       <select value={activeProject.meta.model} onChange={(e) => void updateActiveProjectModel(e.target.value)} style={{ fontSize: '12px' }}>
                         {availableProjectModels.map((m) => (
-                          <option key={m.id} value={m.id}>{m.label}</option>
+                          <option key={`${m.providerId}:${m.id}`} value={m.id}>{m.label}</option>
                         ))}
                       </select>
                     </label>
@@ -1605,7 +1506,7 @@ export default function App() {
               <h2>AI 助教</h2>
               <p>实时学习咨询中</p>
               <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 700, color: 'var(--color-primary)', cursor: 'pointer' }}>
-                {currentProvider.label} &bull; {settings.model}
+                {currentProvider.label} &bull; {currentModelLabel}
               </div>
             </div>
             <button onClick={() => setAiDrawerOpen(false)}>&times;</button>
@@ -1679,8 +1580,8 @@ export default function App() {
       <footer className="statusbar">
         <div className="statusbar-left">
           <span>Cram Engine v1.0</span>
-          <div className="statusbar-dot" style={{ background: settings.apiKey ? '#28c840' : '#ff5f57' }} />
-          <span>{settings.apiKey ? `模型: ${settings.model} | 已连接` : 'API Key 未配置'}</span>
+          <div className="statusbar-dot" style={{ background: settingsHasApiKey ? '#28c840' : '#ff5f57' }} />
+          <span>{settingsHasApiKey ? `模型: ${currentModelLabel} | 已连接` : 'API Key 未配置'}</span>
         </div>
         <div className="statusbar-right">
           <a onClick={openSystemStatus} style={{ cursor: 'pointer' }}>系统状态</a>
