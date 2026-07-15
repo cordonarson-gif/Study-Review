@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"tsc -p electron/tsconfig.json -w\" \"wait-on http://127.0.0.1:5173 dist-electron/main.cjs && electron .\"",
     "build": "vite build && tsc -p electron/tsconfig.json && electron-builder",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "test:electron": "tsc -p electron/tsconfig.json && node --test electron/*.test.cjs",
+    "test:renderer": "node --test src/lib/*.test.mjs",
+    "test": "npm run test:electron && npm run test:renderer"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
