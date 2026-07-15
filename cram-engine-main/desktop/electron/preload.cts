@@ -1,12 +1,90 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { migrateSettings, type AppSettings } from './settings-schema.cjs';
+
+type LegacyModelOption = {
+  id: string;
+  label: string;
+  provider: string;
+  source: 'preset' | 'fetched' | 'custom';
+};
+
+type LegacySettingsCompatibility = {
+  apiKey: string;
+  baseUrl: string;
+  provider: string;
+  model: string;
+  availableModels: LegacyModelOption[];
+};
+
+type SettingsCompatibilityResult = AppSettings & LegacySettingsCompatibility;
+
+function toLegacySettings(settings: AppSettings): SettingsCompatibilityResult {
+  const profile = settings.providers.find((candidate) => candidate.id === settings.activeProviderId)
+    ?? settings.providers[0];
+
+  return {
+    ...settings,
+    apiKey: profile?.apiKey ?? '',
+    baseUrl: profile?.baseUrl ?? '',
+    provider: profile?.provider ?? 'openai-compatible',
+    model: profile?.selectedModelId ?? '',
+    availableModels: settings.providers.flatMap((candidate) => candidate.models.map((model) => ({
+      id: model.id,
+      label: model.label,
+      provider: candidate.provider,
+      source: model.source
+    })))
+  };
+}
+
+function isAppSettings(settings: unknown): settings is AppSettings {
+  return typeof settings === 'object'
+    && settings !== null
+    && 'version' in settings
+    && settings.version === 2
+    && 'providers' in settings
+    && Array.isArray(settings.providers);
+}
+
+function toV2Settings(settings: unknown): AppSettings {
+  const migrated = migrateSettings(settings);
+  if (!isAppSettings(settings)) {
+    return migrated;
+  }
+
+  const legacy = settings as AppSettings & Partial<LegacySettingsCompatibility>;
+  const activeProfile = migrated.providers.find((candidate) => candidate.id === migrated.activeProviderId)
+    ?? migrated.providers[0];
+
+  if (!activeProfile) {
+    return migrated;
+  }
+
+  const profile = legacy.provider === activeProfile.provider
+    ? activeProfile
+    : migrated.providers.find((candidate) => candidate.provider === legacy.provider) ?? activeProfile;
+
+  return {
+    ...migrated,
+    activeProviderId: profile.id,
+    providers: migrated.providers.map((candidate) => candidate.id === profile.id ? {
+      ...candidate,
+      baseUrl: legacy.baseUrl ?? candidate.baseUrl,
+      apiKey: legacy.apiKey ?? candidate.apiKey,
+      selectedModelId: legacy.model ?? candidate.selectedModelId
+    } : candidate)
+  };
+}
 
 try {
   contextBridge.exposeInMainWorld('cramEngine', {
     selectProjectFolder: () => ipcRenderer.invoke('dialog:selectProjectFolder'),
     selectUploadFiles: () => ipcRenderer.invoke('dialog:selectUploadFiles'),
-    getSettings: () => ipcRenderer.invoke('settings:get'),
-    saveSettings: (settings: unknown) => ipcRenderer.invoke('settings:save', settings),
-    fetchModels: () => ipcRenderer.invoke('settings:fetchModels'),
+    getSettings: () => ipcRenderer.invoke('settings:get').then(toLegacySettings),
+    saveSettings: (settings: unknown) => ipcRenderer.invoke('settings:save', toV2Settings(settings)).then(toLegacySettings),
+    fetchModels: () => ipcRenderer.invoke('settings:fetchModels').then(toLegacySettings),
+    testProviderConnection: (profile: unknown) => ipcRenderer.invoke('settings:testProvider', profile),
+    fetchProviderModels: (profile: unknown) => ipcRenderer.invoke('settings:fetchProviderModels', profile),
     listProjects: () => ipcRenderer.invoke('projects:list'),
     createProject: (input: unknown) => ipcRenderer.invoke('projects:create', input),
     openProject: (projectId: string) => ipcRenderer.invoke('projects:open', projectId),

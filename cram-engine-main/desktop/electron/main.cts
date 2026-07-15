@@ -6,13 +6,24 @@ import { createWorker } from 'tesseract.js';
 import {
   buildChatRequest,
   buildModelsRequest,
-  normalizeSettings,
+  classifyProviderError,
+  classifyProviderResponse,
+  mergeManagedModels,
   parseChatResponse,
   parseModelsResponse,
-  resolveDefaultProvider
+  type ConnectionCheckResult
 } from './provider-api.cjs';
 import { assertAllowedProjectPath } from './file-access.cjs';
 import { parseQuestionDrafts, type QuestionDraft, type ReviewQuestion } from './question-utils.cjs';
+import {
+  createDefaultSettings,
+  getActiveProvider,
+  migrateSettings,
+  normalizeProviderProfile,
+  normalizeSettings,
+  type AppSettings,
+  type ProviderProfile
+} from './settings-schema.cjs';
 
 type ProjectFile = {
   name: string;
@@ -23,13 +34,6 @@ type ProjectFile = {
 type ProjectSnapshot = {
   root: string;
   files: ProjectFile[];
-};
-
-type ModelOption = {
-  id: string;
-  label: string;
-  provider: string;
-  source: 'preset' | 'fetched' | 'custom';
 };
 
 type ParsedUpload = {
@@ -57,19 +61,6 @@ type ChatTurn = {
   content: string;
   createdAt: string;
   model?: string;
-};
-
-type AppSettings = {
-  apiKey: string;
-  baseUrl: string;
-  provider: string;
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  latexEngine: 'xelatex' | 'pdflatex';
-  enableLatexPreview: boolean;
-  availableModels: ModelOption[];
-  lastModelSyncAt: string | null;
 };
 
 type ProjectMeta = {
@@ -149,29 +140,6 @@ type ExportResult = {
 };
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL ?? 'http://127.0.0.1:5173';
-const defaultProvider = resolveDefaultProvider();
-const presetModels: ModelOption[] = [
-  { id: 'claude-opus-4-8', label: 'claude-opus-4-8', provider: 'anthropic', source: 'preset' },
-  { id: 'claude-sonnet-4-6', label: 'claude-sonnet-4-6', provider: 'anthropic', source: 'preset' },
-  { id: 'claude-haiku-4-5-20251001', label: 'claude-haiku-4-5-20251001', provider: 'anthropic', source: 'preset' },
-  { id: 'gpt-4.1', label: 'gpt-4.1', provider: 'openai-compatible', source: 'preset' },
-  { id: 'gpt-4.1-mini', label: 'gpt-4.1-mini', provider: 'openai-compatible', source: 'preset' },
-  { id: 'qwen-plus', label: 'qwen-plus', provider: 'aliyun', source: 'preset' },
-  { id: 'qwen-max', label: 'qwen-max', provider: 'aliyun', source: 'preset' },
-  { id: 'qwen2.5-72b-instruct', label: 'qwen2.5-72b-instruct', provider: 'aliyun', source: 'preset' }
-];
-const defaultSettings: AppSettings = {
-  apiKey: '',
-  baseUrl: defaultProvider.baseUrl,
-  provider: defaultProvider.provider,
-  model: defaultProvider.model,
-  temperature: 0.2,
-  maxTokens: 4096,
-  latexEngine: 'xelatex',
-  enableLatexPreview: true,
-  availableModels: presetModels,
-  lastModelSyncAt: null
-};
 
 let mainWindow: BrowserWindow | null = null;
 const approvedExternalPaths = new Set<string>();
@@ -281,10 +249,6 @@ async function readJson<T>(filePath: string, fallback: T): Promise<T> {
   } catch {
     return fallback;
   }
-}
-
-function dedupeModels(models: ModelOption[]) {
-  return Array.from(new Map(models.map((model) => [model.id, model])).values());
 }
 
 function uniqueStrings(values: string[]) {
@@ -429,58 +393,59 @@ async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 }
 
 async function loadSettings(): Promise<AppSettings> {
-  const loaded = await readJson<AppSettings>(settingsPath(), defaultSettings);
-  return normalizeSettings({
-    ...defaultSettings,
-    ...loaded,
-    availableModels: dedupeModels([...(loaded.availableModels ?? []), ...presetModels])
-  });
+  const loaded = await readJson<unknown>(settingsPath(), createDefaultSettings());
+  return migrateSettings(loaded);
 }
 
 async function saveSettings(settings: AppSettings) {
-  const merged = normalizeSettings({
-    ...defaultSettings,
-    ...settings,
-    availableModels: dedupeModels(settings.availableModels ?? presetModels)
-  });
-  await writeJson(settingsPath(), merged);
-  return merged;
+  const normalized = normalizeSettings(settings);
+  await writeJson(settingsPath(), normalized);
+  return normalized;
 }
 
 async function fetchModels() {
   const settings = await loadSettings();
-  if (!settings.baseUrl || !settings.apiKey) {
-    throw new Error('请先配置 Base URL 和 API Key');
-  }
-
-  const request = buildModelsRequest({
-    provider: settings.provider as 'anthropic' | 'openai-compatible' | 'aliyun',
-    baseUrl: settings.baseUrl,
-    apiKey: settings.apiKey
-  });
-  const response = await fetch(request.url, { headers: request.headers });
-
-  if (!response.ok) {
-    throw new Error(`获取模型失败：${response.status} ${response.statusText}`);
-  }
-
-  const payload = await response.json() as { data?: Array<{ id?: string; name?: string; display_name?: string }> };
-  const fetched = parseModelsResponse(settings.provider as 'anthropic' | 'openai-compatible' | 'aliyun', payload)
-    .map((modelId: string) => ({
-      id: modelId,
-      label: modelId,
-      provider: settings.provider,
-      source: 'fetched' as const
-    }));
-
+  const profile = getActiveProvider(settings);
+  const nextProfile = await fetchProviderModels(profile);
   const nextSettings = await saveSettings({
     ...settings,
-    availableModels: dedupeModels([...settings.availableModels, ...fetched]),
-    lastModelSyncAt: new Date().toISOString(),
-    model: fetched[0]?.id ?? settings.model
+    providers: settings.providers.map((candidate) => candidate.id === profile.id ? nextProfile : candidate),
+    lastModelSyncAt: new Date().toISOString()
   });
 
   return nextSettings;
+}
+
+async function testProviderConnection(profile: ProviderProfile): Promise<ConnectionCheckResult> {
+  if (!profile.baseUrl.trim() || !profile.apiKey.trim()) {
+    return { ok: false, kind: 'credentials', message: '请填写 API 地址和 API Key' };
+  }
+
+  try {
+    const request = buildModelsRequest(profile);
+    const response = await fetch(request.url, { headers: request.headers });
+    return classifyProviderResponse(response);
+  } catch (error) {
+    return classifyProviderError(error);
+  }
+}
+
+async function fetchProviderModels(profile: ProviderProfile): Promise<ProviderProfile> {
+  const check = await testProviderConnection(profile);
+  if (!check.ok) {
+    throw new Error(check.message);
+  }
+
+  const request = buildModelsRequest(profile);
+  const response = await fetch(request.url, { headers: request.headers });
+  const payload = await response.json() as { data?: Array<{ id?: string; name?: string; display_name?: string }> };
+  const models = parseModelsResponse(profile.provider, payload)
+    .map((id) => ({ id, label: id }));
+
+  return normalizeProviderProfile({
+    ...profile,
+    models: mergeManagedModels(profile.models, models)
+  });
 }
 
 async function listProjects(): Promise<ProjectMeta[]> {
@@ -839,19 +804,24 @@ async function appendChatHistory(projectId: string, turns: ChatTurn[]) {
 async function runProjectChat(projectId: string, input: string) {
   const project = await openProject(projectId);
   const settings = await loadSettings();
+  const activeProfile = getActiveProvider(settings);
+  const profile = settings.providers.find((profile) => profile.id === project.meta.provider)
+    ?? settings.providers.find((profile) => profile.provider === project.meta.provider)
+    ?? activeProfile;
+  const model = project.meta.model || profile.selectedModelId;
   const userTurn: ChatTurn = {
     role: 'user',
     content: input,
     createdAt: new Date().toISOString(),
-    model: project.meta.model
+    model
   };
 
-  if (!settings.apiKey || !settings.baseUrl) {
+  if (!profile.apiKey || !profile.baseUrl) {
     const fallback: ChatTurn = {
       role: 'assistant',
       content: `当前项目模型为 ${project.meta.model}，但你还没有在设置里完成 API 配置。请先保存 Base URL 和 API Key。`,
       createdAt: new Date().toISOString(),
-      model: project.meta.model
+      model
     };
     const history = await appendChatHistory(projectId, [userTurn, fallback]);
     return { reply: fallback.content, history };
@@ -873,10 +843,10 @@ async function runProjectChat(projectId: string, input: string) {
   ].join('\n\n');
 
   const request = buildChatRequest({
-    provider: settings.provider as 'anthropic' | 'openai-compatible' | 'aliyun',
-    baseUrl: settings.baseUrl,
-    apiKey: settings.apiKey,
-    model: project.meta.model,
+    provider: profile.provider,
+    baseUrl: profile.baseUrl,
+    apiKey: profile.apiKey,
+    model,
     temperature: settings.temperature,
     maxTokens: settings.maxTokens,
     systemPrompt: '你是一个面向考试冲刺的中文学习助手，回答要结构化、具体、以提分为目标。',
@@ -896,12 +866,12 @@ async function runProjectChat(projectId: string, input: string) {
     content?: Array<{ type?: string; text?: string }>;
     choices?: Array<{ message?: { content?: string } }>;
   };
-  const reply = parseChatResponse(settings.provider as 'anthropic' | 'openai-compatible' | 'aliyun', payload);
+  const reply = parseChatResponse(profile.provider, payload);
   const assistantTurn: ChatTurn = {
     role: 'assistant',
     content: reply,
     createdAt: new Date().toISOString(),
-    model: project.meta.model
+    model
   };
   const history = await appendChatHistory(projectId, [userTurn, assistantTurn]);
   return { reply, history };
@@ -1060,6 +1030,8 @@ ipcMain.handle('dialog:selectUploadFiles', async () => {
 ipcMain.handle('settings:get', () => loadSettings());
 ipcMain.handle('settings:save', (_event, settings: AppSettings) => saveSettings(settings));
 ipcMain.handle('settings:fetchModels', () => fetchModels());
+ipcMain.handle('settings:testProvider', (_event, profile: ProviderProfile) => testProviderConnection(profile));
+ipcMain.handle('settings:fetchProviderModels', (_event, profile: ProviderProfile) => fetchProviderModels(profile));
 ipcMain.handle('projects:list', () => listProjects());
 ipcMain.handle('projects:create', (_event, input: CreateProjectInput) => createProject(input));
 ipcMain.handle('projects:open', (_event, projectId: string) => openProject(projectId));

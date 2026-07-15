@@ -18,6 +18,36 @@ type ModelOption = {
   source: 'preset' | 'fetched' | 'custom';
 };
 
+type ProviderKind = 'anthropic' | 'openai-compatible' | 'aliyun';
+
+type ManagedModel = {
+  id: string;
+  label: string;
+  source: 'preset' | 'fetched' | 'custom';
+  enabled: boolean;
+};
+
+type ProviderProfile = {
+  id: string;
+  label: string;
+  provider: ProviderKind;
+  baseUrl: string;
+  apiKey: string;
+  enabled: boolean;
+  isCustom: boolean;
+  selectedModelId: string;
+  models: ManagedModel[];
+};
+
+type ConnectionCheckResult =
+  | { ok: true; message: string; status: number }
+  | {
+      ok: false;
+      kind: 'credentials' | 'authentication' | 'endpoint' | 'network' | 'service';
+      message: string;
+      status?: number;
+    };
+
 type ParsedUpload = {
   title: string;
   kind: 'file' | 'image';
@@ -71,6 +101,17 @@ type ChatTurn = {
 };
 
 type AppSettings = {
+  version: 2;
+  activeProviderId: string;
+  providers: ProviderProfile[];
+  temperature: number;
+  maxTokens: number;
+  latexEngine: 'xelatex' | 'pdflatex';
+  enableLatexPreview: boolean;
+  lastModelSyncAt: string | null;
+};
+
+type LegacyAppSettings = {
   apiKey: string;
   baseUrl: string;
   provider: string;
@@ -82,6 +123,8 @@ type AppSettings = {
   availableModels: ModelOption[];
   lastModelSyncAt: string | null;
 };
+
+type SettingsCompatibilityResult = AppSettings & LegacyAppSettings;
 
 type ProjectMeta = {
   id: string;
@@ -164,9 +207,11 @@ declare global {
     cramEngine: {
       selectProjectFolder: () => Promise<string | null>;
       selectUploadFiles: () => Promise<string[]>;
-      getSettings: () => Promise<AppSettings>;
-      saveSettings: (settings: AppSettings) => Promise<AppSettings>;
-      fetchModels: () => Promise<AppSettings>;
+      getSettings: () => Promise<SettingsCompatibilityResult>;
+      saveSettings: (settings: AppSettings | LegacyAppSettings) => Promise<SettingsCompatibilityResult>;
+      fetchModels: () => Promise<SettingsCompatibilityResult>;
+      testProviderConnection: (profile: ProviderProfile) => Promise<ConnectionCheckResult>;
+      fetchProviderModels: (profile: ProviderProfile) => Promise<ProviderProfile>;
       listProjects: () => Promise<ProjectMeta[]>;
       createProject: (input: CreateProjectInput) => Promise<ProjectDetail>;
       openProject: (projectId: string) => Promise<ProjectDetail>;
