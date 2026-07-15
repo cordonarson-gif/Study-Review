@@ -53,11 +53,59 @@ test('migrates legacy settings while preserving connection and custom model data
   assert.equal(settings.lastModelSyncAt, '2026-07-15T10:00:00.000Z');
 });
 
+test('normalization preserves MinerU document recognition settings', async () => {
+  const { normalizeSettings } = await loadSettingsSchema();
+  const settings = normalizeSettings({
+    version: 2,
+    activeProviderId: 'openai-compatible',
+    providers: [
+      {
+        id: 'openai-compatible',
+        label: 'OpenAI Compatible',
+        provider: 'openai-compatible',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: '',
+        enabled: true,
+        isCustom: false,
+        selectedModelId: 'gpt-4.1',
+        models: [{ id: 'gpt-4.1', label: 'gpt-4.1', source: 'preset', enabled: true }]
+      }
+    ],
+    temperature: 0.2,
+    maxTokens: 4096,
+    latexEngine: 'xelatex',
+    enableLatexPreview: true,
+    lastModelSyncAt: null,
+    mineru: {
+      enabled: true,
+      mode: 'agent',
+      apiKey: 'mineru-token',
+      baseUrl: ' https://mineru.example.test ',
+      preferForUploads: false
+    }
+  });
+
+  assert.deepEqual(settings.mineru, {
+    enabled: true,
+    mode: 'agent',
+    apiKey: 'mineru-token',
+    baseUrl: 'https://mineru.example.test',
+    preferForUploads: false
+  });
+});
+
 test('migration recovers the OpenAI default profile from an empty legacy record', async () => {
   const { getEnabledModels, migrateSettings } = await loadSettingsSchema();
   const settings = migrateSettings({});
 
   assert.equal(settings.providers.length, 1);
+  assert.deepEqual(settings.mineru, {
+    enabled: false,
+    mode: 'precise',
+    apiKey: '',
+    baseUrl: 'https://mineru.net',
+    preferForUploads: true
+  });
   assert.equal(settings.providers[0].enabled, true);
   assert.equal(settings.providers[0].provider, 'openai-compatible');
   assert.equal(settings.providers[0].selectedModelId, 'gpt-4.1');

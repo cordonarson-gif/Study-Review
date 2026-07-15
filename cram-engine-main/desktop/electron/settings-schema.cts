@@ -1,6 +1,14 @@
 export type ProviderKind = 'anthropic' | 'openai-compatible' | 'aliyun';
 export type ManagedModelSource = 'preset' | 'fetched' | 'custom';
 export type ManagedModel = { id: string; label: string; source: ManagedModelSource; enabled: boolean };
+export type MinerUMode = 'precise' | 'agent';
+export type MinerUSettings = {
+  enabled: boolean;
+  mode: MinerUMode;
+  apiKey: string;
+  baseUrl: string;
+  preferForUploads: boolean;
+};
 export type ProviderProfile = {
   id: string;
   label: string;
@@ -21,6 +29,7 @@ export type AppSettings = {
   latexEngine: 'xelatex' | 'pdflatex';
   enableLatexPreview: boolean;
   lastModelSyncAt: string | null;
+  mineru: MinerUSettings;
 };
 
 type ProviderDefaults = Pick<ProviderProfile, 'id' | 'label' | 'provider' | 'baseUrl' | 'selectedModelId' | 'models'>;
@@ -126,6 +135,33 @@ function normalizeLatexEngine(value: unknown): 'xelatex' | 'pdflatex' {
   return value === 'pdflatex' ? 'pdflatex' : 'xelatex';
 }
 
+export function createDefaultMinerUSettings(): MinerUSettings {
+  return {
+    enabled: false,
+    mode: 'precise',
+    apiKey: '',
+    baseUrl: 'https://mineru.net',
+    preferForUploads: true
+  };
+}
+
+function normalizeMinerUMode(value: unknown): MinerUMode {
+  return value === 'agent' ? 'agent' : 'precise';
+}
+
+function normalizeMinerUSettings(value: unknown): MinerUSettings {
+  const candidate = isRecord(value) ? value : {};
+  const defaults = createDefaultMinerUSettings();
+
+  return {
+    enabled: candidate.enabled === true,
+    mode: normalizeMinerUMode(candidate.mode),
+    apiKey: typeof candidate.apiKey === 'string' ? candidate.apiKey : '',
+    baseUrl: valueOrDefault(candidate.baseUrl, defaults.baseUrl),
+    preferForUploads: typeof candidate.preferForUploads === 'boolean' ? candidate.preferForUploads : defaults.preferForUploads
+  };
+}
+
 function profileFromDefaults(defaults: ProviderDefaults): ProviderProfile {
   return {
     ...defaults,
@@ -151,7 +187,8 @@ export function createDefaultSettings(): AppSettings {
     maxTokens: 4096,
     latexEngine: 'xelatex',
     enableLatexPreview: true,
-    lastModelSyncAt: null
+    lastModelSyncAt: null,
+    mineru: createDefaultMinerUSettings()
   };
 }
 
@@ -212,7 +249,8 @@ export function normalizeSettings(input: AppSettings): AppSettings {
     maxTokens: normalizeNumeric(candidate.maxTokens, 4096),
     latexEngine: normalizeLatexEngine(candidate.latexEngine),
     enableLatexPreview: typeof candidate.enableLatexPreview === 'boolean' ? candidate.enableLatexPreview : true,
-    lastModelSyncAt: typeof candidate.lastModelSyncAt === 'string' ? candidate.lastModelSyncAt : null
+    lastModelSyncAt: typeof candidate.lastModelSyncAt === 'string' ? candidate.lastModelSyncAt : null,
+    mineru: normalizeMinerUSettings(candidate.mineru)
   };
 }
 
@@ -268,7 +306,8 @@ export function migrateSettings(input: unknown): AppSettings {
     maxTokens: normalizeNumeric(input.maxTokens, 4096),
     latexEngine: normalizeLatexEngine(input.latexEngine),
     enableLatexPreview: typeof input.enableLatexPreview === 'boolean' ? input.enableLatexPreview : true,
-    lastModelSyncAt: typeof input.lastModelSyncAt === 'string' ? input.lastModelSyncAt : null
+    lastModelSyncAt: typeof input.lastModelSyncAt === 'string' ? input.lastModelSyncAt : null,
+    mineru: normalizeMinerUSettings(input.mineru)
   });
 }
 

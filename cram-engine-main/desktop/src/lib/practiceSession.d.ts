@@ -9,6 +9,8 @@ export type PracticeFilterOptions = {
 };
 
 export function seededQuestionWeight(value: string, seed: number): number;
+export function normalizePracticeKnowledgePoint(question: ReviewQuestion): string;
+export function getPracticeCategoryLabel(question: ReviewQuestion): string;
 export function matchesPracticeCategory(question: ReviewQuestion, selectedCategory: string): boolean;
 export function filterPracticeQuestions(
   questions: ReviewQuestion[],

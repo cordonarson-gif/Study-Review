@@ -79,6 +79,16 @@ export default function ProviderSettingsPage({ initialSettings, onSave, onDiscar
     });
   }
 
+  function updateMinerU(patch: Partial<AppSettings['mineru']>) {
+    setDraft((current) => ({
+      ...current,
+      mineru: {
+        ...current.mineru,
+        ...patch
+      }
+    }));
+  }
+
   async function saveDraft() {
     setBusy('save');
     setError('');
@@ -128,6 +138,65 @@ export default function ProviderSettingsPage({ initialSettings, onSave, onDiscar
             onChange={updateProvider}
             canDisableProvider={!selectedProvider.enabled || enabledProviderCount > 1}
           />
+        )}
+        {category === 'document' && (
+          <section className="provider-detail-panel">
+            <div className="provider-detail-header">
+              <div>
+                <span>Document OCR</span>
+                <h2>MinerU 文档识别</h2>
+                <p>用于 PDF、图片、Office、表格等资料的文字提取；未启用时继续使用本地 OCR / 文本读取。</p>
+              </div>
+            </div>
+            <label className="settings-check-row">
+              <input
+                type="checkbox"
+                checked={draft.mineru.enabled}
+                onChange={(event) => updateMinerU({ enabled: event.target.checked })}
+              />
+              启用 MinerU 解析服务
+            </label>
+            <label className="settings-check-row">
+              <input
+                type="checkbox"
+                checked={draft.mineru.preferForUploads}
+                onChange={(event) => updateMinerU({ preferForUploads: event.target.checked })}
+              />
+              上传素材和导入题目时优先使用 MinerU
+            </label>
+            <div className="settings-form-grid">
+              <label>
+                解析模式
+                <select
+                  value={draft.mineru.mode}
+                  onChange={(event) => updateMinerU({ mode: event.target.value === 'agent' ? 'agent' : 'precise' })}
+                >
+                  <option value="precise">精准解析（API Token）</option>
+                  <option value="agent">轻量 Agent（快速预览）</option>
+                </select>
+              </label>
+              <label>
+                Base URL
+                <input
+                  value={draft.mineru.baseUrl}
+                  onChange={(event) => updateMinerU({ baseUrl: event.target.value })}
+                  placeholder="https://mineru.net"
+                />
+              </label>
+            </div>
+            <label className="settings-wide-field">
+              MinerU API Key
+              <input
+                type="password"
+                value={draft.mineru.apiKey}
+                onChange={(event) => updateMinerU({ apiKey: event.target.value })}
+                placeholder="用于精准解析；不会显示在页面其他位置"
+              />
+            </label>
+            <p className="settings-help-text">
+              支持上传识别 PDF、PNG、JPG、WEBP、BMP、TIFF、TXT、Markdown、JSON、CSV、YAML、Word、PPT 和 Excel。没有配置 MinerU 时，非文本文件会保留文件本体并给出可读提示。
+            </p>
+          </section>
         )}
         {category === 'default' && (
           <section className="provider-detail-panel">

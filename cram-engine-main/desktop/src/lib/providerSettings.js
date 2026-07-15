@@ -35,6 +35,22 @@ export function getSelectableModels(providers) {
   });
 }
 
+function hasUsableCredentials(provider) {
+  return Boolean(
+    provider?.enabled
+    && normalizedText(provider.apiKey)
+    && normalizedText(provider.baseUrl)
+  );
+}
+
+export function findConfiguredProvider(providers, activeProviderId) {
+  const list = Array.isArray(providers) ? providers : [];
+  const active = list.find((provider) => provider?.id === activeProviderId);
+  if (hasUsableCredentials(active)) return active;
+
+  return list.find(hasUsableCredentials) ?? null;
+}
+
 export function hideOrShowModel(profile, modelId, enabled) {
   const models = Array.isArray(profile?.models)
     ? profile.models.map((model) => model.id === modelId ? { ...model, enabled } : model)

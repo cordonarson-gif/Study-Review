@@ -421,6 +421,13 @@
   font-size: 14px;
 }
 
+.settings-help-text {
+  color: var(--color-on-surface-variant);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
 .settings-savebar {
   justify-content: space-between;
   padding: 12px var(--space-md);

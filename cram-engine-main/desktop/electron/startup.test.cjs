@@ -126,11 +126,101 @@ test('main process loads compiled preload bundle with cjs extension', () => {
   assert.match(source, /preloadPath\s*=\s*path\.join\(__dirname,\s*'preload\.cjs'\)/);
 });
 
+test('main process disables renderer sandbox so preload can load local compatibility helpers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /sandbox:\s*false/);
+});
+
 test('main process registers provider settings IPC handlers', () => {
   const source = readMainSource();
 
   assert.match(source, /ipcMain\.handle\('settings:testProvider'/);
   assert.match(source, /ipcMain\.handle\('settings:fetchProviderModels'/);
+});
+
+test('main process registers learning profile IPC handlers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /ipcMain\.handle\('profile:get'/);
+  assert.match(source, /ipcMain\.handle\('profile:save'/);
+  assert.match(source, /ipcMain\.handle\('profile:analyze'/);
+});
+
+test('preload exposes learning profile bridge methods', () => {
+  const source = readPreloadSource();
+
+  assert.match(source, /getLearningProfile: \(projectId: string\) => ipcRenderer\.invoke\('profile:get', projectId\)/);
+  assert.match(source, /saveLearningProfile: \(projectId: string, profile: LearningProfile\) => ipcRenderer\.invoke\('profile:save', projectId, profile\)/);
+  assert.match(source, /analyzeLearningProfile: \(projectId: string, input: string\) => ipcRenderer\.invoke\('profile:analyze', projectId, input\)/);
+});
+
+test('main process registers personalized resource IPC handlers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /ipcMain\.handle\('personalizedResources:list'/);
+  assert.match(source, /ipcMain\.handle\('personalizedResources:generate'/);
+  assert.match(source, /ipcMain\.handle\('personalizedResources:save'/);
+  assert.match(source, /ipcMain\.handle\('personalizedResources:delete'/);
+});
+
+test('preload exposes personalized resource bridge methods', () => {
+  const source = readPreloadSource();
+
+  assert.match(source, /listPersonalizedResources: \(projectId: string\) => ipcRenderer\.invoke\('personalizedResources:list', projectId\)/);
+  assert.match(source, /generatePersonalizedResources: \(projectId: string, input: GeneratePersonalizedResourcesInput\) => ipcRenderer\.invoke\('personalizedResources:generate', projectId, input\)/);
+  assert.match(source, /savePersonalizedResource: \(projectId: string, resource: PersonalizedResource\) => ipcRenderer\.invoke\('personalizedResources:save', projectId, resource\)/);
+  assert.match(source, /deletePersonalizedResource: \(projectId: string, resourceId: string\) => ipcRenderer\.invoke\('personalizedResources:delete', projectId, resourceId\)/);
+});
+
+test('main process registers learning path IPC handlers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /ipcMain\.handle\('learningPath:get'/);
+  assert.match(source, /ipcMain\.handle\('learningPath:generate'/);
+  assert.match(source, /ipcMain\.handle\('learningPath:save'/);
+});
+
+test('preload exposes learning path bridge methods', () => {
+  const source = readPreloadSource();
+
+  assert.match(source, /getLearningPathPlan: \(projectId: string\) => ipcRenderer\.invoke\('learningPath:get', projectId\)/);
+  assert.match(source, /generateLearningPathPlan: \(projectId: string, input: GenerateLearningPathInput\) => ipcRenderer\.invoke\('learningPath:generate', projectId, input\)/);
+  assert.match(source, /saveLearningPathPlan: \(projectId: string, plan: LearningPathPlan\) => ipcRenderer\.invoke\('learningPath:save', projectId, plan\)/);
+});
+
+test('main process registers stage report IPC handlers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /ipcMain\.handle\('stageReports:list'/);
+  assert.match(source, /ipcMain\.handle\('stageReports:generate'/);
+  assert.match(source, /ipcMain\.handle\('stageReports:save'/);
+});
+
+test('preload exposes stage report bridge methods', () => {
+  const source = readPreloadSource();
+
+  assert.match(source, /listStageReports: \(projectId: string\) => ipcRenderer\.invoke\('stageReports:list', projectId\)/);
+  assert.match(source, /generateStageReport: \(projectId: string\) => ipcRenderer\.invoke\('stageReports:generate', projectId\)/);
+  assert.match(source, /saveStageReport: \(projectId: string, report: StageReport\) => ipcRenderer\.invoke\('stageReports:save', projectId, report\)/);
+});
+
+test('main process registers delivery package IPC handlers', () => {
+  const source = readMainSource();
+
+  assert.match(source, /ipcMain\.handle\('delivery:get'/);
+  assert.match(source, /ipcMain\.handle\('delivery:generate'/);
+  assert.match(source, /ipcMain\.handle\('delivery:save'/);
+  assert.match(source, /ipcMain\.handle\('delivery:export'/);
+});
+
+test('preload exposes delivery package bridge methods', () => {
+  const source = readPreloadSource();
+
+  assert.match(source, /getDeliveryPackage: \(projectId: string\) => ipcRenderer\.invoke\('delivery:get', projectId\)/);
+  assert.match(source, /generateDeliveryPackage: \(projectId: string\) => ipcRenderer\.invoke\('delivery:generate', projectId\)/);
+  assert.match(source, /saveDeliveryPackage: \(projectId: string, deliveryPackage: DeliveryPackage\) => ipcRenderer\.invoke\('delivery:save', projectId, deliveryPackage\)/);
+  assert.match(source, /exportDeliveryPackage: \(projectId: string\) => ipcRenderer\.invoke\('delivery:export', projectId\)/);
 });
 
 test('project chat resolves an exact profile before falling back to the active provider', () => {
@@ -139,6 +229,15 @@ test('project chat resolves an exact profile before falling back to the active p
   assert.match(source, /settings\.providers\.find\(\(profile\) => profile\.id === project\.meta\.provider\)/);
   assert.match(source, /settings\.providers\.find\(\(profile\) => profile\.provider === project\.meta\.provider\)/);
   assert.match(source, /getActiveProvider\(settings\)/);
+});
+
+test('project chat includes learning profile context in the tutor prompt', () => {
+  const source = readMainSource();
+
+  assert.match(source, /formatLearningProfileForPrompt/);
+  assert.match(source, /const learningProfileContext = await formatLearningProfileForPrompt\(projectId\)/);
+  assert.match(source, /学习画像/);
+  assert.match(source, /learningProfileContext/);
 });
 
 test('preload adapts v2 settings for the legacy renderer without changing the IPC payload', () => {
@@ -195,5 +294,38 @@ test('preload preserves destination provider custom values when legacy renderer 
     assert.equal(aliyun.apiKey, 'aliyun-existing-key');
     assert.equal(aliyun.baseUrl, 'https://aliyun.example/v1');
     assert.equal(aliyun.selectedModelId, 'qwen-existing');
+  });
+});
+
+test('preload preserves provider-array edits from the v2 settings page over stale legacy fields', async () => {
+  const settings = createProviderSettings();
+
+  await withPreloadApi(settings, async (api, getSavedSettings) => {
+    const loaded = await api.getSettings();
+    const edited = {
+      ...loaded,
+      providers: loaded.providers.map((profile) => profile.id === 'openai-compatible' ? {
+        ...profile,
+        label: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'deepseek-key',
+        selectedModelId: 'deepseek-chat',
+        models: [
+          ...profile.models.map((model) => ({ ...model, enabled: false })),
+          { id: 'deepseek-chat', label: 'deepseek-chat', source: 'custom', enabled: true }
+        ]
+      } : profile)
+    };
+
+    await api.saveSettings(edited);
+
+    const saved = getSavedSettings();
+    const openaiCompatible = saved.providers.find((profile) => profile.id === 'openai-compatible');
+
+    assert.equal(saved.activeProviderId, 'openai-compatible');
+    assert.equal(openaiCompatible.label, 'DeepSeek');
+    assert.equal(openaiCompatible.apiKey, 'deepseek-key');
+    assert.equal(openaiCompatible.baseUrl, 'https://api.deepseek.com');
+    assert.equal(openaiCompatible.selectedModelId, 'deepseek-chat');
   });
 });

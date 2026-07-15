@@ -1,4 +1,4 @@
-type SettingsCategory = 'services' | 'default' | 'generation' | 'display';
+type SettingsCategory = 'services' | 'document' | 'default' | 'generation' | 'display';
 
 type SettingsCategoryNavProps = {
   activeCategory: SettingsCategory;
@@ -7,6 +7,7 @@ type SettingsCategoryNavProps = {
 
 const categories: Array<{ id: SettingsCategory; label: string; description: string }> = [
   { id: 'services', label: '模型服务', description: '服务商、密钥与端点' },
+  { id: 'document', label: '文档识别', description: 'MinerU 与文件解析' },
   { id: 'default', label: '默认模型', description: '新项目使用的模型' },
   { id: 'generation', label: '生成参数', description: '温度与输出长度' },
   { id: 'display', label: '显示', description: 'LaTeX 与预览偏好' }

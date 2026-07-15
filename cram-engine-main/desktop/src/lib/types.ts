@@ -34,6 +34,16 @@ export type ManagedModel = {
   enabled: boolean;
 };
 
+export type MinerUMode = 'precise' | 'agent';
+
+export type MinerUSettings = {
+  enabled: boolean;
+  mode: MinerUMode;
+  apiKey: string;
+  baseUrl: string;
+  preferForUploads: boolean;
+};
+
 export type ProviderProfile = {
   id: string;
   label: string;
@@ -107,6 +117,139 @@ export type ChatTurn = {
   model?: string;
 };
 
+export type LearningProfile = {
+  version: 1;
+  knowledgeLevel: '基础薄弱' | '中等' | '较好' | '未评估';
+  learningGoal: string;
+  cognitiveStyle: string;
+  weakPoints: string[];
+  mistakePatterns: string[];
+  resourcePreferences: string[];
+  availableTime: string;
+  motivation: string;
+  notes: string;
+  confidence: 'low' | 'medium' | 'high';
+  updatedAt: string;
+};
+
+export type LearningProfileEvent = {
+  id: string;
+  type: 'created' | 'manual-save' | 'agent-analysis' | 'activity-refresh';
+  summary: string;
+  createdAt: string;
+};
+
+export type LearningProfileState = {
+  profile: LearningProfile;
+  events: LearningProfileEvent[];
+};
+
+export type PersonalizedResourceType = 'handout' | 'example' | 'flashcard' | 'remediation';
+
+export type PersonalizedResource = {
+  id: string;
+  type: PersonalizedResourceType;
+  title: string;
+  knowledgePoint: string;
+  profileSignal: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GeneratePersonalizedResourcesInput = {
+  topic: string;
+  type: PersonalizedResourceType | 'all';
+};
+
+export type LearningPathTaskStatus = 'todo' | 'doing' | 'done';
+
+export type LearningPathTask = {
+  id: string;
+  title: string;
+  detail: string;
+  status: LearningPathTaskStatus;
+  resourceIds: string[];
+};
+
+export type LearningPathStage = {
+  id: string;
+  title: string;
+  objective: string;
+  duration: string;
+  tasks: LearningPathTask[];
+};
+
+export type LearningPathPlan = {
+  version: 1;
+  goal: string;
+  targetDate: string;
+  dailyMinutes: number;
+  focus: string;
+  stages: LearningPathStage[];
+  reviewCadence: string[];
+  risks: string[];
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GenerateLearningPathInput = {
+  targetDate: string;
+  dailyMinutes: number;
+  focus: string;
+};
+
+export type StageReportSection = {
+  title: string;
+  contentMarkdown: string;
+};
+
+export type StageReport = {
+  id: string;
+  title: string;
+  summary: string;
+  sections: StageReportSection[];
+  nextActions: string[];
+  risks: string[];
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DeliveryPackageItemType =
+  | 'resources'
+  | 'reports'
+  | 'question-bank'
+  | 'knowledge-base'
+  | 'learning-path'
+  | 'archive';
+
+export type DeliveryPackageItemStatus = 'ready' | 'needs-review' | 'missing';
+
+export type DeliveryPackageItem = {
+  id: string;
+  type: DeliveryPackageItemType;
+  title: string;
+  description: string;
+  status: DeliveryPackageItemStatus;
+  sourceIds: string[];
+  checklist: string[];
+};
+
+export type DeliveryPackage = {
+  version: 1;
+  title: string;
+  summary: string;
+  items: DeliveryPackageItem[];
+  checklist: string[];
+  exportNotes: string;
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LegacyAppSettings = {
   apiKey: string;
   baseUrl: string;
@@ -129,6 +272,7 @@ export type VersionedAppSettings = {
   latexEngine: 'xelatex' | 'pdflatex';
   enableLatexPreview: boolean;
   lastModelSyncAt: string | null;
+  mineru: MinerUSettings;
 };
 
 export type AppSettings = VersionedAppSettings & LegacyAppSettings;
@@ -180,6 +324,11 @@ export type ProjectDetail = {
   resources: KnowledgeResource[];
   snapshot: ProjectSnapshot;
   chatHistory: ChatTurn[];
+  learningProfile?: LearningProfileState;
+  personalizedResources?: PersonalizedResource[];
+  learningPathPlan?: LearningPathPlan | null;
+  stageReports?: StageReport[];
+  deliveryPackage?: DeliveryPackage | null;
 };
 
 export type CreateProjectInput = {
@@ -269,7 +418,14 @@ export const defaultSettings: AppSettings = {
   latexEngine: 'xelatex',
   enableLatexPreview: true,
   availableModels: presetModels,
-  lastModelSyncAt: null
+  lastModelSyncAt: null,
+  mineru: {
+    enabled: false,
+    mode: 'precise',
+    apiKey: '',
+    baseUrl: 'https://mineru.net',
+    preferForUploads: true
+  }
 };
 
 export const examOptions = ['期末卷', '开卷', '闭卷', '面试', '论文答辩'] as const;

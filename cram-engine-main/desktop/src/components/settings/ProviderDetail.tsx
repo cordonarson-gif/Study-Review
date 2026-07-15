@@ -34,6 +34,14 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
     setChecking(true);
     setConnection(null);
     try {
+      if (!window.cramEngine?.testProviderConnection) {
+        setConnection({
+          ok: false,
+          kind: 'network',
+          message: 'Electron 桥接未加载，请在桌面应用窗口中使用此功能。'
+        });
+        return;
+      }
       const result = await window.cramEngine.testProviderConnection(profile);
       setConnection(result);
     } catch (error) {

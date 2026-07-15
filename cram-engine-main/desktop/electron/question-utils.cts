@@ -24,7 +24,7 @@ export type ReviewQuestion = {
 export type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | 'attempts' | 'createdAt' | 'updatedAt'>;
 
 const optionPattern = /^([A-Ha-h])[\.\uff0e\u3001\)]\s*(.+)$/;
-const answerPattern = /(?:答案|参考答案|正确答案|answer|ans)[:：\s]*([A-Ha-h]|[^。\n]+)/i;
+const answerPattern = /(?:答案|参考答案|正确答案|答|answer|ans)[:：\s]*([A-Ha-h]|[^。\n]+)/i;
 const explanationPattern = /(?:解析|说明|理由|explanation)[:：\s]*(.+)$/i;
 
 export function normalizeQuestionText(value: string) {
@@ -58,12 +58,64 @@ export function inferQuestionType(options: QuestionOption[], stem: string) {
   return '问答题';
 }
 
+function normalizeKnowledgeFallback(value: string) {
+  const base = value
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[-_()[\]（）【】]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/计算机组成|组成原理|计组/i.test(base)) return '计算机组成原理';
+  if (/数据结构/.test(base)) return '数据结构';
+  if (/操作系统|OS\b/i.test(base)) return '操作系统';
+  if (/数据库|SQL/i.test(base)) return '数据库系统';
+  return base || '综合复习';
+}
+
+function isInvalidKnowledgeCandidate(value: string) {
+  const clean = value
+    .replace(/^[\s\d第题題\.\uff0e、,，)）]+/, '')
+    .trim();
+  if (!clean) return true;
+  if (/^(?:答|答案|参考答案|正确答案|解析|说明|理由|answer|ans)[:：\s]/i.test(clean)) return true;
+  if (/^[A-Ha-h][\.\uff0e、)]/.test(clean)) return true;
+  if (/^[=\-+*/\\\d.()\s]+[A-Za-z0-9=.\-+*/\\()\s]*$/.test(clean)) return true;
+  if (/^[=\-+*/\\]/.test(clean)) return true;
+
+  const cjkCount = (clean.match(/[\u4e00-\u9fa5]/g) ?? []).length;
+  const alphaCount = (clean.match(/[A-Za-z]/g) ?? []).length;
+  const signalCount = cjkCount + alphaCount;
+  const symbolCount = (clean.match(/[=\-+*/\\|<>^~]/g) ?? []).length;
+  if (signalCount < 2) return true;
+  if (symbolCount > signalCount) return true;
+  return false;
+}
+
+function sanitizeKnowledgePoint(value: string, fallback: string) {
+  const normalizedFallback = normalizeKnowledgeFallback(fallback);
+  const clean = value
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line && !isInvalidKnowledgeCandidate(line))
+    ?.replace(/^(?:知识点|考点|专题|分类)[:：\s]*/u, '')
+    .trim() ?? '';
+
+  if (isInvalidKnowledgeCandidate(clean)) return normalizedFallback;
+  return clean.slice(0, 24);
+}
+
 export function inferKnowledgePoint(stem: string, fallback = '综合复习') {
   const clean = stem.replace(/^[\s\d第题題\.\uff0e\u3001)]+/, '').trim();
   const bracket = clean.match(/[【\[]([^】\]]{2,24})[】\]]/);
-  if (bracket) return bracket[1].trim();
+  if (bracket && !isInvalidKnowledgeCandidate(bracket[1])) return bracket[1].trim();
 
   const keywordRules: Array<[RegExp, string]> = [
+    [/程序计数器|地址寄存器|指令寄存器|\bPC\b|\bMAR\b|\bMDR\b|\bIR\b|CPU|控制器|运算器|指令|微程序|流水线/i, 'CPU 与指令系统'],
+    [/存储器|主存|内存|Cache|高速缓存|SRAM|DRAM|磁盘|外存|地址映射/i, '存储系统'],
+    [/中断|I\/O|输入输出|总线|DMA|接口/i, 'I/O 与中断'],
+    [/补码|原码|反码|浮点|定点|阶码|尾数|二进制|进制|规格化/i, '数据表示与运算'],
+    [/计算机组成|组成原理|冯诺依曼/i, '计算机组成原理'],
     [/函数|导数|积分|极限|矩阵|概率|统计/, '数学基础'],
     [/细胞|遗传|生态|代谢|蛋白/, '生物学'],
     [/力学|电磁|热学|光学|波动/, '物理基础'],
@@ -77,7 +129,7 @@ export function inferKnowledgePoint(stem: string, fallback = '综合复习') {
     if (pattern.test(clean)) return label;
   }
 
-  return clean.slice(0, 18) || fallback;
+  return sanitizeKnowledgePoint(clean, fallback);
 }
 
 export function parseQuestionBlock(block: string, source: QuestionDraft['source'], sourceName?: string): QuestionDraft {

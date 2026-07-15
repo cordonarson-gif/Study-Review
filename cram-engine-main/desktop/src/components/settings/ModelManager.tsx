@@ -20,6 +20,10 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
     setError('');
     setMessage('');
     try {
+      if (!window.cramEngine?.fetchProviderModels) {
+        setError('Electron 桥接未加载，请在桌面应用窗口中使用此功能。');
+        return;
+      }
       const nextProfile = await window.cramEngine.fetchProviderModels(profile);
       onChange(nextProfile);
       setMessage(`已获取 ${nextProfile.models.length} 个模型`);

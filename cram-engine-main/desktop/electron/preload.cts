@@ -1,6 +1,127 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { migrateSettings, type AppSettings } from './settings-schema.cjs';
 
+type LearningProfile = {
+  version: 1;
+  knowledgeLevel: '基础薄弱' | '中等' | '较好' | '未评估';
+  learningGoal: string;
+  cognitiveStyle: string;
+  weakPoints: string[];
+  mistakePatterns: string[];
+  resourcePreferences: string[];
+  availableTime: string;
+  motivation: string;
+  notes: string;
+  confidence: 'low' | 'medium' | 'high';
+  updatedAt: string;
+};
+
+type PersonalizedResourceType = 'handout' | 'example' | 'flashcard' | 'remediation';
+
+type PersonalizedResource = {
+  id: string;
+  type: PersonalizedResourceType;
+  title: string;
+  knowledgePoint: string;
+  profileSignal: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GeneratePersonalizedResourcesInput = {
+  topic: string;
+  type: PersonalizedResourceType | 'all';
+};
+
+type LearningPathTaskStatus = 'todo' | 'doing' | 'done';
+
+type LearningPathTask = {
+  id: string;
+  title: string;
+  detail: string;
+  status: LearningPathTaskStatus;
+  resourceIds: string[];
+};
+
+type LearningPathStage = {
+  id: string;
+  title: string;
+  objective: string;
+  duration: string;
+  tasks: LearningPathTask[];
+};
+
+type LearningPathPlan = {
+  version: 1;
+  goal: string;
+  targetDate: string;
+  dailyMinutes: number;
+  focus: string;
+  stages: LearningPathStage[];
+  reviewCadence: string[];
+  risks: string[];
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GenerateLearningPathInput = {
+  targetDate: string;
+  dailyMinutes: number;
+  focus: string;
+};
+
+type StageReportSection = {
+  title: string;
+  contentMarkdown: string;
+};
+
+type StageReport = {
+  id: string;
+  title: string;
+  summary: string;
+  sections: StageReportSection[];
+  nextActions: string[];
+  risks: string[];
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DeliveryPackageItemType =
+  | 'resources'
+  | 'reports'
+  | 'question-bank'
+  | 'knowledge-base'
+  | 'learning-path'
+  | 'archive';
+
+type DeliveryPackageItemStatus = 'ready' | 'needs-review' | 'missing';
+
+type DeliveryPackageItem = {
+  id: string;
+  type: DeliveryPackageItemType;
+  title: string;
+  description: string;
+  status: DeliveryPackageItemStatus;
+  sourceIds: string[];
+  checklist: string[];
+};
+
+type DeliveryPackage = {
+  version: 1;
+  title: string;
+  summary: string;
+  items: DeliveryPackageItem[];
+  checklist: string[];
+  exportNotes: string;
+  source: 'agent' | 'manual';
+  createdAt: string;
+  updatedAt: string;
+};
+
 type LegacyModelOption = {
   id: string;
   label: string;
@@ -128,6 +249,27 @@ function shouldApplyLegacyField(
     && !isLegacyProviderDefault(profile, field, value);
 }
 
+function legacyFieldsStillMatchSnapshot(settings: AppSettings & Partial<LegacySettingsCompatibility>): boolean {
+  if (!lastLegacyCompatibilitySnapshot) {
+    return false;
+  }
+
+  return settings.provider === lastLegacyCompatibilitySnapshot.provider
+    && settings.apiKey === lastLegacyCompatibilitySnapshot.apiKey
+    && settings.baseUrl === lastLegacyCompatibilitySnapshot.baseUrl
+    && settings.model === lastLegacyCompatibilitySnapshot.model;
+}
+
+function profileChangedSinceLegacySnapshot(profile: AppSettings['providers'][number]): boolean {
+  if (!lastLegacyCompatibilitySnapshot || profile.id !== lastLegacyCompatibilitySnapshot.profileId) {
+    return false;
+  }
+
+  return profile.apiKey !== lastLegacyCompatibilitySnapshot.apiKey
+    || profile.baseUrl !== lastLegacyCompatibilitySnapshot.baseUrl
+    || profile.selectedModelId !== lastLegacyCompatibilitySnapshot.model;
+}
+
 function toV2Settings(settings: unknown): AppSettings {
   const migrated = migrateSettings(settings);
   if (!isAppSettings(settings)) {
@@ -143,6 +285,16 @@ function toV2Settings(settings: unknown): AppSettings {
     ?? migrated.providers[0];
 
   if (!activeProfile) {
+    return migrated;
+  }
+
+  if (
+    legacyFieldsStillMatchSnapshot(legacy)
+    && (
+      migrated.activeProviderId !== lastLegacyCompatibilitySnapshot?.profileId
+      || profileChangedSinceLegacySnapshot(activeProfile)
+    )
+  ) {
     return migrated;
   }
 
@@ -196,11 +348,30 @@ try {
     updateQuestion: (projectId: string, question: unknown) => ipcRenderer.invoke('questions:update', projectId, question),
     getKnowledgeResources: (projectId: string, knowledgePoint: string) => ipcRenderer.invoke('resources:get', projectId, knowledgePoint),
     openKnowledgeResource: (projectId: string, resource: unknown) => ipcRenderer.invoke('resources:open', projectId, resource),
+    getLearningProfile: (projectId: string) => ipcRenderer.invoke('profile:get', projectId),
+    saveLearningProfile: (projectId: string, profile: LearningProfile) => ipcRenderer.invoke('profile:save', projectId, profile),
+    analyzeLearningProfile: (projectId: string, input: string) => ipcRenderer.invoke('profile:analyze', projectId, input),
+    listPersonalizedResources: (projectId: string) => ipcRenderer.invoke('personalizedResources:list', projectId),
+    generatePersonalizedResources: (projectId: string, input: GeneratePersonalizedResourcesInput) => ipcRenderer.invoke('personalizedResources:generate', projectId, input),
+    savePersonalizedResource: (projectId: string, resource: PersonalizedResource) => ipcRenderer.invoke('personalizedResources:save', projectId, resource),
+    deletePersonalizedResource: (projectId: string, resourceId: string) => ipcRenderer.invoke('personalizedResources:delete', projectId, resourceId),
+    getLearningPathPlan: (projectId: string) => ipcRenderer.invoke('learningPath:get', projectId),
+    generateLearningPathPlan: (projectId: string, input: GenerateLearningPathInput) => ipcRenderer.invoke('learningPath:generate', projectId, input),
+    saveLearningPathPlan: (projectId: string, plan: LearningPathPlan) => ipcRenderer.invoke('learningPath:save', projectId, plan),
+    listStageReports: (projectId: string) => ipcRenderer.invoke('stageReports:list', projectId),
+    generateStageReport: (projectId: string) => ipcRenderer.invoke('stageReports:generate', projectId),
+    saveStageReport: (projectId: string, report: StageReport) => ipcRenderer.invoke('stageReports:save', projectId, report),
+    getDeliveryPackage: (projectId: string) => ipcRenderer.invoke('delivery:get', projectId),
+    generateDeliveryPackage: (projectId: string) => ipcRenderer.invoke('delivery:generate', projectId),
+    saveDeliveryPackage: (projectId: string, deliveryPackage: DeliveryPackage) => ipcRenderer.invoke('delivery:save', projectId, deliveryPackage),
+    exportDeliveryPackage: (projectId: string) => ipcRenderer.invoke('delivery:export', projectId),
     runProjectChat: (projectId: string, input: string) => ipcRenderer.invoke('projects:chat', projectId, input),
     addKnowledgeBaseEntry: (projectId: string, entry: unknown) => ipcRenderer.invoke('knowledgeBase:addEntry', projectId, entry),
     draftKnowledgeBaseEntry: (projectId: string, source: 'chat' | 'upload', payload: unknown) => ipcRenderer.invoke('knowledgeBase:draftEntry', projectId, source, payload),
     exportProject: (projectId: string) => ipcRenderer.invoke('projects:export', projectId),
     readText: (projectIdOrFilePath: string, filePath?: string) => ipcRenderer.invoke('project:readText', projectIdOrFilePath, filePath),
+    extractFileText: (filePath: string) => ipcRenderer.invoke('project:extractFileText', filePath),
+    getUploadDataUrl: (projectId: string, filePath: string) => ipcRenderer.invoke('project:getUploadDataUrl', projectId, filePath),
     saveText: (projectId: string, filePath: string, content: string) => ipcRenderer.invoke('project:saveText', projectId, filePath, content),
     snapshotProject: (projectId: string, root: string) => ipcRenderer.invoke('project:snapshot', projectId, root),
     checkLatex: () => ipcRenderer.invoke('latex:check'),

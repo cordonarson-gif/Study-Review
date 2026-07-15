@@ -65,6 +65,26 @@ test('filterPracticeQuestions keeps nested category matches in random mode', () 
   assert.equal(result[0].id, 'q-1');
 });
 
+test('filterPracticeQuestions matches sanitized categories for legacy noisy imports', () => {
+  const result = filterPracticeQuestions([
+    {
+      ...sampleQuestions[0],
+      id: 'legacy-noisy',
+      stem: '-X',
+      category: '-X / 问答题',
+      knowledgePoint: '-X',
+      questionType: '问答题',
+      sourceName: '计算机组成原理-期末卷.pdf'
+    }
+  ], {
+    mode: 'category',
+    selectedCategory: '计算机组成原理 / 问答题',
+    shuffleSeed: 0
+  });
+
+  assert.deepEqual(result.map((question) => question.id), ['legacy-noisy']);
+});
+
 test('filterPracticeQuestions returns only wrong questions in wrong mode', () => {
   const result = filterPracticeQuestions(
     sampleQuestions.map((question, index) => ({

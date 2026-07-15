@@ -15,6 +15,11 @@ export function getSelectableModels(
   providers: Array<Pick<ProviderProfile, 'id' | 'enabled'> & { models: ManagedModel[] }>
 ): SelectableModel[];
 
+export function findConfiguredProvider<T extends Pick<ProviderProfile, 'id' | 'enabled' | 'apiKey' | 'baseUrl'>>(
+  providers: T[],
+  activeProviderId: string
+): T | null;
+
 export function hideOrShowModel<T extends Pick<ProviderProfile, 'selectedModelId' | 'models'>>(
   profile: T,
   modelId: string,

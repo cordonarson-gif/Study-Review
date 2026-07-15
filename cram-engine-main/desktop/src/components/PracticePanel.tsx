@@ -10,7 +10,11 @@ import {
   computePracticeStats,
   getRelatedKnowledgePoints
 } from '../lib/questionClassifier';
-import { filterPracticeQuestions } from '../lib/practiceSession.js';
+import {
+  filterPracticeQuestions,
+  getPracticeCategoryLabel,
+  normalizePracticeKnowledgePoint
+} from '../lib/practiceSession.js';
 
 type PracticeMode = 'category' | 'random' | 'wrong';
 
@@ -112,7 +116,7 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
   const relatedPoints = useMemo<string[]>(() => {
     const currentQuestion = filteredQuestions[currentIndex];
     if (!currentQuestion) return [];
-    return getRelatedKnowledgePoints(currentQuestion.knowledgePoint, categoryTree);
+    return getRelatedKnowledgePoints(normalizePracticeKnowledgePoint(currentQuestion), categoryTree);
   }, [filteredQuestions, currentIndex, categoryTree]);
 
   const currentQuestion = filteredQuestions[currentIndex] ?? null;
@@ -129,7 +133,7 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
     }
 
     window.cramEngine
-      .getKnowledgeResources(activeProjectId, currentQuestion.knowledgePoint)
+      .getKnowledgeResources(activeProjectId, normalizePracticeKnowledgePoint(currentQuestion))
       .then(setKnowledgeResources)
       .catch(() => setKnowledgeResources([]));
   }, [currentQuestion?.id, activeProjectId]);
@@ -285,7 +289,7 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
           {currentQuestion ? (
             <div className="question-card">
               <div className="question-card-header">
-                <span className="upload-kind">{currentQuestion.category}</span>
+                <span className="upload-kind">{getPracticeCategoryLabel(currentQuestion)}</span>
                 <span className="upload-kind">{currentQuestion.sourceName || currentQuestion.source}</span>
                 {currentQuestion.favorite && (
                   <span className="upload-kind" style={{ background: 'rgba(255,193,7,0.15)', color: '#b8860b' }}>

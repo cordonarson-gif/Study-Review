@@ -4,12 +4,20 @@ import type {
   AgentMessage,
   AppSettings,
   CreateProjectInput,
+  DeliveryPackage,
   ExportResult,
   ProjectDetail,
   ProjectMeta,
   ProjectSourceFile,
   KnowledgeBaseEntry,
   KnowledgeResource,
+  LearningProfile,
+  LearningProfileState,
+  GeneratePersonalizedResourcesInput,
+  GenerateLearningPathInput,
+  LearningPathPlan,
+  PersonalizedResource,
+  StageReport,
   QuestionDraft,
   ReviewQuestion,
   ProjectSortKey
@@ -17,16 +25,22 @@ import type {
 import { defaultSettings, examOptions, stageOrder } from '../lib/types';
 import { sanitizeRichHtml } from '../lib/richContent.js';
 import { createEmptyChatGreeting, formatDate, getActiveProviderProfile } from '../lib/utils';
-import { getSelectableModels } from '../lib/providerSettings.js';
+import { findConfiguredProvider, getSelectableModels } from '../lib/providerSettings.js';
 import { appendWizardFileList, appendWizardValue, resolveWizardQuestionImportText } from '../lib/wizardImports.js';
 import { buildWizardProjectPayload, canCreateWizardProject, getWizardStepError, validateWizardProject } from '../lib/wizardProject.js';
 import ProjectListPanel from '../components/ProjectListPanel';
 import QuestionImportPanel from '../components/QuestionImportPanel';
 import PracticePanel from '../components/PracticePanel';
+import { AgentOrchestrationPage } from '../components/agents/AgentOrchestrationPage';
+import { LearningProfilePage } from '../components/profile/LearningProfilePage';
+import { LearningPathPage } from '../components/path/LearningPathPage';
+import { StageReportPage } from '../components/report/StageReportPage';
+import { PersonalizedResourcesPage } from '../components/resources/PersonalizedResourcesPage';
+import { DeliveryPackagePage } from '../components/delivery/DeliveryPackagePage';
 import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
 
 type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export';
-type EditorTab = 'overview' | 'practice' | 'import' | 'config' | 'progress';
+type EditorTab = 'overview' | 'profile' | 'materials' | 'agents' | 'resources' | 'path' | 'practice' | 'import' | 'report' | 'delivery' | 'config' | 'progress';
 type WizardStep = 1 | 2 | 3;
 
 type WizardState = {
@@ -106,6 +120,49 @@ function renderRichContent(content: string) {
   return renderLatexBlocks(sanitizeRichHtml(renderMarkdown(content)));
 }
 
+function ChatBubble({ content }: { content: string }) {
+  return (
+    <div
+      className="chat-bubble chat-rich-content"
+      dangerouslySetInnerHTML={{ __html: renderRichContent(content) }}
+    />
+  );
+}
+
+function UploadImagePreview({ projectId, upload }: { projectId: string; upload: ProjectSourceFile }) {
+  const [dataUrl, setDataUrl] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setDataUrl('');
+    setFailed(false);
+
+    if (upload.kind !== 'image') return () => {
+      active = false;
+    };
+
+    const ce = window.cramEngine;
+    ce.getUploadDataUrl(projectId, upload.storedPath)
+      .then((url) => {
+        if (active) setDataUrl(url);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [projectId, upload.kind, upload.storedPath]);
+
+  if (upload.kind !== 'image') return null;
+  if (failed) return <div className="upload-image-fallback">图片预览加载失败</div>;
+  if (!dataUrl) return <div className="upload-image-fallback">图片预览加载中...</div>;
+
+  return <img className="upload-image-preview" src={dataUrl} alt={upload.name} loading="lazy" />;
+}
+
 function seededQuestionWeight(value: string, seed: number) {
   let hash = seed || 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -146,6 +203,36 @@ function KnowledgeResourceList({
   );
 }
 
+function FutureModulePage({
+  title,
+  description,
+  items
+}: {
+  title: string;
+  description: string;
+  items: string[];
+}) {
+  return (
+    <section className="panel project-single-page future-module-page">
+      <div className="page-section-header">
+        <div>
+          <div className="section-title">{title}</div>
+          <h3>{description}</h3>
+          <p className="muted">该模块已预留为独立页面，后续阶段会接入真实数据流和可执行动作。</p>
+        </div>
+      </div>
+      <div className="future-module-grid">
+        {items.map((item, index) => (
+          <div className="future-module-card" key={item}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <strong>{item}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ---- 阶段语义色配置 ---- */
 const stageColors: Record<string, { bg: string; color: string; icon: string }> = {
   '拆解': { bg: '#f4f0ff', color: '#7c5cff', icon: '#' },
@@ -154,11 +241,31 @@ const stageColors: Record<string, { bg: string; color: string; icon: string }> =
   '补漏': { bg: '#fef2f2', color: '#ba1a1a', icon: '#' }
 };
 
+function formatLatexStatusLabel(latexStatus: {
+  available: boolean;
+  engine: string;
+  path: string | null;
+  distribution?: string;
+  message?: string;
+} | null) {
+  if (!latexStatus) return '检测中';
+  if (!latexStatus.available) return latexStatus.message || '未安装';
+  const engineLabel = latexStatus.distribution && latexStatus.distribution !== 'LaTeX'
+    ? latexStatus.distribution
+    : latexStatus.engine;
+  return `${latexStatus.message || '配置成功'} · ${engineLabel}`;
+}
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [activeProject, setActiveProject] = useState<ProjectDetail | null>(null);
+  const [learningProfileState, setLearningProfileState] = useState<LearningProfileState | null>(null);
+  const [personalizedResources, setPersonalizedResources] = useState<PersonalizedResource[]>([]);
+  const [learningPathPlan, setLearningPathPlan] = useState<LearningPathPlan | null>(null);
+  const [stageReports, setStageReports] = useState<StageReport[]>([]);
+  const [deliveryPackage, setDeliveryPackage] = useState<DeliveryPackage | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>('overview');
   const [configText, setConfigText] = useState('');
   const [progressText, setProgressText] = useState('');
@@ -167,7 +274,14 @@ export default function App() {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [chatMessages, setChatMessages] = useState<AgentMessage[]>(createEmptyChatGreeting());
   const [agentInput, setAgentInput] = useState('');
-  const [latexStatus, setLatexStatus] = useState<{ available: boolean; engine: string; path: string | null } | null>(null);
+  const [latexStatus, setLatexStatus] = useState<{
+    available: boolean;
+    engine: string;
+    path: string | null;
+    distribution?: string;
+    message?: string;
+    installRequired?: boolean;
+  } | null>(null);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [isChatSending, setIsChatSending] = useState(false);
   const [knowledgeQuery, setKnowledgeQuery] = useState('');
@@ -236,11 +350,18 @@ export default function App() {
 
   const currentProvider = useMemo(() => getActiveProviderProfile(settings), [settings]);
   const selectableModels = useMemo(() => getSelectableModels(settings.providers), [settings.providers]);
+  const configuredProvider = useMemo(
+    () => findConfiguredProvider(settings.providers, settings.activeProviderId),
+    [settings.providers, settings.activeProviderId]
+  );
   const currentModelLabel = useMemo(() => {
-    const model = currentProvider.models.find((item) => item.id === currentProvider.selectedModelId);
-    return model?.label || currentProvider.selectedModelId || '未选择模型';
-  }, [currentProvider]);
-  const settingsHasApiKey = Boolean(currentProvider.apiKey?.trim());
+    const provider = configuredProvider ?? currentProvider;
+    const model = provider.models.find((item) => item.id === provider.selectedModelId);
+    return model?.label || provider.selectedModelId || '未选择模型';
+  }, [configuredProvider, currentProvider]);
+  const settingsHasApiKey = Boolean(configuredProvider);
+  const apiStatusLabel = configuredProvider ? configuredProvider.label : 'API Key 未填写';
+  const latexStatusLabel = useMemo(() => formatLatexStatusLabel(latexStatus), [latexStatus]);
 
   const availableProjectModels = useMemo(() => {
     if (!activeProject) return selectableModels;
@@ -313,7 +434,17 @@ export default function App() {
 
   async function openProject(projectId: string) {
     const detail = await ce.openProject(projectId);
-    setActiveProject(detail);
+    const profileState = detail.learningProfile ?? await ce.getLearningProfile(projectId);
+    const generatedResources = detail.personalizedResources ?? await ce.listPersonalizedResources(projectId);
+    const pathPlan = detail.learningPathPlan ?? await ce.getLearningPathPlan(projectId);
+    const reports = detail.stageReports ?? await ce.listStageReports(projectId);
+    const delivery = detail.deliveryPackage ?? await ce.getDeliveryPackage(projectId);
+    setActiveProject({ ...detail, deliveryPackage: delivery });
+    setLearningProfileState(profileState);
+    setPersonalizedResources(generatedResources);
+    setLearningPathPlan(pathPlan);
+    setStageReports(reports);
+    setDeliveryPackage(delivery);
     setConfigText(detail.configYaml);
     setProgressText(detail.progressMarkdown);
     setChatMessages(toAgentMessages(detail));
@@ -342,6 +473,11 @@ export default function App() {
     setProjects(await ce.listProjects());
     if (activeProject?.meta.id === project.id) {
       setActiveProject(null);
+      setLearningProfileState(null);
+      setPersonalizedResources([]);
+      setLearningPathPlan(null);
+      setStageReports([]);
+      setDeliveryPackage(null);
       setViewMode('home');
     }
     setStatus(`已删除项目：${project.name}`);
@@ -365,7 +501,13 @@ export default function App() {
       const detail = await ce.createProject(payload);
       const nextProjects = await ce.listProjects();
       setProjects(nextProjects);
-      setActiveProject(detail);
+      const delivery = detail.deliveryPackage ?? await ce.getDeliveryPackage(detail.meta.id);
+      setActiveProject({ ...detail, deliveryPackage: delivery });
+      setLearningProfileState(detail.learningProfile ?? await ce.getLearningProfile(detail.meta.id));
+      setPersonalizedResources(detail.personalizedResources ?? await ce.listPersonalizedResources(detail.meta.id));
+      setLearningPathPlan(detail.learningPathPlan ?? await ce.getLearningPathPlan(detail.meta.id));
+      setStageReports(detail.stageReports ?? await ce.listStageReports(detail.meta.id));
+      setDeliveryPackage(delivery);
       setConfigText(detail.configYaml);
       setProgressText(detail.progressMarkdown);
       setChatMessages(toAgentMessages(detail));
@@ -439,6 +581,105 @@ export default function App() {
     if (!activeProject) return;
     await ce.saveProjectProgress(activeProject.meta.id, progressText);
     setStatus(`已保存 ${activeProject.meta.name} 的学习进度`);
+  }
+
+  async function saveLearningProfile(profile: LearningProfile) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.saveLearningProfile(activeProject.meta.id, profile);
+    setLearningProfileState(next);
+    setActiveProject({ ...activeProject, learningProfile: next });
+    return next;
+  }
+
+  async function analyzeLearningProfile(input: string) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.analyzeLearningProfile(activeProject.meta.id, input);
+    setLearningProfileState(next);
+    setActiveProject({ ...activeProject, learningProfile: next });
+    return next;
+  }
+
+  async function generatePersonalizedResources(input: GeneratePersonalizedResourcesInput) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.generatePersonalizedResources(activeProject.meta.id, input);
+    setPersonalizedResources(next);
+    setActiveProject({ ...activeProject, personalizedResources: next });
+    return next;
+  }
+
+  async function savePersonalizedResource(resource: PersonalizedResource) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.savePersonalizedResource(activeProject.meta.id, resource);
+    setPersonalizedResources(next);
+    setActiveProject({ ...activeProject, personalizedResources: next });
+    return next;
+  }
+
+  async function deletePersonalizedResource(resourceId: string) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.deletePersonalizedResource(activeProject.meta.id, resourceId);
+    setPersonalizedResources(next);
+    setActiveProject({ ...activeProject, personalizedResources: next });
+    return next;
+  }
+
+  async function generateLearningPathPlan(input: GenerateLearningPathInput) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.generateLearningPathPlan(activeProject.meta.id, input);
+    setLearningPathPlan(next);
+    setActiveProject({ ...activeProject, learningPathPlan: next });
+    return next;
+  }
+
+  async function saveLearningPathPlan(plan: LearningPathPlan) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.saveLearningPathPlan(activeProject.meta.id, plan);
+    setLearningPathPlan(next);
+    setActiveProject({ ...activeProject, learningPathPlan: next });
+    return next;
+  }
+
+  async function generateStageReport() {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.generateStageReport(activeProject.meta.id);
+    setStageReports(next);
+    setActiveProject({ ...activeProject, stageReports: next });
+    return next;
+  }
+
+  async function saveStageReport(report: StageReport) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.saveStageReport(activeProject.meta.id, report);
+    setStageReports(next);
+    setActiveProject({ ...activeProject, stageReports: next });
+    return next;
+  }
+
+  async function generateDeliveryPackage() {
+    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    const next = await ce.generateDeliveryPackage(activeProject.meta.id);
+    setDeliveryPackage(next);
+    setActiveProject({ ...activeProject, deliveryPackage: next });
+    return next;
+  }
+
+  async function saveDeliveryPackage(deliveryPackage: DeliveryPackage) {
+    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    const next = await ce.saveDeliveryPackage(activeProject.meta.id, deliveryPackage);
+    setDeliveryPackage(next);
+    setActiveProject({ ...activeProject, deliveryPackage: next });
+    return next;
+  }
+
+  async function exportDeliveryPackage() {
+    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    const result = await ce.exportDeliveryPackage(activeProject.meta.id);
+    const next = await ce.getDeliveryPackage(activeProject.meta.id);
+    setDeliveryPackage(next);
+    setActiveProject({ ...activeProject, deliveryPackage: next });
+    setExportResult(result);
+    setStatus(`成果交付包已导出：${result.markdownPath}`);
+    return result;
   }
 
   async function importFiles() {
@@ -627,7 +868,7 @@ export default function App() {
         setStatus(`已取消导入${actionLabel}`);
         return;
       }
-      const texts = await Promise.all(files.map((filePath: string) => ce.readText(filePath)));
+      const texts = await Promise.all(files.map((filePath: string) => ce.extractFileText(filePath)));
       const importedText = texts.filter(Boolean).join(separator);
       if (!importedText.trim()) {
         setStatus(`${actionLabel}文件内容为空`);
@@ -637,7 +878,7 @@ export default function App() {
         ...current,
         [key]: appendWizardValue(String(current[key] ?? ''), importedText, separator)
       }));
-      setStatus(`已为${actionLabel}导入 ${files.length} 个文本文件`);
+      setStatus(`已为${actionLabel}导入 ${files.length} 个文件`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : `导入${actionLabel}失败`);
     } finally {
@@ -655,7 +896,7 @@ export default function App() {
       }
 
       let importedText = '';
-      const fallbackTexts = await Promise.all(files.map((filePath: string) => ce.readText(filePath).catch(() => '')));
+      const fallbackTexts = await Promise.all(files.map((filePath: string) => ce.extractFileText(filePath).catch(() => '')));
       const fallbackText = fallbackTexts.filter(Boolean).join('\n\n');
       try {
         const drafts = await ce.previewQuestionsFromFileContent(files);
@@ -708,8 +949,8 @@ export default function App() {
       const latex = await ce.checkLatex();
       const settingsData = await ce.getSettings();
       const msg = [
-        `LaTeX: ${latex.available ? latex.engine + ' (' + (latex.path || '已安装') + ')' : '未安装'}`,
-        `API 配置: ${settingsData.apiKey ? '已配置 (' + settingsData.provider + ')' : '未配置'}`,
+        `LaTeX: ${formatLatexStatusLabel(latex)}`,
+        `API 配置: ${findConfiguredProvider(settingsData.providers, settingsData.activeProviderId) ? '已配置' : 'API Key 未填写'}`,
         `模型: ${settingsData.model}`,
         `可用模型数: ${settingsData.availableModels.length}`,
         `项目数: ${projects.length}`,
@@ -728,7 +969,33 @@ export default function App() {
     window.alert('Cram Engine 文档\n\n快速上手：\n1. 新建项目 → 填写基本信息\n2. 在课程内容中导入课件资料\n3. 在工作台录入或导入题目\n4. 使用练习面板刷题\n5. 通过 AI 对话获取学习建议\n\n更多帮助请参考项目 README。');
   }
 
-  function handleStageClick(stage: string) {
+  function navigateStage(stage: string) {
+    setStageFilter(stage);
+
+    if (viewMode === 'workspace' && activeProject) {
+      switch (stage) {
+        case '拆解':
+          setEditorTab('materials');
+          showToast('已打开素材页：上传资料、整理知识库和拓展资源');
+          return;
+        case '讲授':
+          setAiTab('chat');
+          setAiDrawerOpen(true);
+          showToast('已打开 AI 助教：可以直接让它讲解当前项目');
+          return;
+        case '检题':
+          setEditorTab('practice');
+          showToast('已打开练习页：开始检题和刷题');
+          return;
+        case '补漏':
+          setEditorTab('progress');
+          showToast('已打开进度页：记录薄弱点和补漏计划');
+          return;
+        default:
+          setEditorTab('overview');
+      }
+    }
+
     if (stageFilter === stage) {
       setStageFilter(null);
       showToast('已清除阶段筛选');
@@ -738,6 +1005,10 @@ export default function App() {
     if (viewMode === 'home') {
       showToast(`筛选"${stage}"阶段 | 在工作台中可查看该阶段的详细内容`);
     }
+  }
+
+  function handleStageClick(stage: string) {
+    navigateStage(stage);
   }
 
   /* ================================================================
@@ -787,7 +1058,6 @@ export default function App() {
               <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', background: '#ba1a1a' }} />
             )}
           </button>
-          <div className="topnav-avatar">S</div>
         </div>
       </header>
 
@@ -846,8 +1116,8 @@ export default function App() {
                   <p style={{ margin: '2px 0', color: 'var(--color-on-surface-variant)' }}>1. 新建项目 → 填写基本信息<br/>2. 导入课件资料到课程内容<br/>3. 在工作台录入/导入题目<br/>4. 使用练习面板刷题<br/>5. AI 对话获取学习建议</p>
                   <p style={{ margin: '8px 0 4px' }}>🔧 <strong>系统信息</strong></p>
                   <p style={{ margin: '2px 0', color: 'var(--color-on-surface-variant)' }}>
-                    LaTeX: {latexStatus?.available ? `✅ ${latexStatus.engine}` : '❌ 未安装'}<br/>
-                    API: {settingsHasApiKey ? '✅ 已配置' : '⚠️ 未配置'}<br/>
+                    LaTeX: {latexStatusLabel}<br/>
+                    API: {settingsHasApiKey ? '✅ 已配置' : '⚠️ API Key 未填写'}<br/>
                     项目: {projects.length} 个
                   </p>
                 </div>
@@ -857,18 +1127,18 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: settingsHasApiKey ? '#28c840' : '#ff5f57', display: 'inline-block' }} />
                 <span style={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>
-                  {settingsHasApiKey ? `${currentProvider.label}` : '未配置 API'}
+                  {apiStatusLabel}
                 </span>
               </div>
               <div className="muted" style={{ fontSize: '10px' }}>
-                LaTeX: {latexStatus?.available ? latexStatus.engine : '未安装'}
+                LaTeX: {latexStatusLabel}
               </div>
             </div>
           </div>
         </aside>
 
         {/* ---- 主内容区 ---- */}
-        <main className="main">
+        <main className={aiDrawerOpen ? 'main ai-open' : 'main'}>
           <div className="main-scroll">
             {/* ======== 首页 ======== */}
             {viewMode === 'home' && (
@@ -1050,8 +1320,8 @@ export default function App() {
             {viewMode === 'settings' && (
               <div className="page-stack">
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>??</h2>
-                  <p className="muted">?????????????????</p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>设置</h2>
+                  <p className="muted">配置模型服务、默认模型和生成偏好。</p>
                 </div>
                 <ProviderSettingsPage
                   initialSettings={settings}
@@ -1241,193 +1511,279 @@ export default function App() {
 
             {/* ======== 工作台 ======== */}
             {viewMode === 'workspace' && activeProject && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '100%' }}>
-                {/* 工作台标题 + 分段控件 */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '22px' }}>
-                      {activeProject.meta.name}
-                    </h2>
+              <div className="project-page-shell">
+                <section className="panel project-hero">
+                  <div className="project-hero-main">
+                    <span className="upload-kind">当前项目</span>
+                    <h2>{activeProject.meta.name}</h2>
                     <p className="muted">
                       {activeProject.meta.courseName} &middot; {activeProject.meta.examType} &middot; {activeProject.meta.model}
                     </p>
                   </div>
-                  <div className="segmented-control">
-                    <button className={editorTab === 'overview' ? 'active' : ''} onClick={() => setEditorTab('overview')}>概览</button>
-                    <button className={editorTab === 'practice' ? 'active' : ''} onClick={() => setEditorTab('practice')}>练习</button>
-                    <button className={editorTab === 'import' ? 'active' : ''} onClick={() => setEditorTab('import')}>词条</button>
-                    <button className={editorTab === 'config' ? 'active' : ''} onClick={() => setEditorTab('config')}>YAML</button>
-                    <button className={editorTab === 'progress' ? 'active' : ''} onClick={() => setEditorTab('progress')}>进度</button>
-                  </div>
-                </div>
-
-                {/* 三栏工作区 */}
-                <div className="workspace-grid app-grid">
-                  {/* 左栏：素材 + 知识库 */}
-                  <section className="panel left-rail">
-                    <div className="section-title">素材与知识库</div>
-                    <button className="primary" onClick={() => void importFiles()} style={{ width: '100%', fontSize: '13px' }}>
-                      + 上传素材（文件 / 图片）
-                    </button>
-                    <div className="mini-section">
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>已导入素材</div>
-                      <div className="stack-list">
-                        {activeProject.uploads.length ? activeProject.uploads.map((upload) => (
-                          <div key={upload.storedPath} className="upload-card">
-                            <div className="upload-kind">{upload.kind === 'image' ? '图片' : '文件'}</div>
-                            <div style={{ fontSize: '13px', fontWeight: 500 }}>{upload.name}</div>
-                            <div className="muted">{upload.parsed?.summary || '已导入，等待解析'}</div>
-                            {upload.parsed?.extractedText && (
-                              <div className="parsed-preview">{upload.parsed.extractedText}</div>
-                            )}
-                            {upload.parsed && (
-                              <button onClick={() => void saveUploadToKnowledgeBase(upload)} style={{ fontSize: '11px' }}>
-                                提炼到知识库
-                              </button>
-                            )}
-                          </div>
-                        )) : <div className="muted">还没有上传资料</div>}
-                      </div>
-                    </div>
-                    <div className="mini-section">
-                      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>项目知识库</div>
-                      <input
-                        value={knowledgeQuery}
-                        onChange={(e) => setKnowledgeQuery(e.target.value)}
-                        placeholder="按标题 / 摘要 / 标签筛选..."
-                        style={{ fontSize: '12px', padding: '6px 10px' }}
-                      />
-                      <div className="muted">共 {activeProject.knowledgeBase.length} 条 &middot; 显示 {filteredKnowledgeBase.length} 条</div>
-                      <div className="stack-list">
-                        {filteredKnowledgeBase.map((entry) => (
-                          <div key={entry.id} className="stack-item knowledge-entry">
-                            <div className="knowledge-header">
-                              <strong>{entry.title}</strong>
-                              <span className="upload-kind">{entry.source}</span>
-                            </div>
-                            <div className="knowledge-tags">
-                              {entry.tags.map((tag) => <span key={`${entry.id}-${tag}`} className="upload-kind">{tag}</span>)}
-                            </div>
-                            <button onClick={() => void loadKnowledgeResources(entry.tags[0] || entry.title)} style={{ fontSize: '11px' }}>
-                              知识点拓展
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      {knowledgeResources.length > 0 && (
-                        <KnowledgeResourceList resources={knowledgeResources} onOpen={(r) => void openResource(r)} />
-                      )}
-                    </div>
-                  </section>
-
-                  {/* 中栏：内容区 */}
-                  <section className="panel center-pane">
-                    {editorTab === 'overview' && (
-                      <>
-                        <div className="section-title">课程概览</div>
-                        <div className="summary-grid">
-                          <div><span>阶段</span><strong>4</strong></div>
-                          <div><span>题库</span><strong>{activeProject.questions.length}</strong></div>
-                          <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
-                          <div><span>知识库</span><strong>{activeProject.knowledgeBase.length}</strong></div>
-                        </div>
-                        <div className="document-view">
-                          <h3>项目要求</h3>
-                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(activeProject.meta.requirements || '暂无额外要求') }} />
-                          <h3>教材与材料</h3>
-                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(`${activeProject.meta.textbook || '未填写教材'}${activeProject.meta.notes ? `\n\n${activeProject.meta.notes}` : ''}`) }} />
-                          <h3>LaTeX 公式渲染示例</h3>
-                          <div className="latex-demo">
-                            <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent('行内：$E = mc^2$\n\n块级：\n\n$$\\int_a^b f(x)\\,dx = F(b) - F(a)$$') }} />
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {editorTab === 'import' && (
-                      <QuestionImportPanel
-                        activeProjectId={activeProject.meta.id}
-                        onQuestionsAdded={(questions) => {
-                          setActiveProject({ ...activeProject, questions });
-                          setEditorTab('practice');
-                        }}
-                        onStatus={setStatus}
-                      />
-                    )}
-
-                    {editorTab === 'practice' && (
-                      <PracticePanel
-                        questions={activeProject.questions}
-                        activeProjectId={activeProject.meta.id}
-                        onQuestionsUpdated={(questions) => setActiveProject({ ...activeProject, questions })}
-                        onStatus={setStatus}
-                      />
-                    )}
-
-                    {editorTab === 'config' && (
-                      <>
-                        <div className="section-title">课程配置</div>
-                        <textarea value={configText} onChange={(e) => setConfigText(e.target.value)} />
-                        <div className="panel-actions horizontal">
-                          <button className="primary" onClick={() => void saveProjectConfig()}>保存 YAML</button>
-                        </div>
-                      </>
-                    )}
-
-                    {editorTab === 'progress' && (
-                      <>
-                        <div className="section-title">项目进度</div>
-                        <textarea value={progressText} onChange={(e) => setProgressText(e.target.value)} />
-                        <div className="document-view markdown-preview">
-                          <div className="section-title">Markdown 预览</div>
-                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(progressText || '暂无进度内容。') }} />
-                        </div>
-                        <div className="panel-actions horizontal">
-                          <button className="primary" onClick={() => void saveProjectProgress()}>保存进度</button>
-                        </div>
-                      </>
-                    )}
-                  </section>
-
-                  {/* 右栏：Agent 聊天（内嵌版，非 AI 抽屉时显示） */}
-                  <section className="panel right-pane">
-                    <div className="section-title">Agent 交互</div>
-                    <label style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      项目聊天模型
-                      <select value={activeProject.meta.model} onChange={(e) => void updateActiveProjectModel(e.target.value)} style={{ fontSize: '12px' }}>
+                  <div className="project-hero-actions">
+                    <label>
+                      项目模型
+                      <select value={activeProject.meta.model} onChange={(e) => void updateActiveProjectModel(e.target.value)}>
                         {availableProjectModels.map((m) => (
                           <option key={`${m.providerId}:${m.id}`} value={m.id}>{m.label}</option>
                         ))}
                       </select>
                     </label>
-                    <div className="chat-window">
-                      {chatMessages.map((msg, i) => (
-                        <div key={`${msg.role}-${i}`} className={msg.role === 'assistant' ? 'chat-msg assistant' : 'chat-msg user'}>
-                          <div className="chat-bubble">{msg.content}</div>
-                          <div className="chat-time">{formatDate(msg.createdAt)}</div>
-                        </div>
-                      ))}
+                    <button onClick={() => { setAiTab('chat'); setAiDrawerOpen(true); }}>打开 AI 助教</button>
+                    <button onClick={() => setViewMode('export')}>导出成果</button>
+                  </div>
+                </section>
+
+                <nav className="project-page-tabs segmented-control">
+                  <button className={editorTab === 'profile' ? 'active' : ''} onClick={() => setEditorTab('profile')}>画像</button>
+                  <button className={editorTab === 'agents' ? 'active' : ''} onClick={() => setEditorTab('agents')}>智能体</button>
+                  <button className={editorTab === 'resources' ? 'active' : ''} onClick={() => setEditorTab('resources')}>资源</button>
+                  <button className={editorTab === 'path' ? 'active' : ''} onClick={() => setEditorTab('path')}>路径</button>
+                  <button className={editorTab === 'report' ? 'active' : ''} onClick={() => setEditorTab('report')}>报告</button>
+                  <button className={editorTab === 'delivery' ? 'active' : ''} onClick={() => setEditorTab('delivery')}>交付</button>
+                  <button className={editorTab === 'overview' ? 'active' : ''} onClick={() => setEditorTab('overview')}>概览</button>
+                  <button className={editorTab === 'materials' ? 'active' : ''} onClick={() => setEditorTab('materials')}>素材</button>
+                  <button className={editorTab === 'practice' ? 'active' : ''} onClick={() => setEditorTab('practice')}>练习</button>
+                  <button className={editorTab === 'import' ? 'active' : ''} onClick={() => setEditorTab('import')}>题库</button>
+                  <button className={editorTab === 'config' ? 'active' : ''} onClick={() => setEditorTab('config')}>YAML</button>
+                  <button className={editorTab === 'progress' ? 'active' : ''} onClick={() => setEditorTab('progress')}>进度</button>
+                </nav>
+
+                {editorTab === 'overview' && (
+                  <section className="panel workspace-overview-card">
+                    <div className="section-title">项目概览</div>
+                    <div className="summary-grid workspace-summary-grid">
+                      <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
+                      <div><span>知识库</span><strong>{activeProject.knowledgeBase.length}</strong></div>
+                      <div><span>题库</span><strong>{activeProject.questions.length}</strong></div>
+                      <div><span>对话</span><strong>{activeProject.chatHistory.length}</strong></div>
                     </div>
-                    <textarea
-                      className="chat-input"
-                      value={agentInput}
-                      onChange={(e) => setAgentInput(e.target.value)}
-                      placeholder="输入学习问题、让 Agent 提取错题规律..."
-                      style={{ minHeight: '80px', fontSize: '13px' }}
-                    />
-                    <div className="panel-actions horizontal wrap-row">
-                      <button className="primary" onClick={() => void runProjectChat()} disabled={isChatSending} style={{ fontSize: '12px' }}>
-                        {isChatSending ? '发送中…' : '发送给 Agent'}
+
+                    <div className="workspace-jump-grid">
+                      <button className="workspace-jump-card" onClick={() => setEditorTab('materials')}>
+                        <span>01</span>
+                        <strong>整理素材</strong>
+                        <small>上传课件、提炼知识库、查看拓展资源</small>
                       </button>
-                      <button onClick={() => void saveChatToKnowledgeBase()} style={{ fontSize: '12px' }}>沉淀到知识库</button>
+                      <button className="workspace-jump-card" onClick={() => setAiDrawerOpen(true)}>
+                        <span>02</span>
+                        <strong>让 AI 讲授</strong>
+                        <small>打开右侧助教，围绕当前项目追问</small>
+                      </button>
+                      <button className="workspace-jump-card" onClick={() => setEditorTab('practice')}>
+                        <span>03</span>
+                        <strong>开始检题</strong>
+                        <small>进入练习页刷题、标错和复盘</small>
+                      </button>
+                      <button className="workspace-jump-card" onClick={() => setEditorTab('progress')}>
+                        <span>04</span>
+                        <strong>记录补漏</strong>
+                        <small>把薄弱点写入进度页，导出前统一整理</small>
+                      </button>
                     </div>
-                    <div className="knowledge-box">
-                      <div style={{ fontWeight: 600 }}>当前模型：{activeProject.meta.model}</div>
-                      <div className="muted">Provider：{activeProject.meta.provider}</div>
-                      <div className="muted">{activeProject.meta.knowledgeBasePath}</div>
+
+                    <div className="document-view compact-context">
+                      <h3>当前上下文</h3>
+                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(activeProject.meta.requirements || activeProject.meta.textbook || '暂无项目说明，建议先进入素材页上传资料。') }} />
                     </div>
                   </section>
-                </div>
+                )}
+
+                {editorTab === 'profile' && (
+                  <LearningProfilePage
+                    projectId={activeProject.meta.id}
+                    state={learningProfileState ?? activeProject.learningProfile ?? null}
+                    onChange={(next) => {
+                      setLearningProfileState(next);
+                      setActiveProject({ ...activeProject, learningProfile: next });
+                    }}
+                    onSave={saveLearningProfile}
+                    onAnalyze={analyzeLearningProfile}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'agents' && (
+                  <AgentOrchestrationPage
+                    profileReady={Boolean(learningProfileState?.profile.updatedAt)}
+                    resourceCount={personalizedResources.length}
+                    hasPathPlan={Boolean(learningPathPlan)}
+                    reportCount={stageReports.length}
+                    onOpenTab={(tab) => setEditorTab(tab)}
+                  />
+                )}
+
+                {editorTab === 'resources' && (
+                  <PersonalizedResourcesPage
+                    resources={personalizedResources}
+                    onGenerate={generatePersonalizedResources}
+                    onSave={savePersonalizedResource}
+                    onDelete={deletePersonalizedResource}
+                    onChange={(next) => {
+                      setPersonalizedResources(next);
+                      setActiveProject({ ...activeProject, personalizedResources: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'path' && (
+                  <LearningPathPage
+                    plan={learningPathPlan}
+                    resources={personalizedResources}
+                    onGenerate={generateLearningPathPlan}
+                    onSave={saveLearningPathPlan}
+                    onChange={(next) => {
+                      setLearningPathPlan(next);
+                      setActiveProject({ ...activeProject, learningPathPlan: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'report' && (
+                  <StageReportPage
+                    reports={stageReports}
+                    onGenerate={generateStageReport}
+                    onSave={saveStageReport}
+                    onChange={(next) => {
+                      setStageReports(next);
+                      setActiveProject({ ...activeProject, stageReports: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'delivery' && (
+                  <DeliveryPackagePage
+                    deliveryPackage={deliveryPackage ?? activeProject.deliveryPackage ?? null}
+                    onGenerate={generateDeliveryPackage}
+                    onSave={saveDeliveryPackage}
+                    onExport={exportDeliveryPackage}
+                    onChange={(next) => {
+                      setDeliveryPackage(next);
+                      setActiveProject({ ...activeProject, deliveryPackage: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'materials' && (
+                  <section className="panel workspace-materials-page">
+                    <div className="page-section-header">
+                      <div>
+                        <div className="section-title">素材与知识库</div>
+                        <h3>先把资料放清楚，再让 AI 讲清楚</h3>
+                        <p className="muted">这一页只处理上传素材、项目知识库和外部拓展资源。</p>
+                      </div>
+                      <button className="primary" onClick={() => void importFiles()}>
+                        + 上传素材（文件 / 图片）
+                      </button>
+                    </div>
+
+                    <div className="materials-page-grid">
+                      <div className="mini-section">
+                        <div className="subsection-title">已导入素材</div>
+                        <div className="stack-list">
+                          {activeProject.uploads.length ? activeProject.uploads.map((upload) => (
+                            <div key={upload.storedPath} className="upload-card material-card">
+                              <div className="upload-kind">{upload.kind === 'image' ? '图片' : '文件'}</div>
+                              <UploadImagePreview projectId={activeProject.meta.id} upload={upload} />
+                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{upload.name}</div>
+                              <div className="muted">{upload.parsed?.summary || '已导入，等待解析'}</div>
+                              {upload.parsed?.extractedText && (
+                                <div className="parsed-preview">{upload.parsed.extractedText}</div>
+                              )}
+                              {upload.parsed && (
+                                <button onClick={() => void saveUploadToKnowledgeBase(upload)} style={{ fontSize: '12px' }}>
+                                  提炼到知识库
+                                </button>
+                              )}
+                            </div>
+                          )) : <div className="empty-slim">还没有上传资料，先点右上角上传。</div>}
+                        </div>
+                      </div>
+
+                      <div className="mini-section">
+                        <div className="subsection-title">项目知识库</div>
+                        <input
+                          value={knowledgeQuery}
+                          onChange={(e) => setKnowledgeQuery(e.target.value)}
+                          placeholder="按标题 / 摘要 / 标签筛选..."
+                        />
+                        <div className="muted">共 {activeProject.knowledgeBase.length} 条 &middot; 显示 {filteredKnowledgeBase.length} 条</div>
+                        <div className="stack-list">
+                          {filteredKnowledgeBase.length ? filteredKnowledgeBase.map((entry) => (
+                            <div key={entry.id} className="stack-item knowledge-entry material-card">
+                              <div className="knowledge-header">
+                                <strong>{entry.title}</strong>
+                                <span className="upload-kind">{entry.source}</span>
+                              </div>
+                              <div className="knowledge-tags">
+                                {entry.tags.map((tag) => <span key={`${entry.id}-${tag}`} className="upload-kind">{tag}</span>)}
+                              </div>
+                              <button onClick={() => void loadKnowledgeResources(entry.tags[0] || entry.title)} style={{ fontSize: '12px' }}>
+                                知识点拓展
+                              </button>
+                            </div>
+                          )) : <div className="empty-slim">暂无知识库条目，可先把素材提炼进来。</div>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {knowledgeResources.length > 0 && (
+                      <KnowledgeResourceList resources={knowledgeResources} onOpen={(r) => void openResource(r)} />
+                    )}
+                  </section>
+                )}
+
+                {editorTab === 'import' && (
+                  <section className="panel project-single-page">
+                    <QuestionImportPanel
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsAdded={(questions) => {
+                        setActiveProject({ ...activeProject, questions });
+                        setEditorTab('practice');
+                      }}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {editorTab === 'practice' && (
+                  <section className="panel project-single-page">
+                    <PracticePanel
+                      questions={activeProject.questions}
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsUpdated={(questions) => setActiveProject({ ...activeProject, questions })}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {editorTab === 'config' && (
+                  <section className="panel project-single-page">
+                    <div className="section-title">课程配置</div>
+                    <textarea value={configText} onChange={(e) => setConfigText(e.target.value)} />
+                    <div className="panel-actions horizontal">
+                      <button className="primary" onClick={() => void saveProjectConfig()}>保存 YAML</button>
+                    </div>
+                  </section>
+                )}
+
+                {editorTab === 'progress' && (
+                  <section className="panel project-single-page">
+                    <div className="section-title">项目进度</div>
+                    <textarea value={progressText} onChange={(e) => setProgressText(e.target.value)} />
+                    <div className="document-view markdown-preview">
+                      <div className="section-title">Markdown 预览</div>
+                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(progressText || '暂无进度内容。') }} />
+                    </div>
+                    <div className="panel-actions horizontal">
+                      <button className="primary" onClick={() => void saveProjectProgress()}>保存进度</button>
+                    </div>
+                  </section>
+                )}
               </div>
             )}
 
@@ -1500,7 +1856,8 @@ export default function App() {
         </main>
 
         {/* ---- AI 抽屉（右侧可折叠聊天面板） ---- */}
-        <aside className={`ai-drawer ${aiDrawerOpen ? '' : 'collapsed'}`}>
+        {aiDrawerOpen && (
+        <aside className="ai-drawer">
           <div className="ai-drawer-header">
             <div>
               <h2>AI 助教</h2>
@@ -1534,7 +1891,7 @@ export default function App() {
                         </span>
                       </div>
                     )}
-                    <div className="chat-bubble">{msg.content}</div>
+                    <ChatBubble content={msg.content} />
                     <div className="chat-time">{formatDate(msg.createdAt)}</div>
                   </div>
                 ))}
@@ -1574,6 +1931,7 @@ export default function App() {
             </div>
           </div>
         </aside>
+        )}
       </div>
 
       {/* ---- 底部状态栏 ---- */}
@@ -1581,7 +1939,7 @@ export default function App() {
         <div className="statusbar-left">
           <span>Cram Engine v1.0</span>
           <div className="statusbar-dot" style={{ background: settingsHasApiKey ? '#28c840' : '#ff5f57' }} />
-          <span>{settingsHasApiKey ? `模型: ${currentModelLabel} | 已连接` : 'API Key 未配置'}</span>
+          <span>{settingsHasApiKey ? `模型: ${currentModelLabel} | 已连接` : 'API Key 未填写'}</span>
         </div>
         <div className="statusbar-right">
           <a onClick={openSystemStatus} style={{ cursor: 'pointer' }}>系统状态</a>

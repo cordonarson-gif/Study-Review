@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterProviders, getSelectableModels, hideOrShowModel, removeCustomModel } from './providerSettings.js';
+import { filterProviders, findConfiguredProvider, getSelectableModels, hideOrShowModel, removeCustomModel } from './providerSettings.js';
 
 const providers = [
   { id: 'openai', label: 'OpenAI', enabled: true, models: [{ id: 'gpt', label: 'GPT', enabled: true, source: 'preset' }, { id: 'hidden', label: 'Hidden', enabled: false, source: 'fetched' }] },
@@ -13,6 +13,20 @@ test('filterProviders keeps source order', () => {
 
 test('getSelectableModels excludes disabled profiles and hidden models', () => {
   assert.deepEqual(getSelectableModels(providers), [{ providerId: 'openai', id: 'gpt', label: 'GPT' }]);
+});
+
+test('findConfiguredProvider falls back to another enabled provider with credentials', () => {
+  const openai = { ...providers[0], apiKey: '', baseUrl: 'https://api.openai.com/v1' };
+  const maylily = { ...providers[1], enabled: true, apiKey: 'sk-test', baseUrl: 'https://maylily.xyz/v1' };
+
+  assert.equal(findConfiguredProvider([openai, maylily], 'openai')?.id, 'deepseek');
+});
+
+test('findConfiguredProvider prefers the active provider when it has credentials', () => {
+  const openai = { ...providers[0], apiKey: 'sk-openai', baseUrl: 'https://api.openai.com/v1' };
+  const maylily = { ...providers[1], enabled: true, apiKey: 'sk-test', baseUrl: 'https://maylily.xyz/v1' };
+
+  assert.equal(findConfiguredProvider([openai, maylily], 'openai')?.id, 'openai');
 });
 
 test('hideOrShowModel clears a selected model without a visible fallback', () => {
