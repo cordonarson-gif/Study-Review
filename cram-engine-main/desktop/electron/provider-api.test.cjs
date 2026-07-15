@@ -114,6 +114,12 @@ test('classifyProviderResponse identifies authentication failures', async () => 
     message: 'API Key 无效或没有访问权限',
     status: 401
   });
+  assert.deepEqual(providerApi.classifyProviderResponse({ ok: false, status: 403, statusText: 'Forbidden' }), {
+    ok: false,
+    kind: 'authentication',
+    message: 'API Key 无效或没有访问权限',
+    status: 403
+  });
 });
 
 test('classifyProviderResponse identifies unavailable model-list endpoints', async () => {
@@ -185,6 +191,36 @@ test('mergeManagedModels preserves custom and hidden fetched models without muta
   assert.deepEqual(existing, existingBefore);
   assert.deepEqual(fetched, fetchedBefore);
   assert.notStrictEqual(merged[2], existing[2]);
+});
+
+test('mergeManagedModels retains an existing fetched label when the server label is blank', async () => {
+  const providerApi = await loadProviderApi();
+  const merged = providerApi.mergeManagedModels(
+    [{ id: 'fetched-model', label: 'Saved label', source: 'fetched', enabled: false }],
+    [{ id: ' fetched-model ', label: '   ' }]
+  );
+
+  assert.deepEqual(merged, [
+    { id: 'fetched-model', label: 'Saved label', source: 'fetched', enabled: false }
+  ]);
+});
+
+test('mergeManagedModels omits blank existing ids while preserving valid model order and state', async () => {
+  const providerApi = await loadProviderApi();
+  const merged = providerApi.mergeManagedModels(
+    [
+      { id: '   ', label: 'Blank', source: 'custom', enabled: true },
+      { id: 'preset-model', label: 'Preset', source: 'preset', enabled: false },
+      { id: 'fetched-model', label: 'Saved fetched label', source: 'fetched', enabled: false }
+    ],
+    [{ id: 'fetched-model', label: 'Server fetched label' }]
+  );
+
+  assert.deepEqual(merged, [
+    { id: 'preset-model', label: 'Preset', source: 'preset', enabled: false },
+    { id: 'fetched-model', label: 'Server fetched label', source: 'fetched', enabled: false }
+  ]);
+  assert.equal(merged.some((model) => !model.id.trim()), false);
 });
 
 test('mergeManagedModels ignores blank fetched ids and keeps the first value for duplicate ids', async () => {

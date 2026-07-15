@@ -127,7 +127,7 @@ export function mergeManagedModels(
   for (const existingModel of existing) {
     const id = existingModel.id.trim();
 
-    if (existingIds.has(id)) {
+    if (!id || existingIds.has(id)) {
       continue;
     }
 
