@@ -18,9 +18,33 @@ type LegacySettingsCompatibility = {
 
 type SettingsCompatibilityResult = AppSettings & LegacySettingsCompatibility;
 
+type LegacyCompatibilitySnapshot = LegacySettingsCompatibility & {
+  profileId: string;
+};
+
+let lastLegacyCompatibilitySnapshot: LegacyCompatibilitySnapshot | null = null;
+
+function rememberLegacyCompatibilitySnapshot(profile: AppSettings['providers'][number] | undefined) {
+  if (!profile) {
+    lastLegacyCompatibilitySnapshot = null;
+    return;
+  }
+
+  lastLegacyCompatibilitySnapshot = {
+    profileId: profile.id,
+    apiKey: profile.apiKey,
+    baseUrl: profile.baseUrl,
+    provider: profile.provider,
+    model: profile.selectedModelId,
+    availableModels: []
+  };
+}
+
 function toLegacySettings(settings: AppSettings): SettingsCompatibilityResult {
   const profile = settings.providers.find((candidate) => candidate.id === settings.activeProviderId)
     ?? settings.providers[0];
+
+  rememberLegacyCompatibilitySnapshot(profile);
 
   return {
     ...settings,
@@ -46,6 +70,38 @@ function isAppSettings(settings: unknown): settings is AppSettings {
     && Array.isArray(settings.providers);
 }
 
+function hasLegacyCompatibilityFields(settings: AppSettings & Partial<LegacySettingsCompatibility>): boolean {
+  return 'apiKey' in settings
+    || 'baseUrl' in settings
+    || 'provider' in settings
+    || 'model' in settings;
+}
+
+function shouldApplyLegacyField(
+  profile: AppSettings['providers'][number],
+  activeProfile: AppSettings['providers'][number],
+  field: 'apiKey' | 'baseUrl' | 'model',
+  value: unknown
+): value is string {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  if (profile.id === activeProfile.id) {
+    return true;
+  }
+
+  if (!lastLegacyCompatibilitySnapshot) {
+    return false;
+  }
+
+  if (profile.id === lastLegacyCompatibilitySnapshot.profileId) {
+    return true;
+  }
+
+  return value !== lastLegacyCompatibilitySnapshot[field];
+}
+
 function toV2Settings(settings: unknown): AppSettings {
   const migrated = migrateSettings(settings);
   if (!isAppSettings(settings)) {
@@ -53,6 +109,10 @@ function toV2Settings(settings: unknown): AppSettings {
   }
 
   const legacy = settings as AppSettings & Partial<LegacySettingsCompatibility>;
+  if (!hasLegacyCompatibilityFields(legacy)) {
+    return migrated;
+  }
+
   const activeProfile = migrated.providers.find((candidate) => candidate.id === migrated.activeProviderId)
     ?? migrated.providers[0];
 
@@ -60,18 +120,28 @@ function toV2Settings(settings: unknown): AppSettings {
     return migrated;
   }
 
-  const profile = legacy.provider === activeProfile.provider
+  const legacyProvider = typeof legacy.provider === 'string' ? legacy.provider : activeProfile.provider;
+  const profile = legacyProvider === activeProfile.provider
     ? activeProfile
-    : migrated.providers.find((candidate) => candidate.provider === legacy.provider) ?? activeProfile;
+    : migrated.providers.find((candidate) => candidate.provider === legacyProvider) ?? activeProfile;
+  const nextApiKey = shouldApplyLegacyField(profile, activeProfile, 'apiKey', legacy.apiKey)
+    ? legacy.apiKey
+    : profile.apiKey;
+  const nextBaseUrl = shouldApplyLegacyField(profile, activeProfile, 'baseUrl', legacy.baseUrl)
+    ? legacy.baseUrl
+    : profile.baseUrl;
+  const nextModel = shouldApplyLegacyField(profile, activeProfile, 'model', legacy.model)
+    ? legacy.model
+    : profile.selectedModelId;
 
   return {
     ...migrated,
     activeProviderId: profile.id,
     providers: migrated.providers.map((candidate) => candidate.id === profile.id ? {
       ...candidate,
-      baseUrl: legacy.baseUrl ?? candidate.baseUrl,
-      apiKey: legacy.apiKey ?? candidate.apiKey,
-      selectedModelId: legacy.model ?? candidate.selectedModelId
+      baseUrl: nextBaseUrl,
+      apiKey: nextApiKey,
+      selectedModelId: nextModel
     } : candidate)
   };
 }
