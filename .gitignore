@@ -25,3 +25,6 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Isolated agent worktrees
+.worktrees/
