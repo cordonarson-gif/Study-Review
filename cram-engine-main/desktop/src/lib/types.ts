@@ -23,6 +23,38 @@ export type ModelOption = {
   source: 'preset' | 'fetched' | 'custom';
 };
 
+export type ProviderKind = 'anthropic' | 'openai-compatible' | 'aliyun';
+
+export type ManagedModelSource = 'preset' | 'fetched' | 'custom';
+
+export type ManagedModel = {
+  id: string;
+  label: string;
+  source: ManagedModelSource;
+  enabled: boolean;
+};
+
+export type ProviderProfile = {
+  id: string;
+  label: string;
+  provider: ProviderKind;
+  baseUrl: string;
+  apiKey: string;
+  enabled: boolean;
+  isCustom: boolean;
+  selectedModelId: string;
+  models: ManagedModel[];
+};
+
+export type ConnectionCheckResult =
+  | { ok: true; message: string; status: number }
+  | {
+      ok: false;
+      kind: 'credentials' | 'authentication' | 'endpoint' | 'network' | 'service';
+      message: string;
+      status?: number;
+    };
+
 export type ParsedUpload = {
   title: string;
   kind: 'file' | 'image';
@@ -75,7 +107,7 @@ export type ChatTurn = {
   model?: string;
 };
 
-export type AppSettings = {
+export type LegacyAppSettings = {
   apiKey: string;
   baseUrl: string;
   provider: string;
@@ -87,6 +119,19 @@ export type AppSettings = {
   availableModels: ModelOption[];
   lastModelSyncAt: string | null;
 };
+
+export type VersionedAppSettings = {
+  version: 2;
+  activeProviderId: string;
+  providers: ProviderProfile[];
+  temperature: number;
+  maxTokens: number;
+  latexEngine: 'xelatex' | 'pdflatex';
+  enableLatexPreview: boolean;
+  lastModelSyncAt: string | null;
+};
+
+export type AppSettings = VersionedAppSettings & LegacyAppSettings;
 
 export type ProjectSourceFile = {
   name: string;
@@ -194,7 +239,27 @@ export const presetModels: ModelOption[] = providerOptions.flatMap((provider) =>
   }))
 );
 
+export const defaultProviderProfiles: ProviderProfile[] = providerOptions.map((provider) => ({
+  id: provider.id,
+  label: provider.label,
+  provider: provider.id as ProviderKind,
+  baseUrl: provider.baseUrl,
+  apiKey: '',
+  enabled: true,
+  isCustom: false,
+  selectedModelId: provider.models[0],
+  models: provider.models.map((model) => ({
+    id: model,
+    label: model,
+    source: 'preset' as const,
+    enabled: true
+  }))
+}));
+
 export const defaultSettings: AppSettings = {
+  version: 2,
+  activeProviderId: providerOptions[0].id,
+  providers: defaultProviderProfiles,
   apiKey: '',
   baseUrl: providerOptions[0].baseUrl,
   provider: providerOptions[0].id,

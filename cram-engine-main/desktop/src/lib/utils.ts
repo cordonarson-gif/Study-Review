@@ -1,4 +1,4 @@
-import type { ProviderOption } from './types';
+import type { AppSettings, ProviderOption, ProviderProfile } from './types';
 
 export function joinLines(items: string[]) {
   return items.filter(Boolean).map((item) => item.trim()).filter(Boolean).join('\n');
@@ -30,6 +30,23 @@ export function resolveProviderDefaults(providerId: string, options: ProviderOpt
     baseUrl: provider.baseUrl,
     model: provider.models[0]
   };
+}
+
+export function getActiveProviderProfile(settings: Pick<AppSettings, 'activeProviderId' | 'providers'>): ProviderProfile {
+  return settings.providers.find((profile) => profile.id === settings.activeProviderId)
+    ?? settings.providers.find((profile) => profile.enabled)
+    ?? settings.providers[0];
+}
+
+export function getProfileModelOptions(profile: ProviderProfile) {
+  return profile.models
+    .filter((model) => model.enabled)
+    .map((model) => ({
+      id: model.id,
+      label: model.label || model.id,
+      provider: profile.id,
+      source: model.source
+    }));
 }
 
 export function formatDate(iso: string) {
