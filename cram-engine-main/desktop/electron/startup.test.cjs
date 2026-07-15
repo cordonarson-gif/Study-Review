@@ -149,6 +149,7 @@ test('preload adapts v2 settings for the legacy renderer without changing the IP
   assert.match(source, /getSettings: \(\) => ipcRenderer\.invoke\('settings:get'\)\.then\(toLegacySettings\)/);
   assert.match(source, /saveSettings: \(settings: unknown\) => ipcRenderer\.invoke\('settings:save', toV2Settings\(settings\)\)\.then\(toLegacySettings\)/);
   assert.match(source, /let lastLegacyCompatibilitySnapshot: LegacyCompatibilitySnapshot \| null = null/);
+  assert.match(source, /const legacyProviderDefaults: Record<string, Pick<LegacySettingsCompatibility, 'baseUrl' \| 'model'>>/);
   assert.match(source, /function shouldApplyLegacyField\(/);
   assert.match(source, /fetchModels: \(\) => ipcRenderer\.invoke\('settings:fetchModels'\)\.then\(toLegacySettings\)/);
 });
@@ -162,6 +163,29 @@ test('preload preserves destination provider credentials when legacy renderer sw
     await api.saveSettings({
       ...legacySettings,
       provider: 'aliyun'
+    });
+
+    const saved = getSavedSettings();
+    const aliyun = saved.providers.find((profile) => profile.id === 'aliyun');
+
+    assert.equal(saved.activeProviderId, 'aliyun');
+    assert.equal(aliyun.apiKey, 'aliyun-existing-key');
+    assert.equal(aliyun.baseUrl, 'https://aliyun.example/v1');
+    assert.equal(aliyun.selectedModelId, 'qwen-existing');
+  });
+});
+
+test('preload preserves destination provider custom values when legacy renderer switches providers with dropdown defaults', async () => {
+  const settings = createProviderSettings();
+
+  await withPreloadApi(settings, async (api, getSavedSettings) => {
+    const legacySettings = await api.getSettings();
+
+    await api.saveSettings({
+      ...legacySettings,
+      provider: 'aliyun',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen-plus'
     });
 
     const saved = getSavedSettings();

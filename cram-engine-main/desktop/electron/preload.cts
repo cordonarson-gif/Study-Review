@@ -22,6 +22,21 @@ type LegacyCompatibilitySnapshot = LegacySettingsCompatibility & {
   profileId: string;
 };
 
+const legacyProviderDefaults: Record<string, Pick<LegacySettingsCompatibility, 'baseUrl' | 'model'>> = {
+  'openai-compatible': {
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4.1'
+  },
+  aliyun: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus'
+  },
+  anthropic: {
+    baseUrl: 'https://api.anthropic.com',
+    model: 'claude-opus-4-8'
+  }
+};
+
 let lastLegacyCompatibilitySnapshot: LegacyCompatibilitySnapshot | null = null;
 
 function rememberLegacyCompatibilitySnapshot(profile: AppSettings['providers'][number] | undefined) {
@@ -77,6 +92,16 @@ function hasLegacyCompatibilityFields(settings: AppSettings & Partial<LegacySett
     || 'model' in settings;
 }
 
+function isLegacyProviderDefault(
+  profile: AppSettings['providers'][number],
+  field: 'apiKey' | 'baseUrl' | 'model',
+  value: string
+): boolean {
+  const defaults = legacyProviderDefaults[profile.provider];
+  return (field === 'baseUrl' && value === defaults?.baseUrl)
+    || (field === 'model' && value === defaults?.model);
+}
+
 function shouldApplyLegacyField(
   profile: AppSettings['providers'][number],
   activeProfile: AppSettings['providers'][number],
@@ -99,7 +124,8 @@ function shouldApplyLegacyField(
     return true;
   }
 
-  return value !== lastLegacyCompatibilitySnapshot[field];
+  return value !== lastLegacyCompatibilitySnapshot[field]
+    && !isLegacyProviderDefault(profile, field, value);
 }
 
 function toV2Settings(settings: unknown): AppSettings {
