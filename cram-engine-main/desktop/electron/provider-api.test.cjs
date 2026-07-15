@@ -36,6 +36,19 @@ test('buildModelsRequest uses bearer auth for openai-compatible providers', asyn
   assert.equal(request.headers['x-api-key'], undefined);
 });
 
+test('buildModelsRequest uses bearer auth for aliyun providers', async () => {
+  const providerApi = await loadProviderApi();
+  const request = providerApi.buildModelsRequest({
+    provider: 'aliyun',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
+    apiKey: 'test-key'
+  });
+
+  assert.equal(request.url, 'https://dashscope.aliyuncs.com/compatible-mode/v1/models');
+  assert.equal(request.headers.Authorization, 'Bearer test-key');
+  assert.equal(request.headers['x-api-key'], undefined);
+});
+
 test('buildChatRequest creates anthropic messages payload', async () => {
   const providerApi = await loadProviderApi();
   const request = providerApi.buildChatRequest({
@@ -80,4 +93,120 @@ test('parseChatResponse reads openai-compatible message content', async () => {
   });
 
   assert.equal(text, 'hello world');
+});
+
+test('classifyProviderResponse reports a successful connection', async () => {
+  const providerApi = await loadProviderApi();
+
+  assert.deepEqual(providerApi.classifyProviderResponse({ ok: true, status: 200, statusText: 'OK' }), {
+    ok: true,
+    message: '连接成功',
+    status: 200
+  });
+});
+
+test('classifyProviderResponse identifies authentication failures', async () => {
+  const providerApi = await loadProviderApi();
+
+  assert.deepEqual(providerApi.classifyProviderResponse({ ok: false, status: 401, statusText: 'Unauthorized' }), {
+    ok: false,
+    kind: 'authentication',
+    message: 'API Key 无效或没有访问权限',
+    status: 401
+  });
+});
+
+test('classifyProviderResponse identifies unavailable model-list endpoints', async () => {
+  const providerApi = await loadProviderApi();
+
+  assert.deepEqual(providerApi.classifyProviderResponse({ ok: false, status: 404, statusText: 'Not Found' }), {
+    ok: false,
+    kind: 'endpoint',
+    message: 'API 地址或模型列表路径不可用',
+    status: 404
+  });
+});
+
+test('classifyProviderResponse identifies service failures without exposing response text', async () => {
+  const providerApi = await loadProviderApi();
+
+  assert.deepEqual(providerApi.classifyProviderResponse({ ok: false, status: 500, statusText: 'Internal Server Error' }), {
+    ok: false,
+    kind: 'service',
+    message: 'API 服务返回错误（500）',
+    status: 500
+  });
+});
+
+test('classifyProviderError identifies connection timeouts', async () => {
+  const providerApi = await loadProviderApi();
+  const error = new Error('request aborted');
+  error.name = 'AbortError';
+
+  assert.deepEqual(providerApi.classifyProviderError(error), {
+    ok: false,
+    kind: 'service',
+    message: '连接超时'
+  });
+});
+
+test('classifyProviderError identifies transport failures', async () => {
+  const providerApi = await loadProviderApi();
+
+  assert.deepEqual(providerApi.classifyProviderError(new TypeError('fetch failed')), {
+    ok: false,
+    kind: 'network',
+    message: '无法连接到 API 服务'
+  });
+});
+
+test('mergeManagedModels preserves custom and hidden fetched models without mutating inputs', async () => {
+  const providerApi = await loadProviderApi();
+  const existing = [
+    { id: 'gpt-4.1', label: 'GPT-4.1', source: 'preset', enabled: true },
+    { id: 'my-model', label: 'My model', source: 'custom', enabled: false },
+    { id: 'old-fetched', label: 'Old fetched label', source: 'fetched', enabled: false }
+  ];
+  const fetched = [
+    { id: ' old-fetched ', label: 'Updated fetched label' },
+    { id: 'new-fetched', label: 'New fetched label' }
+  ];
+  const existingBefore = structuredClone(existing);
+  const fetchedBefore = structuredClone(fetched);
+
+  const merged = providerApi.mergeManagedModels(existing, fetched);
+
+  assert.deepEqual(merged, [
+    { id: 'gpt-4.1', label: 'GPT-4.1', source: 'preset', enabled: true },
+    { id: 'my-model', label: 'My model', source: 'custom', enabled: false },
+    { id: 'old-fetched', label: 'Updated fetched label', source: 'fetched', enabled: false },
+    { id: 'new-fetched', label: 'New fetched label', source: 'fetched', enabled: true }
+  ]);
+  assert.deepEqual(existing, existingBefore);
+  assert.deepEqual(fetched, fetchedBefore);
+  assert.notStrictEqual(merged[2], existing[2]);
+});
+
+test('mergeManagedModels ignores blank fetched ids and keeps the first value for duplicate ids', async () => {
+  const providerApi = await loadProviderApi();
+  const merged = providerApi.mergeManagedModels(
+    [
+      { id: 'existing', label: 'Existing model', source: 'preset', enabled: false },
+      { id: 'existing', label: 'Ignored duplicate', source: 'custom', enabled: true }
+    ],
+    [
+      { id: '   ', label: 'Ignored blank' },
+      { id: ' remote-model ', label: 'Remote model' },
+      { id: 'remote-model', label: 'Ignored fetched duplicate' },
+      { id: 'existing', label: 'Does not replace preset' },
+      { id: 'next-model' },
+      { id: 'next-model', label: 'Ignored second next model' }
+    ]
+  );
+
+  assert.deepEqual(merged, [
+    { id: 'existing', label: 'Existing model', source: 'preset', enabled: false },
+    { id: 'remote-model', label: 'Remote model', source: 'fetched', enabled: true },
+    { id: 'next-model', label: 'next-model', source: 'fetched', enabled: true }
+  ]);
 });

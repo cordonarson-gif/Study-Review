@@ -1,5 +1,21 @@
 export type ProviderId = 'anthropic' | 'openai-compatible' | 'aliyun';
 
+export type ConnectionCheckResult =
+  | { ok: true; message: string; status: number }
+  | {
+      ok: false;
+      kind: 'credentials' | 'authentication' | 'endpoint' | 'network' | 'service';
+      message: string;
+      status?: number;
+    };
+
+type ManagedModel = {
+  id: string;
+  label: string;
+  source: 'preset' | 'fetched' | 'custom';
+  enabled: boolean;
+};
+
 type RequestContext = {
   provider: ProviderId;
   baseUrl: string;
@@ -46,6 +62,100 @@ function buildHeaders(context: RequestContext): Record<string, string> {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${context.apiKey}`
   };
+}
+
+export function classifyProviderResponse(
+  response: Pick<Response, 'ok' | 'status' | 'statusText'>
+): ConnectionCheckResult {
+  if (response.ok) {
+    return { ok: true, message: '连接成功', status: response.status };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return {
+      ok: false,
+      kind: 'authentication',
+      message: 'API Key 无效或没有访问权限',
+      status: response.status
+    };
+  }
+
+  if (response.status === 404) {
+    return {
+      ok: false,
+      kind: 'endpoint',
+      message: 'API 地址或模型列表路径不可用',
+      status: response.status
+    };
+  }
+
+  return {
+    ok: false,
+    kind: 'service',
+    message: `API 服务返回错误（${response.status}）`,
+    status: response.status
+  };
+}
+
+export function classifyProviderError(error: unknown): ConnectionCheckResult {
+  if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') {
+    return { ok: false, kind: 'service', message: '连接超时' };
+  }
+
+  return { ok: false, kind: 'network', message: '无法连接到 API 服务' };
+}
+
+export function mergeManagedModels(
+  existing: ManagedModel[],
+  fetched: Array<{ id: string; label?: string }>
+): ManagedModel[] {
+  const fetchedById = new Map<string, { id: string; label?: string }>();
+
+  for (const fetchedModel of fetched) {
+    const id = fetchedModel.id.trim();
+
+    if (!id || fetchedById.has(id)) {
+      continue;
+    }
+
+    fetchedById.set(id, { id, label: fetchedModel.label });
+  }
+
+  const existingIds = new Set<string>();
+  const merged: ManagedModel[] = [];
+
+  for (const existingModel of existing) {
+    const id = existingModel.id.trim();
+
+    if (existingIds.has(id)) {
+      continue;
+    }
+
+    existingIds.add(id);
+    const fetchedModel = fetchedById.get(id);
+    const fetchedLabel = fetchedModel?.label?.trim();
+
+    merged.push({
+      ...existingModel,
+      id,
+      label: existingModel.source === 'fetched' && fetchedLabel ? fetchedLabel : existingModel.label
+    });
+  }
+
+  for (const fetchedModel of fetchedById.values()) {
+    if (existingIds.has(fetchedModel.id)) {
+      continue;
+    }
+
+    merged.push({
+      id: fetchedModel.id,
+      label: fetchedModel.label?.trim() || fetchedModel.id,
+      source: 'fetched',
+      enabled: true
+    });
+  }
+
+  return merged;
 }
 
 export function resolveDefaultProvider() {
