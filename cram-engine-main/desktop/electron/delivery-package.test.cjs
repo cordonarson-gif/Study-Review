@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const mainSourcePath = path.join(__dirname, 'main.cts');
+const appSourcePath = path.join(__dirname, '..', 'src', 'app', 'App.tsx');
 const typesSourcePath = path.join(__dirname, '..', 'src', 'lib', 'types.ts');
 const globalSourcePath = path.join(__dirname, '..', 'src', 'global.d.ts');
 
@@ -74,6 +75,57 @@ test('mode delivery registry mirrors every renderer template deliverable', async
 
     if (template.mode !== 'exam-review') {
       assert.ok((modeBlock.match(/\bid: 'delivery-[^']+'/g) ?? []).length >= 3, `${template.mode} needs at least three delivery definitions`);
+    }
+  }
+});
+
+test('non-exam delivery requirements only use reachable artifact-producing template tabs', async () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const app = fs.readFileSync(appSourcePath, 'utf8');
+  const { projectModeTemplates } = await import('../src/lib/projectModes.js');
+  const registry = sourceBetween(
+    main,
+    'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
+    '\n};\n\nfunction selectLatestModeArtifactsByTab'
+  );
+  const nonArtifactBlock = sourceBetween(
+    main,
+    'const nonArtifactWorkspaceTabs = new Set<WorkspaceTabId>([',
+    '\n]);\n\ntype ModeDeliveryDefinition'
+  );
+  const nonArtifactTabs = [...nonArtifactBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+
+  assert.deepEqual(nonArtifactTabs, [
+    'graph-view',
+    'game-bank',
+    'game-preview',
+    'mistakes-import',
+    'mistakes-review',
+    'mistakes-practice',
+    'simulation-run'
+  ]);
+  assert.doesNotMatch(nonArtifactBlock, /courseware-preview/);
+  assert.match(app, /isModeTab\(editorTab\) && !specializedModeTabs\.has\(editorTab\)/);
+
+  for (const [index, template] of projectModeTemplates.entries()) {
+    if (template.mode === 'exam-review') continue;
+    const marker = `'${template.mode}': [`;
+    const nextTemplate = projectModeTemplates[index + 1];
+    const modeBlock = nextTemplate
+      ? sourceBetween(registry, marker, `'${nextTemplate.mode}': [`)
+      : registry.slice(registry.indexOf(marker));
+    const templateTabIds = new Set(template.tabs.map((tab) => tab.id));
+    const definitionTabGroups = [...modeBlock.matchAll(/tabIds: \[([^\]]*)\]/g)].map((match) =>
+      [...match[1].matchAll(/'([^']+)'/g)].map((tabMatch) => tabMatch[1])
+    );
+
+    assert.ok(definitionTabGroups.length >= 3, `${template.mode} needs delivery tab groups`);
+    for (const tabIds of definitionTabGroups) {
+      assert.ok(tabIds.length > 0, `${template.mode} delivery definition needs a tab`);
+      for (const tabId of tabIds) {
+        assert.ok(templateTabIds.has(tabId), `${template.mode} references non-template tab ${tabId}`);
+        assert.ok(!nonArtifactTabs.includes(tabId), `${template.mode} requires non-artifact tab ${tabId}`);
+      }
     }
   }
 });

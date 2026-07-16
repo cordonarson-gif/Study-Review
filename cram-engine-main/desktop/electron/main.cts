@@ -2927,6 +2927,16 @@ function buildDeliveryStatus(count: number, readyThreshold = 1): DeliveryPackage
   return count >= readyThreshold ? 'ready' : 'needs-review';
 }
 
+const nonArtifactWorkspaceTabs = new Set<WorkspaceTabId>([
+  'graph-view',
+  'game-bank',
+  'game-preview',
+  'mistakes-import',
+  'mistakes-review',
+  'mistakes-practice',
+  'simulation-run'
+]);
+
 type ModeDeliveryDefinition = {
   id: string;
   title: string;
@@ -3086,7 +3096,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-simulation-dataset',
       title: '仿真数据',
       description: '记录可重复的仿真运行与结果字段。',
-      tabIds: ['simulation-run', 'simulation-results'],
+      tabIds: ['simulation-results'],
       checklist: ['结果有限', '步骤可重复', '字段有说明']
     },
     {
@@ -3171,7 +3181,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-game-question-bank',
       title: '游戏题库',
       description: '组织服务教学目标的题目与挑战。',
-      tabIds: ['game-bank'],
+      tabIds: ['game-rules'],
       checklist: ['题目可用', '选项完整', '答案明确']
     },
     {
@@ -3185,7 +3195,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-game-review',
       title: '游戏复盘',
       description: '基于试玩结果形成学习表现与改进建议。',
-      tabIds: ['game-preview', 'game-results', 'game-feedback'],
+      tabIds: ['game-results', 'game-feedback'],
       checklist: ['结果已记录', '错题可定位', '建议可执行']
     }
   ],
@@ -3194,14 +3204,14 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-graph-schema',
       title: '图谱模式',
       description: '定义来源、节点类型、关系类型与命名规则。',
-      tabIds: ['graph-sources', 'graph-extract'],
+      tabIds: ['graph-extract'],
       checklist: ['节点类型明确', '关系类型明确', '命名一致']
     },
     {
       id: 'delivery-knowledge-graph',
       title: '知识图谱',
       description: '整理可追溯的知识节点、关系和校订记录。',
-      tabIds: ['graph-view', 'graph-curation'],
+      tabIds: ['graph-curation'],
       checklist: ['节点可追溯', '关系有依据', '孤立点已检查']
     },
     {
@@ -3217,7 +3227,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-mistake-bank',
       title: '错题库',
       description: '汇总导入、去重和分类后的错题。',
-      tabIds: ['mistakes-import', 'mistakes-classify'],
+      tabIds: ['mistakes-overview', 'mistakes-classify'],
       checklist: ['题干完整', '答案完整', '解析完整']
     },
     {
@@ -3231,7 +3241,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-mistake-review-plan',
       title: '复练计划',
       description: '安排错题回顾、变式练习和复测标准。',
-      tabIds: ['mistakes-review', 'mistakes-practice'],
+      tabIds: ['mistakes-report'],
       checklist: ['节奏合理', '相似题齐备', '复测标准明确']
     }
   ]
