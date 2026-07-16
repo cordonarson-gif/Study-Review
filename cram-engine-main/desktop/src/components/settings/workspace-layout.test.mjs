@@ -227,13 +227,22 @@ test('new project wizard adapts steps, fields, and imports to the selected mode'
   assert.match(app, /const wizardStepLabels = getWizardStepLabels\(wizard\.mode\)/);
   assert.match(app, /\{wizardStepLabels\[step - 1\]\}/);
 
-  assert.match(app, /selectedWizardTemplate\.wizardFields\.filter\(\(field\) => field\.key !== 'name'\)\.map\(renderModeField\)/);
-  assert.match(app, /function isWizardStateField\(key: string\): key is keyof WizardState/);
-  assert.match(app, /isWizardStateField\(field\.key\)/);
+  assert.match(app, /const handledWizardFieldKeys = new Set\(\['name', 'requirements', 'notes', 'textbook'\]\)/);
+  assert.match(app, /selectedWizardTemplate\.wizardFields\.filter\(\(field\) => !handledWizardFieldKeys\.has\(field\.key\)\)\.map\(renderModeField\)/);
+  assert.match(app, /type WizardStringField = 'name' \| 'courseName' \| 'examType' \| 'textbook' \| 'requirements'/);
+  assert.match(app, /function isWizardStringField\(key: string\): key is WizardStringField/);
+  const stringFieldHelper = app.match(/function isWizardStringField[\s\S]*?\n\}/)?.[0] ?? '';
+  assert.doesNotMatch(stringFieldHelper, /initialWizardState|modeConfig|provider|model/);
+  assert.match(app, /isWizardStringField\(field\.key\)/);
   assert.match(app, /wizard\[field\.key\]/);
   assert.match(app, /updateWizard\(field\.key, value\)/);
   assert.match(app, /wizard\.modeConfig\[field\.key\]/);
   assert.match(app, /updateModeConfig\(field\.key, value\)/);
+  assert.match(
+    app,
+    /wizard\.mode === 'exam-review'[\s\S]*?value=\{wizard\.textbook\}[\s\S]*?appendWizardFiles\('textbook', '; '\)/
+  );
+  assert.equal(app.match(/value=\{wizard\.notes\}/g)?.length, 1);
 
   assert.match(
     app,

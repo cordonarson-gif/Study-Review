@@ -104,8 +104,13 @@ function getWizardStepLabels(mode: ProjectMode) {
     : ['项目信息', '工作目标', '素材导入'];
 }
 
-function isWizardStateField(key: string): key is keyof WizardState {
-  return key !== 'modeConfig' && Object.prototype.hasOwnProperty.call(initialWizardState, key);
+type WizardStringField = 'name' | 'courseName' | 'examType' | 'textbook' | 'requirements';
+
+const wizardStringFields = new Set<WizardStringField>(['name', 'courseName', 'examType', 'textbook', 'requirements']);
+const handledWizardFieldKeys = new Set(['name', 'requirements', 'notes', 'textbook']);
+
+function isWizardStringField(key: string): key is WizardStringField {
+  return wizardStringFields.has(key as WizardStringField);
 }
 
 function toAgentMessages(project: ProjectDetail | null) {
@@ -919,11 +924,11 @@ export default function App() {
   }
 
   function renderModeField(field: WizardField) {
-    const value = isWizardStateField(field.key)
+    const value = isWizardStringField(field.key)
       ? String(wizard[field.key] ?? '')
       : wizard.modeConfig[field.key] ?? '';
     const setFieldValue = (value: string) => {
-      if (isWizardStateField(field.key)) {
+      if (isWizardStringField(field.key)) {
         updateWizard(field.key, value);
         return;
       }
@@ -1505,8 +1510,22 @@ export default function App() {
                         </label>
                       </div>
                       <div className="wizard-mode-field-grid">
-                        {selectedWizardTemplate.wizardFields.filter((field) => field.key !== 'name').map(renderModeField)}
+                        {selectedWizardTemplate.wizardFields.filter((field) => !handledWizardFieldKeys.has(field.key)).map(renderModeField)}
                       </div>
+                      {wizard.mode === 'exam-review' && (
+                        <label className="wizard-mode-field">
+                          教材 / 范围
+                          <div className="wizard-input-row align-start">
+                            <textarea
+                              rows={4}
+                              value={wizard.textbook}
+                              onChange={(e) => updateWizard('textbook', e.target.value)}
+                              placeholder="填写教材、章节或考试范围"
+                            />
+                            <button disabled={wizardFileAction === 'textbook'} onClick={() => void appendWizardFiles('textbook', '; ')} title="上传教材或范围文件">📎 上传文件</button>
+                          </div>
+                        </label>
+                      )}
                       <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
                         链接现有项目目录（可选）
                         <div className="wizard-input-row">
@@ -1527,13 +1546,6 @@ export default function App() {
                         <div className="wizard-input-row align-start">
                           <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '例如：多用中文例子；重点讲简答题套路' : '说明项目目标、期望成果和其他约束'} style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
                           <button disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入">📎</button>
-                        </div>
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        {wizard.mode === 'exam-review' ? '课堂材料 / 备注' : '资料说明'}
-                        <div className="wizard-input-row align-start">
-                          <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '记录讲义、PPT、老师习惯、笔记来源等' : '说明已有素材、参考文件和资料来源'} style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="上传文件关联到备注">📎</button>
                         </div>
                       </label>
                       {wizard.mode === 'exam-review' && (
