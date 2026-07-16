@@ -213,6 +213,34 @@ test('new project wizard starts with a mode selector and mode-specific fields', 
   assert.match(workspaceCss, /\.project-mode-card\b/);
 });
 
+test('new project wizard adapts steps, fields, and imports to the selected mode', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+
+  assert.match(app, /function isQuestionOrientedMode\(mode: ProjectMode\)/);
+  for (const mode of ['exam-review', 'assignment-quiz', 'teaching-game', 'mistake-collection']) {
+    assert.match(app, new RegExp(`'${mode}'`));
+  }
+
+  assert.match(app, /function getWizardStepLabels\(mode: ProjectMode\)/);
+  assert.match(app, /\['项目信息', '出题要求', '题目导入'\]/);
+  assert.match(app, /\['项目信息', '工作目标', '素材导入'\]/);
+  assert.match(app, /const wizardStepLabels = getWizardStepLabels\(wizard\.mode\)/);
+  assert.match(app, /\{wizardStepLabels\[step - 1\]\}/);
+
+  assert.match(app, /selectedWizardTemplate\.wizardFields\.filter\(\(field\) => field\.key !== 'name'\)\.map\(renderModeField\)/);
+  assert.match(app, /function isWizardStateField\(key: string\): key is keyof WizardState/);
+  assert.match(app, /isWizardStateField\(field\.key\)/);
+  assert.match(app, /wizard\[field\.key\]/);
+  assert.match(app, /updateWizard\(field\.key, value\)/);
+  assert.match(app, /wizard\.modeConfig\[field\.key\]/);
+  assert.match(app, /updateModeConfig\(field\.key, value\)/);
+
+  assert.match(
+    app,
+    /isQuestionOrientedMode\(wizard\.mode\)\s*\?\s*\([\s\S]*?value=\{wizard\.initialQuestionText\}[\s\S]*?appendWizardQuestionFiles\(\)[\s\S]*?\)\s*:\s*\([\s\S]*?value=\{wizard\.notes\}[\s\S]*?appendWizardFiles\('notes'\)/
+  );
+});
+
 test('workspace renders mode-specific module pages with persistent artifacts', async () => {
   const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
   const modePage = await readFile(new URL('../modes/ModeModulePage.tsx', import.meta.url), 'utf8');

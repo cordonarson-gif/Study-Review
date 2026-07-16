@@ -1240,6 +1240,12 @@
   font-style: normal;
 }
 
+.wizard-common-field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
 .wizard-mode-field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1253,14 +1259,37 @@
 .wizard-mode-field {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-on-surface);
 }
 
+.wizard-mode-field input,
+.wizard-mode-field select,
+.wizard-mode-field textarea,
+.wizard-input-row input,
+.wizard-input-row select,
+.wizard-input-row textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .wizard-mode-field textarea {
   min-height: 110px;
+}
+
+.wizard-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wizard-input-row.align-start {
+  align-items: flex-start;
 }
 
 .mode-module-page {
@@ -1337,7 +1366,18 @@
   .delivery-summary-grid,
   .delivery-item-grid,
   .project-mode-grid,
+  .wizard-common-field-grid,
   .wizard-mode-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .wizard-input-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wizard-input-row button {
+    width: 100%;
+    white-space: normal !important;
   }
 }

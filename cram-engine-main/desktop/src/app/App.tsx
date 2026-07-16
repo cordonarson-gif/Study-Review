@@ -94,6 +94,20 @@ const wizardFieldLabels: Partial<Record<keyof WizardState, string>> = {
   initialQuestionText: '初始题目'
 };
 
+function isQuestionOrientedMode(mode: ProjectMode) {
+  return ['exam-review', 'assignment-quiz', 'teaching-game', 'mistake-collection'].includes(mode);
+}
+
+function getWizardStepLabels(mode: ProjectMode) {
+  return isQuestionOrientedMode(mode)
+    ? ['项目信息', '出题要求', '题目导入']
+    : ['项目信息', '工作目标', '素材导入'];
+}
+
+function isWizardStateField(key: string): key is keyof WizardState {
+  return key !== 'modeConfig' && Object.prototype.hasOwnProperty.call(initialWizardState, key);
+}
+
 function toAgentMessages(project: ProjectDetail | null) {
   if (!project?.chatHistory?.length) {
     return createEmptyChatGreeting(project?.meta.name);
@@ -376,6 +390,7 @@ export default function App() {
   const apiStatusLabel = configuredProvider ? configuredProvider.label : 'API Key 未填写';
   const latexStatusLabel = useMemo(() => formatLatexStatusLabel(latexStatus), [latexStatus]);
   const selectedWizardTemplate = useMemo(() => getProjectModeTemplate(wizard.mode), [wizard.mode]);
+  const wizardStepLabels = getWizardStepLabels(wizard.mode);
   const activeProjectTemplate = useMemo(() => getProjectModeTemplate(activeProject?.meta.mode), [activeProject?.meta.mode]);
   const activeWorkspaceTabs = useMemo(
     () => getWorkspaceTabsForMode(activeProject?.meta.mode),
@@ -516,7 +531,7 @@ export default function App() {
 
     setIsCreatingProject(true);
     try {
-      const initialQuestions = wizard.initialQuestionText.trim()
+      const initialQuestions = isQuestionOrientedMode(wizard.mode) && wizard.initialQuestionText.trim()
         ? await ce.previewQuestionsFromText(wizard.initialQuestionText, 'text', '????????')
         : [];
       const payload: CreateProjectInput = buildWizardProjectPayload(wizard, initialQuestions);
@@ -904,15 +919,21 @@ export default function App() {
   }
 
   function renderModeField(field: WizardField) {
-    if (['name', 'courseName', 'examType', 'textbook', 'requirements'].includes(field.key)) {
-      return null;
-    }
-    const value = wizard.modeConfig[field.key] ?? '';
+    const value = isWizardStateField(field.key)
+      ? String(wizard[field.key] ?? '')
+      : wizard.modeConfig[field.key] ?? '';
+    const setFieldValue = (value: string) => {
+      if (isWizardStateField(field.key)) {
+        updateWizard(field.key, value);
+        return;
+      }
+      updateModeConfig(field.key, value);
+    };
     if (field.type === 'select') {
       return (
         <label key={field.key} className="wizard-mode-field">
           {field.label}
-          <select value={value} onChange={(event) => updateModeConfig(field.key, event.target.value)}>
+          <select value={value} onChange={(event) => setFieldValue(event.target.value)}>
             <option value="">请选择</option>
             {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
@@ -923,14 +944,19 @@ export default function App() {
       return (
         <label key={field.key} className="wizard-mode-field">
           {field.label}
-          <textarea value={value} placeholder={field.placeholder} onChange={(event) => updateModeConfig(field.key, event.target.value)} />
+          <textarea value={value} placeholder={field.placeholder} onChange={(event) => setFieldValue(event.target.value)} />
         </label>
       );
     }
     return (
       <label key={field.key} className="wizard-mode-field">
         {field.label}
-        <input value={value} placeholder={field.placeholder} onChange={(event) => updateModeConfig(field.key, event.target.value)} />
+        <input
+          type={field.type === 'number' ? 'number' : 'text'}
+          value={value}
+          placeholder={field.placeholder}
+          onChange={(event) => setFieldValue(event.target.value)}
+        />
       </label>
     );
   }
@@ -1446,7 +1472,7 @@ export default function App() {
                           {wizardStep > step ? '✓' : step}
                         </div>
                         <span className="step-label">
-                          {step === 1 ? '基本信息' : step === 2 ? '课程内容' : '题目导入'}
+                          {wizardStepLabels[step - 1]}
                         </span>
                       </div>
                     ))}
@@ -1462,22 +1488,15 @@ export default function App() {
                         项目名称
                         <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder="例如：计算机系统结构 101" style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
                       </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                          考试类型
-                          <select value={wizard.examType} onChange={(e) => updateWizard('examType', e.target.value)} style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }}>
-                            {examOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        </label>
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                          默认 AI 模型
+                      <div className="wizard-common-field-grid">
+                        <label className="wizard-mode-field">
+                          AI Provider / 模型
                           <select
                             value={`${wizard.provider}:${wizard.model}`}
                             onChange={(e) => {
                               const [providerId, modelId] = e.target.value.split(':');
                               setWizard((current) => ({ ...current, provider: providerId, model: modelId }));
                             }}
-                            style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }}
                           >
                             {selectableModels.map((m) => (
                               <option key={`${m.providerId}:${m.id}`} value={`${m.providerId}:${m.id}`}>{m.label}</option>
@@ -1485,92 +1504,106 @@ export default function App() {
                           </select>
                         </label>
                       </div>
+                      <div className="wizard-mode-field-grid">
+                        {selectedWizardTemplate.wizardFields.filter((field) => field.key !== 'name').map(renderModeField)}
+                      </div>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        课程名称
-                        <input value={wizard.courseName} onChange={(e) => updateWizard('courseName', e.target.value)} placeholder="例如：组织行为学" style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        课本 / 教材
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          <input value={wizard.textbook} onChange={(e) => updateWizard('textbook', e.target.value)} placeholder="例如：罗宾斯《组织行为学》第18版" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
-                          <button disabled={wizardFileAction === 'textbook'} onClick={() => void appendWizardFiles('textbook', '; ')} style={{ padding: '14px 20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 600 }}>📎 上传文件</button>
-                        </div>
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        链接现有课程目录（可选）
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        链接现有项目目录（可选）
+                        <div className="wizard-input-row">
                           <input value={wizard.linkedFolder} onChange={(e) => updateWizard('linkedFolder', e.target.value)} placeholder="已有 stages/configs/progress 资料" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
                           <button disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()} style={{ padding: '14px 20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 600 }}>📁 选择目录</button>
                         </div>
                       </label>
-                      {selectedWizardTemplate.wizardFields.some((field) => !['name', 'courseName', 'examType', 'textbook', 'requirements'].includes(field.key)) && (
-                        <div className="wizard-mode-field-grid">
-                          {selectedWizardTemplate.wizardFields.map(renderModeField)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: 工作目标 / 出题要求 */}
+                {wizardStep === 2 && (
+                  <div className="panel" style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                        {wizard.mode === 'exam-review' ? '补充要求' : '项目目标 / 补充要求'}
+                        <div className="wizard-input-row align-start">
+                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '例如：多用中文例子；重点讲简答题套路' : '说明项目目标、期望成果和其他约束'} style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
+                          <button disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入">📎</button>
                         </div>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                        {wizard.mode === 'exam-review' ? '课堂材料 / 备注' : '资料说明'}
+                        <div className="wizard-input-row align-start">
+                          <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '记录讲义、PPT、老师习惯、笔记来源等' : '说明已有素材、参考文件和资料来源'} style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
+                          <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="上传文件关联到备注">📎</button>
+                        </div>
+                      </label>
+                      {wizard.mode === 'exam-review' && (
+                        <>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                            必考点（每行一个）
+                            <div className="wizard-input-row align-start">
+                              <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder="老师明确强调的必考点" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
+                              <button disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入必考点">📎</button>
+                            </div>
+                          </label>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                            重点知识（每行一个）
+                            <div className="wizard-input-row align-start">
+                              <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder="需要逐步拆解讲透的重点内容" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
+                              <button disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入重点知识">📎</button>
+                            </div>
+                          </label>
+                        </>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Step 2: 课程内容 */}
-                {wizardStep === 2 && (
-                  <div className="panel" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        补充要求
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder="例如：多用中文例子；重点讲简答题套路" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入">📎</button>
-                        </div>
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        课堂材料 / 备注
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder="记录讲义、PPT、老师习惯、笔记来源等" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="上传文件关联到备注">📎</button>
-                        </div>
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        必考点（每行一个）
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder="老师明确强调的必考点" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入必考点">📎</button>
-                        </div>
-                      </label>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        重点知识（每行一个）
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder="需要逐步拆解讲透的重点内容" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入重点知识">📎</button>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 3: 题目导入 */}
+                {/* Step 3: 题目或素材导入 */}
                 {wizardStep === 3 && (
                   <div className="panel" style={{ width: '100%' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                        初始题目批量粘贴（可选）
-                        <textarea
-                          rows={10}
-                          value={wizard.initialQuestionText}
-                          onChange={(e) => updateWizard('initialQuestionText', e.target.value)}
-                          placeholder="可粘贴多道题，系统会自动拆分题干、选项、答案并归类"
-                          style={{ padding: '16px 18px', fontSize: '16px', minHeight: '250px', width: '100%', borderRadius: '10px', resize: 'vertical' }}
-                        />
-                      </label>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <button disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()} style={{ padding: '12px 20px', fontSize: '15px', fontWeight: 600 }}>📁 从文件导入题目</button>
-                        <span className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
-                          支持 txt / md / json / csv，自动识别拆分
-                        </span>
-                      </div>
-                      <p className="muted" style={{ fontSize: '13px', fontStyle: 'italic', textAlign: 'center', marginTop: '4px' }}>
-                        也可以在项目创建后通过工作台的"题目录入"功能导入更多题目
-                      </p>
+                      {isQuestionOrientedMode(wizard.mode) ? (
+                        <>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                            初始题目批量粘贴（可选）
+                            <textarea
+                              rows={10}
+                              value={wizard.initialQuestionText}
+                              onChange={(e) => updateWizard('initialQuestionText', e.target.value)}
+                              placeholder="可粘贴多道题，系统会自动拆分题干、选项、答案并归类"
+                              style={{ padding: '16px 18px', fontSize: '16px', minHeight: '250px', width: '100%', borderRadius: '10px', resize: 'vertical' }}
+                            />
+                          </label>
+                          <div className="wizard-input-row">
+                            <button disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()} style={{ padding: '12px 20px', fontSize: '15px', fontWeight: 600 }}>📁 从文件导入题目</button>
+                            <span className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                              支持 txt / md / json / csv，自动识别拆分
+                            </span>
+                          </div>
+                          <p className="muted" style={{ fontSize: '13px', fontStyle: 'italic', textAlign: 'center', marginTop: '4px' }}>
+                            也可以在项目创建后通过工作台的题目功能导入更多内容
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                            素材 / 参考文件说明（可选）
+                            <textarea
+                              rows={8}
+                              value={wizard.notes}
+                              onChange={(e) => updateWizard('notes', e.target.value)}
+                              placeholder={`说明要用于${selectedWizardTemplate.title}的素材、数据或参考文件`}
+                              style={{ padding: '16px 18px', fontSize: '16px', minHeight: '210px', width: '100%', borderRadius: '10px', resize: 'vertical' }}
+                            />
+                          </label>
+                          <div className="wizard-input-row">
+                            <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 20px', fontSize: '15px', fontWeight: 600 }}>📁 导入素材 / 参考文件</button>
+                            <span className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                              文件路径会写入资料说明，创建项目后仍可继续补充
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
