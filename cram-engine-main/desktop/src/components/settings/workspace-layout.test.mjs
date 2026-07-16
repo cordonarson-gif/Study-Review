@@ -242,7 +242,11 @@ test('new project wizard adapts steps, fields, and imports to the selected mode'
     app,
     /wizard\.mode === 'exam-review'[\s\S]*?value=\{wizard\.textbook\}[\s\S]*?appendWizardFiles\('textbook', '; '\)/
   );
-  assert.equal(app.match(/value=\{wizard\.notes\}/g)?.length, 1);
+  assert.match(
+    app,
+    /wizardStep === 2[\s\S]*?isQuestionOrientedMode\(wizard\.mode\) && \([\s\S]*?value=\{wizard\.notes\}[\s\S]*?appendWizardFiles\('notes'\)[\s\S]*?wizardStep === 3/
+  );
+  assert.equal(app.match(/value=\{wizard\.notes\}/g)?.length, 2);
 
   assert.match(
     app,

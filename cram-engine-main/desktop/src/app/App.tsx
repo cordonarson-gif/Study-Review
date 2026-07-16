@@ -1548,6 +1548,15 @@ export default function App() {
                           <button disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入">📎</button>
                         </div>
                       </label>
+                      {isQuestionOrientedMode(wizard.mode) && (
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                          课堂材料 / 参考资料
+                          <div className="wizard-input-row align-start">
+                            <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder="说明已有讲义、题库、参考文件和资料来源" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
+                            <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="上传课堂材料或参考资料">📎</button>
+                          </div>
+                        </label>
+                      )}
                       {wizard.mode === 'exam-review' && (
                         <>
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
