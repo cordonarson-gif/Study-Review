@@ -145,11 +145,26 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
       </div>
 
       <div className="simulation-parameter-grid">
-        <label>起始值<input type="number" value={form.start} onChange={(event) => updateNumber('start', event.target.value)} /></label>
-        <label>结束值<input type="number" value={form.end} onChange={(event) => updateNumber('end', event.target.value)} /></label>
-        <label>步数<input type="number" min="2" max="50" step="1" value={form.steps} onChange={(event) => updateNumber('steps', event.target.value)} /></label>
-        <label>系数<input type="number" step="any" value={form.coefficient} onChange={(event) => updateNumber('coefficient', event.target.value)} /></label>
-        <label>初始值<input type="number" step="any" value={form.initialValue} onChange={(event) => updateNumber('initialValue', event.target.value)} /></label>
+        <label className="simulation-field">
+          起始值
+          <input type="number" value={form.start} onChange={(event) => updateNumber('start', event.target.value)} />
+        </label>
+        <label className="simulation-field">
+          结束值
+          <input type="number" value={form.end} onChange={(event) => updateNumber('end', event.target.value)} />
+        </label>
+        <label className="simulation-field">
+          步数
+          <input type="number" min="2" max="50" step="1" value={form.steps} onChange={(event) => updateNumber('steps', event.target.value)} />
+        </label>
+        <label className="simulation-field">
+          系数
+          <input type="number" step="any" value={form.coefficient} onChange={(event) => updateNumber('coefficient', event.target.value)} />
+        </label>
+        <label className="simulation-field">
+          初始值
+          <input type="number" step="any" value={form.initialValue} onChange={(event) => updateNumber('initialValue', event.target.value)} />
+        </label>
       </div>
 
       {error && <div className="inline-validation" role="alert">{error}</div>}

@@ -127,7 +127,7 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
       </div>
 
       <div className="courseware-studio-layout">
-        <label className="courseware-source-editor">
+        <label className="courseware-source-editor mode-form-field wide">
           Markdown 源稿
           <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)} disabled={busy}>
             <option value="">新建课件</option>

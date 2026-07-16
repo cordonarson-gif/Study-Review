@@ -81,7 +81,7 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
       </div>
 
       <div className="mode-generation-panel">
-        <label>
+        <label className="mode-form-field wide">
           生成要求
           <textarea
             value={prompt}
@@ -112,11 +112,11 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
         <div className="mode-artifact-editor">
           {draft ? (
             <>
-              <label>
+              <label className="mode-form-field">
                 标题
                 <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
               </label>
-              <label>
+              <label className="mode-form-field wide">
                 Markdown 内容
                 <textarea value={draft.contentMarkdown} onChange={(event) => setDraft({ ...draft, contentMarkdown: event.target.value })} />
               </label>

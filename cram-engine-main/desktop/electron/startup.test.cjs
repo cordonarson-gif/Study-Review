@@ -6,6 +6,9 @@ const path = require('node:path');
 
 const desktopRoot = path.resolve(__dirname, '..');
 const packageJsonPath = path.join(desktopRoot, 'package.json');
+const electronBuilderConfigPath = path.join(desktopRoot, 'electron-builder.config.ts');
+const miktexBootstrapPath = path.join(desktopRoot, 'build', 'miktex-bootstrap.ps1');
+const installerNshPath = path.join(desktopRoot, 'build', 'installer.nsh');
 const mainSourcePath = path.join(__dirname, 'main.cts');
 const preloadSourcePath = path.join(__dirname, 'preload.cts');
 const compiledPreloadPath = path.join(desktopRoot, 'dist-electron', 'preload.cjs');
@@ -20,6 +23,10 @@ function readMainSource() {
 
 function readPreloadSource() {
   return fs.readFileSync(preloadSourcePath, 'utf8');
+}
+
+function readElectronBuilderConfig() {
+  return fs.readFileSync(electronBuilderConfigPath, 'utf8');
 }
 
 function createProviderProfile({ id, provider, apiKey, baseUrl, selectedModelId }) {
@@ -171,6 +178,15 @@ test('preload exposes personalized resource bridge methods', () => {
   assert.match(source, /generatePersonalizedResources: \(projectId: string, input: GeneratePersonalizedResourcesInput\) => ipcRenderer\.invoke\('personalizedResources:generate', projectId, input\)/);
   assert.match(source, /savePersonalizedResource: \(projectId: string, resource: PersonalizedResource\) => ipcRenderer\.invoke\('personalizedResources:save', projectId, resource\)/);
   assert.match(source, /deletePersonalizedResource: \(projectId: string, resourceId: string\) => ipcRenderer\.invoke\('personalizedResources:delete', projectId, resourceId\)/);
+});
+
+test('main and preload expose AI question generation bridge', () => {
+  const mainSource = readMainSource();
+  const preloadSource = readPreloadSource();
+
+  assert.match(mainSource, /async function generateQuestions\(projectId: string, input: GenerateQuestionsInput\)/);
+  assert.match(mainSource, /ipcMain\.handle\('questions:generate'/);
+  assert.match(preloadSource, /generateQuestions: \(projectId: string, input: GenerateQuestionsInput\) => ipcRenderer\.invoke\('questions:generate', projectId, input\)/);
 });
 
 test('main process registers learning path IPC handlers', () => {
@@ -328,4 +344,52 @@ test('preload preserves provider-array edits from the v2 settings page over stal
     assert.equal(openaiCompatible.baseUrl, 'https://api.deepseek.com');
     assert.equal(openaiCompatible.selectedModelId, 'deepseek-chat');
   });
+});
+
+test('installer build config creates an NSIS setup exe with MiKTeX bootstrap resources', () => {
+  const source = readElectronBuilderConfig();
+  const pkg = readPackageJson();
+
+  assert.match(source, /target:\s*\[\s*'nsis'\s*\]/);
+  assert.match(source, /extraResources:\s*\[/);
+  assert.match(source, /from:\s*'build\/miktex-bootstrap\.ps1'/);
+  assert.match(source, /to:\s*'miktex-bootstrap\.ps1'/);
+  assert.match(source, /nsis:\s*\{/);
+  assert.match(source, /include:\s*'build\/installer\.nsh'/);
+  assert.match(source, /oneClick:\s*false/);
+  assert.match(source, /allowElevation:\s*true/);
+  assert.match(source, /allowToChangeInstallationDirectory:\s*true/);
+  assert.match(source, /createDesktopShortcut:\s*true/);
+  assert.match(source, /publish:\s*null/);
+  assert.deepEqual(pkg.build.win.target, ['nsis']);
+  assert.equal(pkg.build.nsis.include, 'build/installer.nsh');
+  assert.equal(pkg.build.nsis.allowElevation, true);
+  assert.equal(pkg.build.nsis.allowToChangeInstallationDirectory, true);
+  assert.equal(pkg.build.extraResources[0].from, 'build/miktex-bootstrap.ps1');
+  assert.equal(pkg.build.extraResources[0].to, 'miktex-bootstrap.ps1');
+});
+
+test('MiKTeX bootstrap script skips existing LaTeX and contains no bundled API secrets', () => {
+  const source = fs.readFileSync(miktexBootstrapPath, 'utf8');
+
+  assert.match(source, /function\s+Test-MiKTeX/);
+  assert.match(source, /Get-Command\s+xelatex\.exe/);
+  assert.match(source, /LOCALAPPDATA/);
+  assert.match(source, /ProgramFiles/);
+  assert.match(source, /MiKTeX/);
+  assert.match(source, /https:\/\/miktex\.org\/download\/win\/basic-miktex-x64\.exe/);
+  assert.match(source, /--unattended/);
+  assert.match(source, /--user-install=/);
+  assert.match(source, /--auto-install=yes/);
+  assert.match(source, /Skip installation/);
+  assert.doesNotMatch(source, /github_pat|sk-[A-Za-z0-9]|DEEPSEEK|OPENAI_API|ANTHROPIC_API|DASHSCOPE_API|apiKey\s*[:=]/i);
+});
+
+test('NSIS installer hook runs MiKTeX bootstrap during install', () => {
+  const source = fs.readFileSync(installerNshPath, 'utf8');
+
+  assert.match(source, /!macro\s+customInstall/);
+  assert.match(source, /nsExec::ExecToLog/);
+  assert.match(source, /powershell\.exe\s+-NoProfile\s+-ExecutionPolicy\s+Bypass/);
+  assert.match(source, /miktex-bootstrap\.ps1/);
 });

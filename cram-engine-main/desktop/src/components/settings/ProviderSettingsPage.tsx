@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AppSettings, ProviderProfile } from '../../lib/types';
 import { getSelectableModels, replaceProvider } from '../../lib/providerSettings.js';
 import { getActiveProviderProfile } from '../../lib/utils';
@@ -10,6 +10,9 @@ type ProviderSettingsPageProps = {
   initialSettings: AppSettings;
   onSave: (settings: AppSettings) => Promise<AppSettings>;
   onDiscard: () => Promise<AppSettings>;
+  workspaceOverview?: ReactNode;
+  workspaceProfile?: ReactNode;
+  workspaceAgents?: ReactNode;
 };
 
 function cloneSettings(settings: AppSettings): AppSettings {
@@ -20,10 +23,30 @@ function settingsChanged(left: AppSettings, right: AppSettings) {
   return JSON.stringify(left) !== JSON.stringify(right);
 }
 
-export default function ProviderSettingsPage({ initialSettings, onSave, onDiscard }: ProviderSettingsPageProps) {
+type WorkspaceSection = 'overview' | 'profile' | 'agents';
+
+const workspaceSections: Array<{
+  id: WorkspaceSection;
+  label: string;
+  description: string;
+}> = [
+  { id: 'overview', label: '总览', description: '先看当前项目与全局能力状态' },
+  { id: 'profile', label: '学习画像', description: '维护长期用户画像和偏好' },
+  { id: 'agents', label: '智能体中心', description: '查看全局智能体协作链路' }
+];
+
+export default function ProviderSettingsPage({
+  initialSettings,
+  onSave,
+  onDiscard,
+  workspaceOverview,
+  workspaceProfile,
+  workspaceAgents
+}: ProviderSettingsPageProps) {
   const [draft, setDraft] = useState(() => cloneSettings(initialSettings));
   const [baseline, setBaseline] = useState(() => cloneSettings(initialSettings));
   const [category, setCategory] = useState<SettingsCategory>('services');
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('overview');
   const [selectedProviderId, setSelectedProviderId] = useState(initialSettings.activeProviderId);
   const [busy, setBusy] = useState<'save' | 'discard' | null>(null);
   const [message, setMessage] = useState('');
@@ -42,6 +65,14 @@ export default function ProviderSettingsPage({ initialSettings, onSave, onDiscar
   const selectableModels = useMemo(() => getSelectableModels(draft.providers), [draft.providers]);
   const enabledProviderCount = useMemo(() => draft.providers.filter((profile) => profile.enabled).length, [draft.providers]);
   const dirty = useMemo(() => settingsChanged(draft, baseline), [draft, baseline]);
+  const scopeSummary = {
+    workspace: ['全局能力', '把用户画像、智能体编排和布局规则集中管理。'],
+    document: ['文档识别', '配置 MinerU 与上传文件解析策略。'],
+    default: ['默认模型', '设置新项目默认使用的服务商与模型。'],
+    generation: ['生成参数', '控制温度、最大输出长度等生成偏好。'],
+    display: ['显示偏好', '配置 LaTeX 预览和文档显示体验。'],
+    services: ['模型服务', '管理服务商、密钥、端点与模型列表。']
+  } satisfies Record<SettingsCategory, [string, string]>;
 
   function updateProvider(profile: ProviderProfile) {
     setDraft((current) => ({
@@ -122,22 +153,114 @@ export default function ProviderSettingsPage({ initialSettings, onSave, onDiscar
 
   return (
     <section className="provider-settings-page">
-      <div className="provider-settings-shell">
+      <div className={category === 'workspace' ? 'provider-settings-shell workspace-settings-shell' : 'provider-settings-shell'}>
         <SettingsCategoryNav activeCategory={category} onSelectCategory={setCategory} />
-        <ProviderList
-          providers={draft.providers}
-          selectedProviderId={selectedProvider.id}
-          onSelectProvider={setSelectedProviderId}
-          onAddProvider={addProvider}
-          onRemoveProvider={removeProvider}
-          onToggleProvider={toggleProvider}
-        />
+        {category === 'services' && (
+          <ProviderList
+            providers={draft.providers}
+            selectedProviderId={selectedProvider.id}
+            onSelectProvider={setSelectedProviderId}
+            onAddProvider={addProvider}
+            onRemoveProvider={removeProvider}
+            onToggleProvider={toggleProvider}
+          />
+        )}
+        {category !== 'services' && category !== 'workspace' && (
+          <aside className="provider-list-panel settings-scope-panel">
+            <div className="settings-column-heading">
+              <span>Scope</span>
+              <strong>{scopeSummary[category][0]}</strong>
+              <small>{scopeSummary[category][1]}</small>
+            </div>
+            <div className="settings-scope-card">
+              <strong>当前配置状态</strong>
+              <span>{dirty ? '有未保存更改' : '所有更改已保存'}</span>
+            </div>
+            <div className="settings-scope-card">
+              <strong>启用服务商</strong>
+              <span>{enabledProviderCount} 个</span>
+            </div>
+          </aside>
+        )}
         {category === 'services' && (
           <ProviderDetail
             profile={selectedProvider}
             onChange={updateProvider}
             canDisableProvider={!selectedProvider.enabled || enabledProviderCount > 1}
           />
+        )}
+        {category === 'workspace' && (
+          <section className="provider-detail-panel global-workspace-settings workspace-hub-panel">
+            <div className="workspace-hub-header">
+              <div>
+                <span>Workspace governance</span>
+                <h2>全局能力工作台</h2>
+                <p>
+                  用户画像、智能体编排和系统级布局规则集中放在这里；项目工作台只保留资料、资源、路径、刷题、报告和交付动作。
+                </p>
+              </div>
+              <div className="workspace-hub-status">
+                <strong>{enabledProviderCount}</strong>
+                <span>启用服务商</span>
+              </div>
+            </div>
+
+            <nav className="workspace-hub-tabs" aria-label="全局能力设置分区">
+              {workspaceSections.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={workspaceSection === section.id ? 'active' : ''}
+                  onClick={() => setWorkspaceSection(section.id)}
+                >
+                  <strong>{section.label}</strong>
+                  <span>{section.description}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="workspace-hub-content">
+              {workspaceSection === 'overview' && (
+                <div className="workspace-hub-overview">
+                  <div className="settings-governance-grid">
+                    <article>
+                      <strong>全局学习画像</strong>
+                      <span>统一维护学习基础、薄弱点、资源偏好和可用时间，供资源、路径、报告等模块调用。</span>
+                      <button type="button" onClick={() => setWorkspaceSection('profile')}>进入画像</button>
+                    </article>
+                    <article>
+                      <strong>智能体中心</strong>
+                      <span>集中查看 ProfileAgent、ResourceAgent、PathAgent、ReportAgent 和 DeliveryAgent 的协作链路。</span>
+                      <button type="button" onClick={() => setWorkspaceSection('agents')}>查看智能体</button>
+                    </article>
+                    <article>
+                      <strong>项目页布局规则</strong>
+                      <span>工作台只放当前项目的执行动作；系统级、管理级和策略级能力集中放在设置。</span>
+                    </article>
+                  </div>
+                  {workspaceOverview ?? (
+                    <div className="settings-empty">打开一个项目后，可以在这里查看当前项目与全局能力的联动状态。</div>
+                  )}
+                </div>
+              )}
+
+              {workspaceSection === 'profile' && (
+                <div className="workspace-hub-module">
+                  {workspaceProfile ?? (
+                    <div className="settings-empty">打开一个项目后，可以维护学习画像。</div>
+                  )}
+                </div>
+              )}
+
+              {workspaceSection === 'agents' && (
+                <div className="workspace-hub-module">
+                  {workspaceAgents ?? (
+                    <div className="settings-empty">打开一个项目后，可以查看智能体协作状态。</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         )}
         {category === 'document' && (
           <section className="provider-detail-panel">

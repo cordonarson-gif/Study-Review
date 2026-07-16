@@ -18,15 +18,27 @@ type Props = {
 export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded, onStatus }: Props) {
   const [activeTab, setActiveTab] = useState<ImportTab>('text');
   const [textInput, setTextInput] = useState('');
+  const [questionBankName, setQuestionBankName] = useState('本次导入题库');
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  function withQuestionBank(items: QuestionDraft[], fallbackName = questionBankName) {
+    const bankName = (fallbackName || questionBankName || '本次导入题库').trim();
+    return items.map((draft) => ({
+      ...draft,
+      questionBankName: draft.questionBankName || bankName,
+      sourceName: draft.sourceName || bankName
+    }));
+  }
 
   /** 文本粘贴 → 解析预览 */
   async function handleTextPreview() {
     if (!textInput.trim()) return;
     setIsProcessing(true);
     try {
-      const result = await window.cramEngine.previewQuestionsFromText(textInput, 'text', '文本粘贴录入');
+      const result = withQuestionBank(
+        await window.cramEngine.previewQuestionsFromText(textInput, 'text', questionBankName || '文本粘贴录入')
+      );
       setDrafts(result);
       onStatus(`已识别 ${result.length} 道题目，可在下方修正后入库。`);
     } catch (err) {
@@ -42,7 +54,7 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
     if (!selected.length) return;
     setIsProcessing(true);
     try {
-      const result = await window.cramEngine.previewQuestionsFromFileContent(selected);
+      const result = withQuestionBank(await window.cramEngine.previewQuestionsFromFileContent(selected), questionBankName);
       setDrafts((prev) => [...prev, ...result]);
       onStatus(`已从 ${selected.length} 个文件中识别 ${result.length} 道题目。`);
     } catch (err) {
@@ -63,7 +75,7 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
       for (const { path, text } of ocrResults) {
         if (!text.trim()) continue;
         const fileName = path.split(/[\\/]/).pop() || path;
-        const result = await window.cramEngine.previewQuestionsFromText(text, 'image', fileName);
+        const result = withQuestionBank(await window.cramEngine.previewQuestionsFromText(text, 'image', fileName), questionBankName || fileName);
         setDrafts((prev) => [...prev, ...result]);
         total += result.length;
       }
@@ -91,11 +103,11 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
   async function handleConfirm() {
     if (!drafts.length) return;
     try {
-      const questions = await window.cramEngine.addQuestions(activeProjectId, drafts);
+      const questions = await window.cramEngine.addQuestions(activeProjectId, withQuestionBank(drafts));
       onQuestionsAdded(questions);
       setDrafts([]);
       setTextInput('');
-      onStatus(`已写入 ${questions.length} 道题目，题库按知识点和题型自动归档。`);
+      onStatus(`已写入 ${drafts.length} 道题目，题库「${questionBankName || '本次导入题库'}」已更新。`);
     } catch (err) {
       onStatus(err instanceof Error ? err.message : '入库失败');
     }
@@ -124,9 +136,18 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
         ))}
       </div>
 
+      <label className="question-draft-field wide">
+        题库名称
+        <input
+          value={questionBankName}
+          onChange={(e) => setQuestionBankName(e.target.value)}
+          placeholder="例如：计算机组成原理期末卷 A / 第三章错题集"
+        />
+      </label>
+
       <div className="import-content">
         {activeTab === 'text' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="import-text-panel">
             <p className="muted">{tabConfig[0].desc}</p>
             <textarea
               className="import-textarea"
@@ -168,8 +189,8 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
       </div>
 
       {/* 题目预览与修正区 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="draft-preview-stack">
+        <div className="draft-preview-header">
           <strong>题目预览与修正</strong>
           <span className="muted">{drafts.length} 道待入库</span>
         </div>
@@ -181,41 +202,44 @@ export default function QuestionImportPanel({ activeProjectId, onQuestionsAdded,
                 <span className="draft-card-number">
                   第 {index + 1} 题 · {draft.source === 'image' ? '图片识别' : draft.source === 'file' ? '文件导入' : '文本录入'}
                 </span>
-                <button onClick={() => removeDraft(index)} style={{ fontSize: '11px', padding: '4px 8px' }}>
+                <button className="draft-remove-button" onClick={() => removeDraft(index)}>
                   ✕ 移除
                 </button>
               </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: 'var(--color-on-surface-variant)' }}>
+              <label className="question-draft-field wide">
                 题干
                 <textarea
                   rows={2}
                   value={draft.stem}
                   onChange={(e) => updateDraft(index, { stem: e.target.value })}
-                  style={{ fontSize: '14px' }}
                 />
               </label>
 
               <div className="draft-card-row">
-                <label>
+                <label className="question-draft-field">
+                  题库
+                  <input value={draft.questionBankName || questionBankName} onChange={(e) => updateDraft(index, { questionBankName: e.target.value })} />
+                </label>
+                <label className="question-draft-field">
                   知识点
                   <input value={draft.knowledgePoint} onChange={(e) => updateDraft(index, { knowledgePoint: e.target.value, category: `${e.target.value} / ${draft.questionType}` })} />
                 </label>
-                <label>
+                <label className="question-draft-field">
                   题型
                   <input value={draft.questionType} onChange={(e) => updateDraft(index, { questionType: e.target.value, category: `${draft.knowledgePoint} / ${e.target.value}` })} />
                 </label>
-                <label>
+                <label className="question-draft-field">
                   分类
                   <input value={draft.category} onChange={(e) => updateDraft(index, { category: e.target.value })} />
                 </label>
-                <label>
+                <label className="question-draft-field">
                   答案
                   <input value={draft.answer} onChange={(e) => updateDraft(index, { answer: e.target.value })} />
                 </label>
               </div>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: 'var(--color-on-surface-variant)' }}>
+              <label className="question-draft-field wide">
                 解析
                 <textarea
                   rows={2}

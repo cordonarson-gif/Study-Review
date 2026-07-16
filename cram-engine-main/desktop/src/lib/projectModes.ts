@@ -2,17 +2,13 @@ import type { ProjectMode, ProjectModeTemplate, WorkspaceTabId, WorkspaceTabTemp
 
 const examTabs: WorkspaceTabTemplate[] = [
   { id: 'overview', label: '概览', description: '查看当前复习项目状态和快捷入口' },
-  { id: 'profile', label: '画像', description: '维护学习画像、薄弱点和复习偏好' },
   { id: 'materials', label: '资料', description: '上传资料并沉淀知识库' },
-  { id: 'agents', label: '智能体', description: '查看项目智能体协作链路' },
   { id: 'resources', label: '资源', description: '生成个性化讲义、例题和补弱材料' },
   { id: 'path', label: '路径', description: '规划阶段学习路径' },
   { id: 'practice', label: '刷题', description: '练习、收藏和错题复盘' },
   { id: 'import', label: '导题', description: '从文本、文件和图片识别题目' },
   { id: 'report', label: '报告', description: '生成阶段报告' },
-  { id: 'delivery', label: '交付', description: '导出最终交付包' },
-  { id: 'config', label: '配置', description: '查看项目配置' },
-  { id: 'progress', label: '进度', description: '维护学习进度' }
+  { id: 'delivery', label: '交付', description: '导出最终交付包' }
 ];
 
 export const projectModeTemplates: ProjectModeTemplate[] = [
@@ -434,6 +430,103 @@ export const projectModeTemplates: ProjectModeTemplate[] = [
       { id: 'mistake-review-plan', label: '复练计划', checklist: ['节奏合理', '相似题齐备', '复测标准明确'] }
     ],
     supportedUploads: ['pdf', 'docx', 'xlsx', 'txt', 'md', 'png', 'jpg', 'jpeg']
+  },
+  {
+    mode: 'modeling-competition',
+    title: '数学建模竞赛',
+    description: '面向数模竞赛和建模课程，组织赛题理解、变量假设、模型求解、验证复盘和论文成稿。',
+    icon: '模',
+    recommendedFor: ['数学建模竞赛', '建模课程论文', '数据驱动方案'],
+    wizardFields: [
+      { key: 'name', label: '赛题 / 项目名称', type: 'text', required: false, placeholder: '例如：2026 校赛 A 题' },
+      { key: 'courseName', label: '学科 / 队伍方向', type: 'text', required: false, placeholder: '例如：运筹优化、统计建模、机器学习' },
+      { key: 'competitionType', label: '竞赛类型', type: 'select', required: true, options: ['国赛', '美赛', '校赛', '课程建模', '企业命题'] },
+      { key: 'problemStatement', label: '赛题背景与问题', type: 'textarea', required: false },
+      { key: 'dataDescription', label: '数据与附件说明', type: 'textarea', required: false },
+      { key: 'styleRequirement', label: '论文格式 / 评分要求', type: 'textarea', required: false }
+    ],
+    tabs: [
+      { id: 'modeling-overview', label: '概览', description: '查看建模项目目标、资料状态和推进节奏' },
+      { id: 'modeling-problem', label: '赛题', description: '拆解题意、约束、指标和需要回答的问题' },
+      { id: 'modeling-assumptions', label: '假设', description: '整理变量、符号、假设和适用边界' },
+      { id: 'modeling-solution', label: '模型', description: '设计模型、算法流程和求解方案' },
+      { id: 'modeling-validation', label: '验证', description: '规划灵敏度分析、误差检验和稳健性验证' },
+      { id: 'modeling-paper', label: '论文', description: '组织摘要、正文、图表和附录成稿结构' },
+      { id: 'delivery', label: '交付', description: '导出数学建模成果包' }
+    ],
+    agents: [
+      { id: 'ModelingCompetitionAgent', label: '数模竞赛智能体', description: '辅助赛题拆解、模型设计、验证计划和论文结构化交付' }
+    ],
+    deliverables: [
+      { id: 'modeling-problem-analysis', label: '赛题分析', checklist: ['问题边界清晰', '变量指标明确', '约束条件完整'] },
+      { id: 'modeling-solution', label: '模型方案', checklist: ['假设可解释', '算法步骤可复现', '验证路径明确'] },
+      { id: 'modeling-paper', label: '建模论文', checklist: ['摘要结论突出', '图表编号完整', '附录与代码说明齐备'] }
+    ],
+    supportedUploads: ['pdf', 'docx', 'xlsx', 'xls', 'csv', 'json', 'txt', 'md', 'png', 'jpg', 'jpeg']
+  },
+  {
+    mode: 'literature-review',
+    title: '文献综述',
+    description: '围绕研究主题建立检索策略、文献矩阵、主题综合、研究缺口和综述提纲。',
+    icon: '综',
+    recommendedFor: ['开题综述', '课程综述', '论文前期调研'],
+    wizardFields: [
+      { key: 'name', label: '综述题目', type: 'text', required: false, placeholder: '请输入综述主题或暂定题目' },
+      { key: 'courseName', label: '学科领域', type: 'text', required: false },
+      { key: 'reviewScope', label: '综述范围', type: 'textarea', required: false },
+      { key: 'databaseSources', label: '数据库 / 来源', type: 'textarea', required: false, placeholder: '例如：CNKI、Web of Science、Google Scholar' },
+      { key: 'citationStyle', label: '引用格式', type: 'select', required: true, options: ['GB/T 7714', 'APA', 'MLA', 'Chicago', 'IEEE'] }
+    ],
+    tabs: [
+      { id: 'literature-overview', label: '概览', description: '查看综述主题、资料状态和写作路径' },
+      { id: 'literature-search', label: '检索', description: '制定关键词、数据库、纳入排除标准和检索式' },
+      { id: 'literature-matrix', label: '矩阵', description: '整理文献样本、方法、发现和引用价值' },
+      { id: 'literature-synthesis', label: '综合', description: '按主题、方法或争议形成综合分析' },
+      { id: 'literature-gaps', label: '缺口', description: '识别研究不足、争议和可延展问题' },
+      { id: 'literature-outline', label: '提纲', description: '生成综述文章结构和段落论证路径' },
+      { id: 'delivery', label: '交付', description: '导出文献综述成果包' }
+    ],
+    agents: [
+      { id: 'LiteratureReviewAgent', label: '文献综述智能体', description: '辅助检索策略、文献矩阵、主题综合和研究缺口归纳' }
+    ],
+    deliverables: [
+      { id: 'literature-search-strategy', label: '检索策略', checklist: ['关键词完整', '纳入排除标准明确', '检索范围可复现'] },
+      { id: 'literature-matrix', label: '文献矩阵', checklist: ['文献信息齐备', '方法发现可比较', '引用价值已标注'] },
+      { id: 'literature-review-outline', label: '综述提纲', checklist: ['主题线索清晰', '研究缺口明确', '引用格式一致'] }
+    ],
+    supportedUploads: ['pdf', 'docx', 'txt', 'md', 'ris', 'bib', 'csv', 'xlsx']
+  },
+  {
+    mode: 'academic-formatting',
+    title: '学术文档规范化',
+    description: '检查论文、课程报告和竞赛文档的模板、标题层级、公式图表、引用与导出规范。',
+    icon: '排',
+    recommendedFor: ['论文排版', '课程报告', '竞赛文档终稿'],
+    wizardFields: [
+      { key: 'name', label: '文档名称', type: 'text', required: false },
+      { key: 'courseName', label: '课程 / 学科', type: 'text', required: false },
+      { key: 'documentType', label: '文档类型', type: 'select', required: true, options: ['毕业论文', '课程论文', '实验报告', '竞赛论文', '投稿论文'] },
+      { key: 'targetStyle', label: '目标规范 / 模板', type: 'textarea', required: false },
+      { key: 'formattingIssues', label: '已知格式问题', type: 'textarea', required: false }
+    ],
+    tabs: [
+      { id: 'format-overview', label: '概览', description: '查看文档状态、规范来源和待处理问题' },
+      { id: 'format-template', label: '模板', description: '匹配学校、课程、竞赛或期刊模板要求' },
+      { id: 'format-docx-check', label: '体检', description: '检查标题层级、目录、页眉页脚和段落样式' },
+      { id: 'format-formulas', label: '公式', description: '检查公式编号、变量说明和引用一致性' },
+      { id: 'format-figures', label: '图表', description: '检查图表标题、编号、来源和正文引用' },
+      { id: 'format-export', label: '导出', description: '整理终稿导出、PDF 检查和提交清单' },
+      { id: 'delivery', label: '交付', description: '导出学术排版成果包' }
+    ],
+    agents: [
+      { id: 'AcademicFormattingAgent', label: '学术排版智能体', description: '辅助模板适配、格式体检、图表公式检查和终稿交付' }
+    ],
+    deliverables: [
+      { id: 'formatting-checklist', label: '格式体检清单', checklist: ['模板要求明确', '问题逐项定位', '修改优先级清晰'] },
+      { id: 'formula-figure-audit', label: '公式图表审查', checklist: ['编号连续', '引用一致', '来源与说明完整'] },
+      { id: 'export-ready-plan', label: '终稿导出方案', checklist: ['PDF 检查完成', '提交文件齐备', '人工复核项已标注'] }
+    ],
+    supportedUploads: ['docx', 'pdf', 'md', 'txt', 'tex', 'png', 'jpg', 'jpeg']
   }
 ];
 

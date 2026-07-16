@@ -87,8 +87,11 @@ export type ReviewQuestion = {
   category: string;
   knowledgePoint: string;
   questionType: string;
-  source: 'text' | 'file' | 'image' | 'manual';
+  source: 'text' | 'file' | 'image' | 'manual' | 'ai';
   sourceName?: string;
+  questionBankId?: string;
+  questionBankName?: string;
+  generatedBy?: 'import' | 'ai';
   favorite: boolean;
   wrong: boolean;
   attempts: number;
@@ -97,6 +100,14 @@ export type ReviewQuestion = {
 };
 
 export type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | 'attempts' | 'createdAt' | 'updatedAt'>;
+
+export type GenerateQuestionsInput = {
+  requirements: string;
+  count: number;
+  questionBankName: string;
+  referenceQuestionIds?: string[];
+  referenceText?: string;
+};
 
 export type KnowledgeResource = {
   id: string;
@@ -231,7 +242,10 @@ export type ProjectMode =
   | 'interactive-courseware'
   | 'teaching-game'
   | 'knowledge-graph'
-  | 'mistake-collection';
+  | 'mistake-collection'
+  | 'modeling-competition'
+  | 'literature-review'
+  | 'academic-formatting';
 
 export type WizardFieldType = 'text' | 'textarea' | 'select' | 'number' | 'file-list';
 
@@ -333,7 +347,25 @@ export type WorkspaceTabId =
   | 'mistakes-classify'
   | 'mistakes-review'
   | 'mistakes-practice'
-  | 'mistakes-report';
+  | 'mistakes-report'
+  | 'modeling-overview'
+  | 'modeling-problem'
+  | 'modeling-assumptions'
+  | 'modeling-solution'
+  | 'modeling-validation'
+  | 'modeling-paper'
+  | 'literature-overview'
+  | 'literature-search'
+  | 'literature-matrix'
+  | 'literature-synthesis'
+  | 'literature-gaps'
+  | 'literature-outline'
+  | 'format-overview'
+  | 'format-template'
+  | 'format-docx-check'
+  | 'format-formulas'
+  | 'format-figures'
+  | 'format-export';
 
 export type WorkspaceTabTemplate = {
   id: WorkspaceTabId;

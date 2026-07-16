@@ -5,12 +5,22 @@
 
 import type { CategoryTreeNode, ReviewQuestion } from './types';
 
+function isPlaceholderLabel(value?: string) {
+  const clean = String(value || '').trim();
+  if (!clean) return true;
+  if (/\?{2,}|�|□{2,}|_{3,}/.test(clean)) return true;
+  const visible = clean.replace(/\s/g, '');
+  const questionMarks = (visible.match(/\?/g) ?? []).length;
+  return visible.length > 0 && questionMarks / visible.length > 0.35;
+}
+
 function cleanFallbackSource(value?: string) {
   const cleaned = (value || '')
     .replace(/\.[a-z0-9]+$/i, '')
     .replace(/[-_()[\]（）【】]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  if (isPlaceholderLabel(cleaned)) return '综合复习';
   if (/计算机组成|组成原理|计组/i.test(cleaned)) return '计算机组成原理';
   return cleaned || '综合复习';
 }
@@ -18,12 +28,17 @@ function cleanFallbackSource(value?: string) {
 function isNoisyKnowledgePoint(value: string) {
   const clean = value.trim();
   if (!clean) return true;
+  if (isPlaceholderLabel(clean)) return true;
   if (/^(?:答|答案|参考答案|正确答案|解析)[:：\s]/.test(clean)) return true;
   if (/^[=\-+*/\\]/.test(clean)) return true;
   const cjkCount = (clean.match(/[\u4e00-\u9fa5]/g) ?? []).length;
   const alphaCount = (clean.match(/[A-Za-z]/g) ?? []).length;
   const symbolCount = (clean.match(/[=\-+*/\\|<>^~]/g) ?? []).length;
-  return cjkCount + alphaCount < 2 || symbolCount > cjkCount + alphaCount;
+  if (cjkCount + alphaCount < 2 || symbolCount > cjkCount + alphaCount) return true;
+  if (clean.length > 24) return true;
+  if (/[？?]/.test(clean)) return true;
+  if (/下列|采用|称为|通常|主要|描述|关于|正确|错误|是|为|____|（|）|\(|\)/.test(clean) && clean.length > 12) return true;
+  return false;
 }
 
 function normalizeKnowledgePoint(question: ReviewQuestion) {
@@ -48,7 +63,7 @@ export function buildCategoryTree(questions: ReviewQuestion[]): CategoryTreeNode
 
   for (const q of questions) {
     const kp = normalizeKnowledgePoint(q);
-    const qt = q.questionType || '通用题型';
+    const qt = isPlaceholderLabel(q.questionType) ? '通用题型' : (q.questionType || '通用题型');
     if (!root.has(kp)) root.set(kp, new Map());
     const typeMap = root.get(kp)!;
     typeMap.set(qt, (typeMap.get(qt) ?? 0) + 1);

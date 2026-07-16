@@ -30,6 +30,38 @@ test('settings page exposes MinerU document recognition controls', async () => {
   assert.match(page, /apiKey/);
 });
 
+test('settings page exposes a global workspace governance section', async () => {
+  const page = await readComponent('ProviderSettingsPage');
+  const nav = await readComponent('SettingsCategoryNav');
+
+  assert.match(nav, /workspace/);
+  assert.match(nav, /全局能力/);
+  assert.match(page, /workspaceOverview/);
+  assert.match(page, /workspaceProfile/);
+  assert.match(page, /workspaceAgents/);
+  assert.doesNotMatch(page, /workspaceGovernance/);
+  assert.match(page, /category === 'workspace'/);
+  assert.match(page, /全局学习画像/);
+  assert.match(page, /智能体中心/);
+  assert.match(page, /项目页布局规则/);
+});
+
+test('global workspace settings use a dedicated focused layout instead of the service split', async () => {
+  const page = await readComponent('ProviderSettingsPage');
+  const settingsCss = await readFile(new URL('../../styles/settings.css', import.meta.url), 'utf8');
+
+  assert.match(page, /workspaceSection/);
+  assert.match(page, /workspace-settings-shell/);
+  assert.match(page, /workspace-hub-tabs/);
+  assert.match(page, /workspace-hub-overview/);
+  assert.match(page, /category !== 'workspace' && \(/);
+
+  assert.match(settingsCss, /\.workspace-settings-shell\b/);
+  assert.match(settingsCss, /grid-template-columns:\s*minmax\(180px,\s*260px\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(settingsCss, /\.workspace-hub-panel\b/);
+  assert.match(settingsCss, /\.workspace-hub-content\b/);
+});
+
 test('App renders AI chat messages as rich markdown instead of raw text', async () => {
   const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
   const layout = await readFile(new URL('../../styles/layout.css', import.meta.url), 'utf8');

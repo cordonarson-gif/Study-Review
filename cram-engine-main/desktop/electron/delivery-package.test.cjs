@@ -40,6 +40,37 @@ test('DeliveryAgent has project-local persistence and export generation', () => 
   assert.match(main, /async function exportDeliveryPackage\(projectId: string\)/);
 });
 
+test('project export produces a portable archive and import restores it as a local project', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const preload = fs.readFileSync(path.join(__dirname, 'preload.cts'), 'utf8');
+  const globalTypes = fs.readFileSync(globalSourcePath, 'utf8');
+  const app = fs.readFileSync(appSourcePath, 'utf8');
+  const exporter = sourceBetween(main, 'async function exportProject', '\nasync function importProjectArchive');
+  const importer = sourceBetween(main, 'async function importProjectArchive', '\nasync function checkLatex');
+
+  assert.match(main, /type ProjectTransferArchive =/);
+  assert.match(main, /async function collectProjectArchiveFiles\(projectId: string\)/);
+  assert.match(exporter, /exportSchemaVersion: 3/);
+  assert.match(exporter, /app: 'cram-engine-desktop'/);
+  assert.match(exporter, /files: await collectProjectArchiveFiles\(projectId\)/);
+  assert.match(importer, /dialog\.showOpenDialog/);
+  assert.match(importer, /importedMeta = normalizeProjectMeta/);
+  assert.match(importer, /root: root/);
+  assert.match(importer, /knowledgeBasePath: projectKnowledgeBaseDir\(id\)/);
+  assert.match(importer, /linkedFolder: ''/);
+  assert.match(importer, /rewriteImportedProjectPaths\(id\)/);
+  assert.match(importer, /await saveProjects/);
+  assert.match(importer, /return openProject\(id\)/);
+  assert.match(main, /ipcMain\.handle\('projects:importArchive'/);
+  assert.match(preload, /importProjectArchive: \(\) => ipcRenderer\.invoke\('projects:importArchive'\)/);
+  assert.match(globalTypes, /importProjectArchive: \(\) => Promise<ProjectDetail \| null>/);
+  assert.match(app, /async function importProjectArchive/);
+  assert.match(app, /await ce\.importProjectArchive\(\)/);
+  assert.match(app, /setActiveProject\(enrichedDetail\)/);
+  assert.match(app, /setProjects\(nextProjects\)/);
+  assert.match(app, /导入项目/);
+});
+
 test('DeliveryAgent includes mode artifacts in delivery generation', () => {
   const main = fs.readFileSync(mainSourcePath, 'utf8');
 
@@ -58,7 +89,7 @@ test('mode delivery registry mirrors every renderer template deliverable', async
     '\n};\n\nfunction selectLatestModeArtifactsByTab'
   );
 
-  assert.equal(projectModeTemplates.length, 13);
+  assert.equal(projectModeTemplates.length, 16);
   for (const [index, template] of projectModeTemplates.entries()) {
     const marker = `'${template.mode}': [`;
     const nextTemplate = projectModeTemplates[index + 1];

@@ -11,12 +11,15 @@ import {
   getRelatedKnowledgePoints
 } from '../lib/questionClassifier';
 import {
+  buildQuestionBanks,
   filterPracticeQuestions,
   getPracticeCategoryLabel,
+  getPracticeQuestionBankId,
   normalizePracticeKnowledgePoint
 } from '../lib/practiceSession.js';
 
 type PracticeMode = 'category' | 'random' | 'wrong';
+type PracticeView = 'practice' | 'ai-generator';
 
 type Props = {
   questions: ReviewQuestion[];
@@ -83,14 +86,27 @@ function KnowledgeResourceSection({
 }
 
 export default function PracticePanel({ questions, activeProjectId, onQuestionsUpdated, onStatus }: Props) {
+  const [practiceView, setPracticeView] = useState<PracticeView>('practice');
   const [mode, setMode] = useState<PracticeMode>('category');
+  const [selectedQuestionBank, setSelectedQuestionBank] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [answerVisible, setAnswerVisible] = useState(false);
   const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
+  const [aiRequirements, setAiRequirements] = useState('');
+  const [aiCount, setAiCount] = useState(5);
+  const [aiQuestionBankName, setAiQuestionBankName] = useState('AI 生成题库');
+  const [useCurrentAsReference, setUseCurrentAsReference] = useState(true);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
 
-  const categoryTree = useMemo<CategoryTreeNode[]>(() => buildCategoryTree(questions), [questions]);
+  const questionBanks = useMemo(() => buildQuestionBanks(questions), [questions]);
+  const bankQuestions = useMemo(() => {
+    if (selectedQuestionBank === 'all') return questions;
+    return questions.filter((question) => getPracticeQuestionBankId(question) === selectedQuestionBank);
+  }, [questions, selectedQuestionBank]);
+
+  const categoryTree = useMemo<CategoryTreeNode[]>(() => buildCategoryTree(bankQuestions), [bankQuestions]);
 
   const categoryLabels = useMemo<string[]>(() => {
     const labels = new Set<string>(['全部']);
@@ -106,10 +122,11 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
   const filteredQuestions = useMemo<ReviewQuestion[]>(() => {
     return filterPracticeQuestions(questions, {
       mode,
+      selectedQuestionBank,
       selectedCategory,
       shuffleSeed
     });
-  }, [questions, mode, selectedCategory, shuffleSeed]);
+  }, [questions, mode, selectedQuestionBank, selectedCategory, shuffleSeed]);
 
   const stats = useMemo<PracticeStats>(() => computePracticeStats(filteredQuestions), [filteredQuestions]);
 
@@ -124,7 +141,14 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
   useEffect(() => {
     setCurrentIndex(0);
     setAnswerVisible(false);
-  }, [mode, selectedCategory]);
+  }, [mode, selectedQuestionBank, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedQuestionBank !== 'all' && !questionBanks.some((bank) => bank.id === selectedQuestionBank)) {
+      setSelectedQuestionBank('all');
+      setSelectedCategory('全部');
+    }
+  }, [questionBanks, selectedQuestionBank]);
 
   useEffect(() => {
     if (!currentQuestion) {
@@ -189,6 +213,47 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
     onStatus(`已切换到知识点：${point}`);
   }
 
+  function handleSelectQuestionBank(bankId: string) {
+    setSelectedQuestionBank(bankId);
+    setSelectedCategory('全部');
+    setMode('category');
+    onStatus(bankId === 'all' ? '已切换到全部题库' : `已切换题库：${questionBanks.find((bank) => bank.id === bankId)?.name ?? bankId}`);
+  }
+
+  async function handleGenerateQuestions() {
+    const requirements = aiRequirements.trim();
+    if (!requirements && !currentQuestion) {
+      onStatus('请先填写出题需求，或选择一道参考题后再生成。');
+      return;
+    }
+
+    setIsGeneratingQuestions(true);
+    try {
+      const targetBankName = aiQuestionBankName.trim() || 'AI 生成题库';
+      const nextQuestions = await window.cramEngine.generateQuestions(activeProjectId, {
+        requirements,
+        count: aiCount,
+        questionBankName: targetBankName,
+        referenceQuestionIds: useCurrentAsReference && currentQuestion ? [currentQuestion.id] : [],
+        referenceText: currentQuestion ? currentQuestion.stem : ''
+      });
+      onQuestionsUpdated(nextQuestions);
+      const generatedQuestion = nextQuestions.find((question) => question.questionBankName === targetBankName || question.source === 'ai');
+      if (generatedQuestion) {
+        setSelectedQuestionBank(getPracticeQuestionBankId(generatedQuestion));
+      }
+      setSelectedCategory('全部');
+      setMode('category');
+      setCurrentIndex(0);
+      setPracticeView('practice');
+      onStatus(`AI 已生成 ${Math.min(aiCount, nextQuestions.length)} 道题，并写入题库「${targetBankName}」。`);
+    } catch (err) {
+      onStatus(err instanceof Error ? err.message : 'AI 出题失败');
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  }
+
   const progressPercent = filteredQuestions.length
     ? Math.round(((currentIndex + 1) / filteredQuestions.length) * 100)
     : 0;
@@ -199,14 +264,18 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
 
       <div className="practice-toolbar">
         <button
-          className={mode === 'category' ? 'active-tab' : ''}
-          onClick={() => setMode('category')}
+          className={practiceView === 'practice' && mode === 'category' ? 'active-tab' : ''}
+          onClick={() => {
+            setPracticeView('practice');
+            setMode('category');
+          }}
         >
           🧭 按分类
         </button>
         <button
-          className={mode === 'random' ? 'active-tab' : ''}
+          className={practiceView === 'practice' && mode === 'random' ? 'active-tab' : ''}
           onClick={() => {
+            setPracticeView('practice');
             setMode('random');
             setShuffleSeed(Date.now());
           }}
@@ -214,16 +283,89 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
           🎲 随机乱序
         </button>
         <button
-          className={mode === 'wrong' ? 'active-tab' : ''}
-          onClick={() => setMode('wrong')}
+          className={practiceView === 'practice' && mode === 'wrong' ? 'active-tab' : ''}
+          onClick={() => {
+            setPracticeView('practice');
+            setMode('wrong');
+          }}
         >
           ❌ 错题重练
         </button>
+        <span className="practice-toolbar-spacer" />
+        <button
+          className={practiceView === 'ai-generator' ? 'active-tab' : ''}
+          onClick={() => setPracticeView('ai-generator')}
+        >
+          ✨ AI 出题
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '240px minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
-        <div className="category-sidebar">
-          <div className="section-title">知识点分类</div>
+      {practiceView === 'ai-generator' ? (
+        <div className="practice-ai-config-page">
+          <div className="ai-question-generator">
+            <div className="ai-question-generator-header">
+              <div>
+                <strong>AI 出题配置</strong>
+                <p className="muted">填写出题要求，可把当前题作为参考题型。生成后会自动加入指定题库，并在左侧题库中选中。</p>
+              </div>
+              <button onClick={() => setPracticeView('practice')}>返回刷题</button>
+            </div>
+            <div className="ai-question-generator-grid">
+              <label className="question-draft-field wide">
+                出题需求
+                <textarea
+                  rows={5}
+                  value={aiRequirements}
+                  onChange={(e) => setAiRequirements(e.target.value)}
+                  placeholder="例如：围绕 CPU 指令系统生成 5 道单选题，重点考查微程序控制器、寄存器和流水线易错点"
+                />
+              </label>
+              <label className="question-draft-field">
+                题库名称
+                <input value={aiQuestionBankName} onChange={(e) => setAiQuestionBankName(e.target.value)} />
+              </label>
+              <label className="question-draft-field">
+                题目数量
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={aiCount}
+                  onChange={(e) => setAiCount(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
+                />
+              </label>
+              <label className="ai-reference-toggle">
+                <input
+                  type="checkbox"
+                  checked={useCurrentAsReference}
+                  onChange={(e) => setUseCurrentAsReference(e.target.checked)}
+                />
+                使用当前题作为参考题目
+              </label>
+              <button className="primary" onClick={handleGenerateQuestions} disabled={isGeneratingQuestions}>
+                {isGeneratingQuestions ? '生成中...' : '生成题目并加入题库'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+        <div className="question-bank-sidebar category-sidebar">
+          <div className="section-title">题库</div>
+          <div className="question-bank-list">
+            {questionBanks.map((bank) => (
+              <button
+                key={bank.id}
+                className={`question-bank-card ${selectedQuestionBank === bank.id ? 'active' : ''}`}
+                onClick={() => handleSelectQuestionBank(bank.id)}
+              >
+                <span>{bank.id === 'all' ? '📚' : '🗂️'} {bank.name}</span>
+                <strong>{bank.count}</strong>
+              </button>
+            ))}
+          </div>
+
+          <div className="section-title" style={{ marginTop: '16px' }}>知识点 / 题型</div>
           {categoryLabels.filter((label) => !label.includes(' / ')).map((knowledgePoint) => {
             const node = categoryTree.find((item) => item.name === knowledgePoint);
             const isActive = selectedCategory === knowledgePoint;
@@ -239,7 +381,7 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
                   }}
                 >
                   <span>{knowledgePoint === '全部' ? '📝' : '📌'} {knowledgePoint}</span>
-                  <span className="badge">{knowledgePoint === '全部' ? questions.length : node?.count ?? 0}</span>
+                  <span className="badge">{knowledgePoint === '全部' ? bankQuestions.length : node?.count ?? 0}</span>
                 </div>
                 {hasChildren && isActive && (
                   <div className="category-children">
@@ -377,7 +519,8 @@ export default function PracticePanel({ questions, activeProjectId, onQuestionsU
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

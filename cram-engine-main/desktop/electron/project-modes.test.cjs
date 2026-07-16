@@ -20,7 +20,10 @@ const advancedModes = [
   'interactive-courseware',
   'teaching-game',
   'knowledge-graph',
-  'mistake-collection'
+  'mistake-collection',
+  'modeling-competition',
+  'literature-review',
+  'academic-formatting'
 ];
 
 const advancedWorkspaceTabs = [
@@ -71,7 +74,25 @@ const advancedWorkspaceTabs = [
   'mistakes-classify',
   'mistakes-review',
   'mistakes-practice',
-  'mistakes-report'
+  'mistakes-report',
+  'modeling-overview',
+  'modeling-problem',
+  'modeling-assumptions',
+  'modeling-solution',
+  'modeling-validation',
+  'modeling-paper',
+  'literature-overview',
+  'literature-search',
+  'literature-matrix',
+  'literature-synthesis',
+  'literature-gaps',
+  'literature-outline',
+  'format-overview',
+  'format-template',
+  'format-docx-check',
+  'format-formulas',
+  'format-figures',
+  'format-export'
 ];
 
 const advancedModeLabels = {
@@ -82,7 +103,10 @@ const advancedModeLabels = {
   'interactive-courseware': '互动课件',
   'teaching-game': '教学游戏',
   'knowledge-graph': '知识图谱',
-  'mistake-collection': '错题集'
+  'mistake-collection': '错题集',
+  'modeling-competition': '数学建模',
+  'literature-review': '文献综述',
+  'academic-formatting': '学术排版'
 };
 
 function extractStringLiterals(source, pattern, label) {
@@ -156,8 +180,8 @@ test('all shared contracts and main allowlists contain every advanced mode and t
     'workspaceTabs allowlist'
   );
 
-  assert.equal(advancedModes.length, 8);
-  assert.equal(advancedWorkspaceTabs.length, 48);
+  assert.equal(advancedModes.length, 11);
+  assert.equal(advancedWorkspaceTabs.length, 66);
 
   for (const mode of advancedModes) {
     assert.ok(projectModesAllowlist.includes(mode), `main projectModes missing ${mode}`);
@@ -245,7 +269,22 @@ test('mode artifact contracts cover domain tabs with distinct sections and check
     'graph-curation',
     'graph-export',
     'mistakes-classify',
-    'mistakes-report'
+    'mistakes-report',
+    'modeling-problem',
+    'modeling-assumptions',
+    'modeling-solution',
+    'modeling-validation',
+    'modeling-paper',
+    'literature-search',
+    'literature-matrix',
+    'literature-synthesis',
+    'literature-gaps',
+    'literature-outline',
+    'format-template',
+    'format-docx-check',
+    'format-formulas',
+    'format-figures',
+    'format-export'
   ];
 
   assert.match(main, /type ModeArtifactContract = \{[\s\S]*?purpose: string;[\s\S]*?sections: string\[\];[\s\S]*?checklist: string\[\];[\s\S]*?\};/);

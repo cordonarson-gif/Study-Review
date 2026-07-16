@@ -143,20 +143,20 @@ export function DeliveryPackagePage({
 
       <div className="delivery-editor-grid">
         <div className="delivery-main-panel">
-          <div className="profile-inline-fields">
-            <label>
+          <div className="delivery-field-grid">
+            <label className="delivery-field">
               交付包标题
               <input value={draft.title} onChange={(event) => patchDraft({ title: event.target.value })} />
             </label>
-            <label>
+            <label className="delivery-field">
               来源
               <input value={draft.source === 'agent' ? 'DeliveryAgent 自动生成' : '手动编辑'} readOnly />
             </label>
+            <label className="delivery-field wide">
+              摘要
+              <textarea value={draft.summary} onChange={(event) => patchDraft({ summary: event.target.value })} />
+            </label>
           </div>
-          <label>
-            摘要
-            <textarea value={draft.summary} onChange={(event) => patchDraft({ summary: event.target.value })} />
-          </label>
 
           <div className="subsection-title">交付清单</div>
           <div className="delivery-item-grid">
@@ -183,11 +183,13 @@ export function DeliveryPackagePage({
 
         <aside className="delivery-checklist-panel">
           <div className="subsection-title">交付清单复核</div>
-          <ul>
-            {draft.checklist.map((entry) => <li key={entry}>{entry}</li>)}
-          </ul>
+          <div className="delivery-checklist-card">
+            <ul>
+              {draft.checklist.map((entry) => <li key={entry}>{entry}</li>)}
+            </ul>
+          </div>
 
-          <label>
+          <label className="delivery-field wide">
             导出备注
             <textarea value={draft.exportNotes} onChange={(event) => patchDraft({ exportNotes: event.target.value })} />
           </label>

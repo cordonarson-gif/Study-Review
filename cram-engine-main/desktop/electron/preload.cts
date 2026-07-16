@@ -35,6 +35,14 @@ type GeneratePersonalizedResourcesInput = {
   type: PersonalizedResourceType | 'all';
 };
 
+type GenerateQuestionsInput = {
+  requirements: string;
+  count: number;
+  questionBankName: string;
+  referenceQuestionIds?: string[];
+  referenceText?: string;
+};
+
 type LearningPathTaskStatus = 'todo' | 'doing' | 'done';
 
 type LearningPathTask = {
@@ -103,7 +111,10 @@ type ProjectMode =
   | 'interactive-courseware'
   | 'teaching-game'
   | 'knowledge-graph'
-  | 'mistake-collection';
+  | 'mistake-collection'
+  | 'modeling-competition'
+  | 'literature-review'
+  | 'academic-formatting';
 
 type WorkspaceTabId =
   | 'overview'
@@ -194,7 +205,25 @@ type WorkspaceTabId =
   | 'mistakes-classify'
   | 'mistakes-review'
   | 'mistakes-practice'
-  | 'mistakes-report';
+  | 'mistakes-report'
+  | 'modeling-overview'
+  | 'modeling-problem'
+  | 'modeling-assumptions'
+  | 'modeling-solution'
+  | 'modeling-validation'
+  | 'modeling-paper'
+  | 'literature-overview'
+  | 'literature-search'
+  | 'literature-matrix'
+  | 'literature-synthesis'
+  | 'literature-gaps'
+  | 'literature-outline'
+  | 'format-overview'
+  | 'format-template'
+  | 'format-docx-check'
+  | 'format-formulas'
+  | 'format-figures'
+  | 'format-export';
 
 type ModeArtifact = {
   id: string;
@@ -469,6 +498,7 @@ try {
     previewQuestionsFromText: (text: string, source: string, sourceName?: string) => ipcRenderer.invoke('questions:previewText', text, source, sourceName),
     previewQuestionsFromFiles: (filePaths: string[]) => ipcRenderer.invoke('questions:previewFiles', filePaths),
     addQuestions: (projectId: string, drafts: unknown[]) => ipcRenderer.invoke('questions:add', projectId, drafts),
+    generateQuestions: (projectId: string, input: GenerateQuestionsInput) => ipcRenderer.invoke('questions:generate', projectId, input),
     updateQuestion: (projectId: string, question: unknown) => ipcRenderer.invoke('questions:update', projectId, question),
     getKnowledgeResources: (projectId: string, knowledgePoint: string) => ipcRenderer.invoke('resources:get', projectId, knowledgePoint),
     openKnowledgeResource: (projectId: string, resource: unknown) => ipcRenderer.invoke('resources:open', projectId, resource),
@@ -497,6 +527,7 @@ try {
     addKnowledgeBaseEntry: (projectId: string, entry: unknown) => ipcRenderer.invoke('knowledgeBase:addEntry', projectId, entry),
     draftKnowledgeBaseEntry: (projectId: string, source: 'chat' | 'upload', payload: unknown) => ipcRenderer.invoke('knowledgeBase:draftEntry', projectId, source, payload),
     exportProject: (projectId: string) => ipcRenderer.invoke('projects:export', projectId),
+    importProjectArchive: () => ipcRenderer.invoke('projects:importArchive'),
     readText: (projectIdOrFilePath: string, filePath?: string) => ipcRenderer.invoke('project:readText', projectIdOrFilePath, filePath),
     extractFileText: (filePath: string) => ipcRenderer.invoke('project:extractFileText', filePath),
     getUploadDataUrl: (projectId: string, filePath: string) => ipcRenderer.invoke('project:getUploadDataUrl', projectId, filePath),

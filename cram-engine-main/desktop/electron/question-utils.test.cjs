@@ -39,3 +39,25 @@ test('question parsing does not promote answer fragments, equations, or symbols 
   assert.ok(drafts.every((draft) => draft.knowledgePoint.includes('计算机') || draft.knowledgePoint.includes('CPU') || draft.knowledgePoint.includes('存储')));
 });
 
+test('question parsing keeps imported file as question bank and avoids stem-like knowledge points', async () => {
+  const { parseQuestionDrafts } = await loadQuestionUtils();
+  const drafts = parseQuestionDrafts(
+    [
+      '1. 采用微程序控制器的处理器称为微处理器，这种说法是否正确？',
+      'A. 正确',
+      'B. 错误',
+      '答案：B',
+      '解析：微程序控制器是一种控制器实现方式，并不等同于微处理器。'
+    ].join('\n'),
+    'file',
+    '计算机组成原理期末卷A.pdf'
+  );
+
+  assert.equal(drafts.length, 1);
+  assert.equal(drafts[0].questionBankName, '计算机组成原理期末卷A');
+  assert.match(drafts[0].questionBankId, /^ji-suan-ji-zu-cheng-yuan-li-qi-mo-juan-a|^question-bank-/);
+  assert.equal(drafts[0].knowledgePoint, 'CPU 与指令系统');
+  assert.equal(drafts[0].questionType, '单选题');
+  assert.doesNotMatch(drafts[0].knowledgePoint, /采用微程序控制器/);
+  assert.match(drafts[0].category, /^CPU 与指令系统 \/ 单选题$/);
+});

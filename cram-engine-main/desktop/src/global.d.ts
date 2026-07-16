@@ -78,8 +78,11 @@ type ReviewQuestion = {
   category: string;
   knowledgePoint: string;
   questionType: string;
-  source: 'text' | 'file' | 'image' | 'manual';
+  source: 'text' | 'file' | 'image' | 'manual' | 'ai';
   sourceName?: string;
+  questionBankId?: string;
+  questionBankName?: string;
+  generatedBy?: 'import' | 'ai';
   favorite: boolean;
   wrong: boolean;
   attempts: number;
@@ -88,6 +91,14 @@ type ReviewQuestion = {
 };
 
 type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | 'attempts' | 'createdAt' | 'updatedAt'>;
+
+type GenerateQuestionsInput = {
+  requirements: string;
+  count: number;
+  questionBankName: string;
+  referenceQuestionIds?: string[];
+  referenceText?: string;
+};
 
 type KnowledgeResource = {
   id: string;
@@ -222,7 +233,10 @@ type ProjectMode =
   | 'interactive-courseware'
   | 'teaching-game'
   | 'knowledge-graph'
-  | 'mistake-collection';
+  | 'mistake-collection'
+  | 'modeling-competition'
+  | 'literature-review'
+  | 'academic-formatting';
 
 type WorkspaceTabId =
   | 'overview'
@@ -313,7 +327,25 @@ type WorkspaceTabId =
   | 'mistakes-classify'
   | 'mistakes-review'
   | 'mistakes-practice'
-  | 'mistakes-report';
+  | 'mistakes-report'
+  | 'modeling-overview'
+  | 'modeling-problem'
+  | 'modeling-assumptions'
+  | 'modeling-solution'
+  | 'modeling-validation'
+  | 'modeling-paper'
+  | 'literature-overview'
+  | 'literature-search'
+  | 'literature-matrix'
+  | 'literature-synthesis'
+  | 'literature-gaps'
+  | 'literature-outline'
+  | 'format-overview'
+  | 'format-template'
+  | 'format-docx-check'
+  | 'format-formulas'
+  | 'format-figures'
+  | 'format-export';
 
 type ModeArtifact = {
   id: string;
@@ -500,6 +532,7 @@ declare global {
       previewQuestionsFromText: (text: string, source: QuestionDraft['source'], sourceName?: string) => Promise<QuestionDraft[]>;
       previewQuestionsFromFiles: (filePaths: string[]) => Promise<QuestionDraft[]>;
       addQuestions: (projectId: string, drafts: QuestionDraft[]) => Promise<ReviewQuestion[]>;
+      generateQuestions: (projectId: string, input: GenerateQuestionsInput) => Promise<ReviewQuestion[]>;
       updateQuestion: (projectId: string, question: ReviewQuestion) => Promise<ReviewQuestion[]>;
       getKnowledgeResources: (projectId: string, knowledgePoint: string) => Promise<KnowledgeResource[]>;
       openKnowledgeResource: (projectId: string, resource: KnowledgeResource) => Promise<KnowledgeResource[]>;
@@ -528,6 +561,7 @@ declare global {
       addKnowledgeBaseEntry: (projectId: string, entry: { title: string; summary: string; source: 'chat' | 'upload' | 'stage' | 'summary'; tags: string[]; content: string }) => Promise<KnowledgeBaseEntry>;
       draftKnowledgeBaseEntry: (projectId: string, source: 'chat' | 'upload', payload: { title?: string; content: string; fallbackTags?: string[] }) => Promise<KnowledgeDraft>;
       exportProject: (projectId: string) => Promise<ExportResult>;
+      importProjectArchive: () => Promise<ProjectDetail | null>;
       readText: (projectIdOrFilePath: string, filePath?: string) => Promise<string>;
       extractFileText: (filePath: string) => Promise<string>;
       getUploadDataUrl: (projectId: string, filePath: string) => Promise<string>;

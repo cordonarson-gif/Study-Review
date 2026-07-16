@@ -63,6 +63,26 @@
   min-width: 0;
 }
 
+.project-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.project-card-badge {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--color-primary-container);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .project-card-name {
   font-weight: 600;
   font-size: 13px;
@@ -187,6 +207,20 @@
   padding: var(--space-xs) 0;
 }
 
+.import-text-panel,
+.draft-preview-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.draft-preview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
 .import-textarea {
   width: 100%;
   min-height: 200px;
@@ -247,18 +281,44 @@
   gap: var(--space-sm);
 }
 
-.draft-card-row label {
+.question-draft-field {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-on-surface-variant);
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-size: 12px;
+  font-weight: 750;
 }
 
-.draft-card-row input {
-  padding: 6px 10px;
-  font-size: 12px;
+.question-draft-field.wide {
+  grid-column: 1 / -1;
+}
+
+.question-draft-field input,
+.question-draft-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 8px;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font: inherit;
+}
+
+.question-draft-field textarea {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.draft-remove-button {
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .draft-actions {
@@ -282,10 +342,119 @@
   align-items: center;
 }
 
+.practice-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
 .category-tree {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.question-bank-sidebar {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.question-bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question-bank-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  text-align: left;
+}
+
+.question-bank-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.question-bank-card strong {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(94, 57, 224, 0.1);
+  color: var(--color-primary);
+  font-size: 11px;
+}
+
+.question-bank-card.active {
+  border-color: rgba(94, 57, 224, 0.45);
+  background: rgba(94, 57, 224, 0.08);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.ai-question-generator {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(94, 57, 224, 0.08), rgba(255, 255, 255, 0.86));
+}
+
+.practice-ai-config-page {
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.practice-ai-config-page .ai-question-generator {
+  padding: 22px;
+}
+
+.ai-question-generator-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ai-question-generator p {
+  margin: 4px 0 0;
+}
+
+.ai-question-generator-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 180px 110px;
+  gap: 12px;
+  align-items: end;
+}
+
+.ai-reference-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  font-size: 12px;
+  color: var(--color-on-surface-variant);
+}
+
+.ai-question-generator-grid .primary {
+  min-height: 38px;
+}
+
+@media (max-width: 1180px) {
+  .ai-question-generator-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .category-node {

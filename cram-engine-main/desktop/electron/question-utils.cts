@@ -12,8 +12,11 @@ export type ReviewQuestion = {
   category: string;
   knowledgePoint: string;
   questionType: string;
-  source: 'text' | 'file' | 'image' | 'manual';
+  source: 'text' | 'file' | 'image' | 'manual' | 'ai';
   sourceName?: string;
+  questionBankId?: string;
+  questionBankName?: string;
+  generatedBy?: 'import' | 'ai';
   favorite: boolean;
   wrong: boolean;
   attempts: number;
@@ -26,6 +29,15 @@ export type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | '
 const optionPattern = /^([A-Ha-h])[\.\uff0e\u3001\)]\s*(.+)$/;
 const answerPattern = /(?:答案|参考答案|正确答案|答|answer|ans)[:：\s]*([A-Ha-h]|[^。\n]+)/i;
 const explanationPattern = /(?:解析|说明|理由|explanation)[:：\s]*(.+)$/i;
+
+function isPlaceholderLabel(value?: string) {
+  const clean = String(value || '').trim();
+  if (!clean) return true;
+  if (/\?{2,}|�|□{2,}|_{3,}/.test(clean)) return true;
+  const visible = clean.replace(/\s/g, '');
+  const questionMarks = (visible.match(/\?/g) ?? []).length;
+  return visible.length > 0 && questionMarks / visible.length > 0.35;
+}
 
 export function normalizeQuestionText(value: string) {
   return value.replace(/\r/g, '').replace(/[ \t]+$/gm, '').trim();
@@ -65,6 +77,7 @@ function normalizeKnowledgeFallback(value: string) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  if (isPlaceholderLabel(base)) return '综合复习';
   if (/计算机组成|组成原理|计组/i.test(base)) return '计算机组成原理';
   if (/数据结构/.test(base)) return '数据结构';
   if (/操作系统|OS\b/i.test(base)) return '操作系统';
@@ -72,11 +85,32 @@ function normalizeKnowledgeFallback(value: string) {
   return base || '综合复习';
 }
 
+export function normalizeQuestionBankName(value?: string) {
+  const cleaned = (value || '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[-_()[\]（）【】]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (isPlaceholderLabel(cleaned)) return '导入题库';
+  return cleaned || '默认题库';
+}
+
+export function createQuestionBankId(value?: string) {
+  const name = normalizeQuestionBankName(value);
+  let hash = 2166136261;
+  for (let index = 0; index < name.length; index += 1) {
+    hash ^= name.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `question-bank-${(hash >>> 0).toString(36)}`;
+}
+
 function isInvalidKnowledgeCandidate(value: string) {
   const clean = value
     .replace(/^[\s\d第题題\.\uff0e、,，)）]+/, '')
     .trim();
   if (!clean) return true;
+  if (isPlaceholderLabel(clean)) return true;
   if (/^(?:答|答案|参考答案|正确答案|解析|说明|理由|answer|ans)[:：\s]/i.test(clean)) return true;
   if (/^[A-Ha-h][\.\uff0e、)]/.test(clean)) return true;
   if (/^[=\-+*/\\\d.()\s]+[A-Za-z0-9=.\-+*/\\()\s]*$/.test(clean)) return true;
@@ -88,6 +122,9 @@ function isInvalidKnowledgeCandidate(value: string) {
   const symbolCount = (clean.match(/[=\-+*/\\|<>^~]/g) ?? []).length;
   if (signalCount < 2) return true;
   if (symbolCount > signalCount) return true;
+  if (clean.length > 24) return true;
+  if (/[？?]/.test(clean)) return true;
+  if (/下列|采用|称为|通常|主要|描述|关于|正确|错误|是|为|____|（|）|\(|\)/.test(clean) && clean.length > 12) return true;
   return false;
 }
 
@@ -165,6 +202,7 @@ export function parseQuestionBlock(block: string, source: QuestionDraft['source'
   const stem = stemLines.join('\n').replace(/^\s*(?:第\s*)?\d+\s*[题題]?[\.\uff0e\u3001)]?\s*/, '').trim() || block;
   const knowledgePoint = inferKnowledgePoint(stem, sourceName || '综合复习');
   const questionType = inferQuestionType(options, stem);
+  const questionBankName = normalizeQuestionBankName(sourceName || '默认题库');
 
   return {
     stem,
@@ -175,7 +213,10 @@ export function parseQuestionBlock(block: string, source: QuestionDraft['source'
     knowledgePoint,
     questionType,
     source,
-    sourceName
+    sourceName,
+    questionBankId: createQuestionBankId(questionBankName),
+    questionBankName,
+    generatedBy: source === 'ai' ? 'ai' : 'import'
   };
 }
 

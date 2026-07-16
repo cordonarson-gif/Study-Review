@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import type {
   AgentMessage,
   AppSettings,
+  ChatTurn,
   CreateProjectInput,
   DeliveryPackage,
   ExportResult,
@@ -27,13 +28,14 @@ import type {
   GenerateModeArtifactInput,
   WorkspaceTabId
 } from '../lib/types';
-import { defaultSettings, examOptions, stageOrder } from '../lib/types';
+import { defaultSettings, examOptions } from '../lib/types';
 import { sanitizeRichHtml } from '../lib/richContent.js';
 import { createEmptyChatGreeting, formatDate, getActiveProviderProfile } from '../lib/utils';
 import { findConfiguredProvider, getSelectableModels } from '../lib/providerSettings.js';
+import { getProjectModeDisplay } from '../lib/projectDisplay';
 import { appendWizardFileList, appendWizardValue, resolveWizardQuestionImportText } from '../lib/wizardImports.js';
 import { buildWizardProjectPayload, canCreateWizardProject, getWizardStepError, validateWizardProject } from '../lib/wizardProject.js';
-import { getProjectModeTemplate, getWorkspaceTabsForMode, isModeTab } from '../lib/projectModes';
+import { getProjectModeTemplate, getWorkspaceTabsForMode, isModeTab, projectModeTemplates } from '../lib/projectModes';
 import ProjectListPanel from '../components/ProjectListPanel';
 import QuestionImportPanel from '../components/QuestionImportPanel';
 import PracticePanel from '../components/PracticePanel';
@@ -49,11 +51,15 @@ import { CoursewareStudioPage } from '../components/modes/CoursewareStudioPage';
 import { TeachingGamePage } from '../components/modes/TeachingGamePage';
 import { ModeModulePage } from '../components/modes/ModeModulePage';
 import { ProjectModeSelector } from '../components/modes/ProjectModeSelector';
+import { HelpCenterPage } from '../components/help/HelpCenterPage';
 import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
 
-type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export';
+type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export' | 'help';
 type EditorTab = WorkspaceTabId;
 type WizardStep = 1 | 2 | 3;
+type TopnavShortcutId = 'modes' | 'materials' | 'workspace' | 'delivery';
+type AiTab = 'chat' | 'history' | 'reference';
+type SelectionAskState = { text: string; x: number; y: number } | null;
 
 type WizardState = {
   mode: ProjectMode;
@@ -122,6 +128,41 @@ const specializedModeTabs = new Set<WorkspaceTabId>([
   'mistakes-review',
   'mistakes-practice'
 ]);
+
+const homeModeHighlights = projectModeTemplates;
+
+const homeCapabilities = [
+  {
+    title: '学习复习',
+    detail: '期末复习、错题集、个性化资源、学习路径和阶段报告形成复习闭环。'
+  },
+  {
+    title: '论文与科研',
+    detail: '论文助手、科研数据分析、科研创新工作台覆盖选题、文献、数据、创新点和报告。'
+  },
+  {
+    title: '教学设计',
+    detail: '教学设计、互动课件、虚拟教师和学生发展规划支持备课、辅导和培养方案。'
+  },
+  {
+    title: '测评与活动',
+    detail: '作业出题批改、在线测验、教学游戏和知识图谱帮助构建可复用课堂活动。'
+  }
+];
+
+const homeWorkflow = [
+  { title: '配置服务', detail: '先配置 API、模型、MinerU 和 LaTeX 环境。' },
+  { title: '选择模式', detail: '从 16 类项目模式中选择学习、科研、教学或测评方向。' },
+  { title: '生成成果', detail: '在工作台生成资料、题库、课件、图谱、仿真或研究成果。' },
+  { title: '交付导出', detail: '检查交付清单，导出 Markdown 和 JSON 成果包。' }
+];
+
+const topnavShortcuts: Array<{ id: TopnavShortcutId; label: string; title: string }> = [
+  { id: 'modes', label: '项目模式', title: '查看 16 类项目模板并创建新项目' },
+  { id: 'materials', label: '资料识别', title: '进入当前项目的资料上传、图片预览和文档识别' },
+  { id: 'workspace', label: '智能工作台', title: '进入当前项目的核心工作台' },
+  { id: 'delivery', label: '交付中心', title: '检查成果清单并导出交付包' }
+];
 
 function isWizardStringField(key: string): key is WizardStringField {
   return wizardStringFields.has(key as WizardStringField);
@@ -225,22 +266,27 @@ function KnowledgeResourceList({
   onOpen: (resource: KnowledgeResource) => void;
 }) {
   return (
-    <div className="resource-panel">
-      <div className="knowledge-header">
-        <strong>知识点拓展</strong>
-        <span className="muted">{resources.length} 条资源</span>
+    <div className="materials-resource-panel">
+      <div className="materials-resource-header">
+        <div>
+          <div className="subsection-title">知识点拓展</div>
+          <span className="muted">按当前知识库标签推荐外部资源</span>
+        </div>
+        <span className="upload-kind">{resources.length} 条</span>
       </div>
-      <div className="resource-list">
+      <div className="materials-resource-list">
         {resources.map((resource) => (
           <button
             key={resource.id}
-            className={resource.read ? 'resource-item read' : 'resource-item'}
+            className={resource.read ? 'materials-resource-card read' : 'materials-resource-card'}
             onClick={() => onOpen(resource)}
           >
-            <span className="upload-kind">{resource.platform}</span>
-            <strong>{resource.title}</strong>
+            <div className="materials-resource-card-top">
+              <span className="upload-kind">{resource.platform}</span>
+              {resource.read && <em>已读</em>}
+            </div>
+            <strong className="materials-card-title">{resource.title}</strong>
             <small>{resource.description}</small>
-            {resource.read && <em>已读</em>}
           </button>
         ))}
       </div>
@@ -277,14 +323,6 @@ function FutureModulePage({
     </section>
   );
 }
-
-/* ---- 阶段语义色配置 ---- */
-const stageColors: Record<string, { bg: string; color: string; icon: string }> = {
-  '拆解': { bg: '#f4f0ff', color: '#7c5cff', icon: '#' },
-  '讲授': { bg: '#e7f9fc', color: '#00687a', icon: '#' },
-  '检题': { bg: '#fff5eb', color: '#8f4a00', icon: '#' },
-  '补漏': { bg: '#fef2f2', color: '#ba1a1a', icon: '#' }
-};
 
 function formatLatexStatusLabel(latexStatus: {
   available: boolean;
@@ -347,11 +385,11 @@ export default function App() {
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>('lastOpened');
   const [projectSummaries, setProjectSummaries] = useState<Record<string, { questionCount: number; knowledgeBaseCount: number; progressPercent: number }>>({});
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
-  const [aiTab, setAiTab] = useState<'chat' | 'reference'>('chat');
+  const [aiTab, setAiTab] = useState<AiTab>('chat');
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [selectionAsk, setSelectionAsk] = useState<SelectionAskState>(null);
   const [globalSearch, setGlobalSearch] = useState('');
   const [notificationCount, setNotificationCount] = useState(0);
-  const [showHelp, setShowHelp] = useState(false);
-  const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showAllProjects, setShowAllProjects] = useState(false);
 
@@ -365,6 +403,17 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
   }, []);
+
+  useEffect(() => {
+    document.addEventListener('mouseup', captureInternalSelection);
+    document.addEventListener('keyup', captureInternalSelection);
+    document.addEventListener('scroll', clearSelectionAsk, true);
+    return () => {
+      document.removeEventListener('mouseup', captureInternalSelection);
+      document.removeEventListener('keyup', captureInternalSelection);
+      document.removeEventListener('scroll', clearSelectionAsk, true);
+    };
+  }, [activeProject?.meta.id]);
 
   /** 加载项目统计摘要（用于侧边栏展示） */
   useEffect(() => {
@@ -446,6 +495,18 @@ export default function App() {
     });
   }, [activeProject, knowledgeQuery]);
 
+  const filteredChatHistory = useMemo(() => {
+    const history = activeProject?.chatHistory ?? [];
+    const query = chatSearchQuery.trim().toLowerCase();
+    if (!query) return history;
+    return history.filter((turn) => {
+      return [turn.role, turn.content, turn.model ?? '', turn.createdAt]
+        .join('\n')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [activeProject?.chatHistory, chatSearchQuery]);
+
   const canSubmitWizardProject = useMemo(() => {
     return canCreateWizardProject(wizard) && !isCreatingProject;
   }, [wizard, isCreatingProject]);
@@ -503,6 +564,7 @@ export default function App() {
     setConfigText(detail.configYaml);
     setProgressText(detail.progressMarkdown);
     setChatMessages(toAgentMessages(detail));
+    setChatSearchQuery('');
     setStatus(`已进入项目：${detail.meta.name}`);
     setViewMode('workspace');
     setExportResult(null);
@@ -534,6 +596,8 @@ export default function App() {
       setStageReports([]);
       setDeliveryPackage(null);
       setModeArtifacts([]);
+      setChatMessages(createEmptyChatGreeting());
+      setChatSearchQuery('');
       setViewMode('home');
     }
     setStatus(`已删除项目：${project.name}`);
@@ -569,6 +633,7 @@ export default function App() {
       setConfigText(detail.configYaml);
       setProgressText(detail.progressMarkdown);
       setChatMessages(toAgentMessages(detail));
+      setChatSearchQuery('');
       setWizard(initialWizardState);
       setWizardStep(1);
       setViewMode('workspace');
@@ -835,12 +900,111 @@ export default function App() {
     setKnowledgeResources((current) => current.map((item) => item.id === resource.id ? { ...item, read: true } : item));
   }
 
+  function clearSelectionAsk() {
+    setSelectionAsk(null);
+  }
+
+  function captureInternalSelection(event?: Event) {
+    if (!activeProject) {
+      clearSelectionAsk();
+      return;
+    }
+
+    const target = event?.target instanceof Element ? event.target : document.activeElement;
+    if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
+      clearSelectionAsk();
+      return;
+    }
+
+    const selection = window.getSelection();
+    const text = selection?.toString().replace(/\s+/g, ' ').trim() ?? '';
+    if (!selection || text.length < 2) {
+      clearSelectionAsk();
+      return;
+    }
+
+    const anchorElement = selection.anchorNode instanceof Element
+      ? selection.anchorNode
+      : selection.anchorNode?.parentElement;
+    const internalSurface = anchorElement?.closest('.main-scroll, .ai-drawer-body');
+    if (!internalSurface) {
+      clearSelectionAsk();
+      return;
+    }
+
+    const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+    const rect = range?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      clearSelectionAsk();
+      return;
+    }
+
+    setSelectionAsk({
+      text: text.slice(0, 1200),
+      x: Math.min(Math.max(rect.right - 142, 12), window.innerWidth - 174),
+      y: Math.max(rect.top - 44, 72)
+    });
+  }
+
+  function askAiAboutSelection() {
+    if (!activeProject || !selectionAsk?.text) {
+      showToast('请先打开项目，再框选内容提问');
+      clearSelectionAsk();
+      return;
+    }
+    setAgentInput(`请结合当前项目解释这段内容，并给出可以继续追问的方向：\n\n${selectionAsk.text}`);
+    setAiDrawerOpen(true);
+    setAiTab('chat');
+    clearSelectionAsk();
+    window.getSelection()?.removeAllRanges();
+  }
+
+  function continueFromHistory(turn: AgentMessage | ChatTurn) {
+    setAgentInput(`继续基于这条历史对话追问：\n\n${turn.content}\n\n我的新问题是：`);
+    setAiDrawerOpen(true);
+    setAiTab('chat');
+    showToast('已载入历史内容，可继续追问');
+  }
+
   async function exportProject() {
     if (!activeProject) return;
     const result = await ce.exportProject(activeProject.meta.id);
     setExportResult(result);
     setViewMode('export');
     setStatus(`已导出 ${activeProject.meta.name}`);
+  }
+
+  async function importProjectArchive() {
+    const detail = await ce.importProjectArchive();
+    if (!detail) {
+      showToast('已取消导入项目');
+      return;
+    }
+    const profileState = detail.learningProfile ?? await ce.getLearningProfile(detail.meta.id);
+    const generatedResources = detail.personalizedResources ?? await ce.listPersonalizedResources(detail.meta.id);
+    const pathPlan = detail.learningPathPlan ?? await ce.getLearningPathPlan(detail.meta.id);
+    const reports = detail.stageReports ?? await ce.listStageReports(detail.meta.id);
+    const delivery = detail.deliveryPackage ?? await ce.getDeliveryPackage(detail.meta.id);
+    const artifacts = detail.modeArtifacts ?? await ce.listModeArtifacts(detail.meta.id);
+    const nextProjects = await ce.listProjects();
+    const enrichedDetail = { ...detail, deliveryPackage: delivery, modeArtifacts: artifacts };
+    setActiveProject(enrichedDetail);
+    setLearningProfileState(profileState);
+    setPersonalizedResources(generatedResources);
+    setLearningPathPlan(pathPlan);
+    setStageReports(reports);
+    setDeliveryPackage(delivery);
+    setModeArtifacts(artifacts);
+    setConfigText(detail.configYaml);
+    setProgressText(detail.progressMarkdown);
+    setChatMessages(toAgentMessages(detail));
+    setChatSearchQuery('');
+    setProjects(nextProjects);
+    setExportResult(null);
+    setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
+    setViewMode('workspace');
+    setStatus(`已导入项目：${detail.meta.name}`);
+    showToast('项目导入完成，已恢复到本机项目列表');
   }
 
   async function runProjectChat() {
@@ -1112,49 +1276,62 @@ export default function App() {
   }
 
   function openDocumentation() {
-    window.alert('Cram Engine 文档\n\n快速上手：\n1. 新建项目 → 填写基本信息\n2. 在课程内容中导入课件资料\n3. 在工作台录入或导入题目\n4. 使用练习面板刷题\n5. 通过 AI 对话获取学习建议\n\n更多帮助请参考项目 README。');
+    setViewMode('help');
+    showToast('已打开帮助中心');
   }
 
-  function navigateStage(stage: string) {
-    setStageFilter(stage);
-
-    if (viewMode === 'workspace' && activeProject) {
-      switch (stage) {
-        case '拆解':
-          setEditorTab('materials');
-          showToast('已打开素材页：上传资料、整理知识库和拓展资源');
-          return;
-        case '讲授':
-          setAiTab('chat');
-          setAiDrawerOpen(true);
-          showToast('已打开 AI 助教：可以直接让它讲解当前项目');
-          return;
-        case '检题':
-          setEditorTab('practice');
-          showToast('已打开练习页：开始检题和刷题');
-          return;
-        case '补漏':
-          setEditorTab('progress');
-          showToast('已打开进度页：记录薄弱点和补漏计划');
-          return;
-        default:
-          setEditorTab('overview');
-      }
-    }
-
-    if (stageFilter === stage) {
-      setStageFilter(null);
-      showToast('已清除阶段筛选');
+  function openAgentTarget(tab: 'profile' | 'resources' | 'path' | 'report' | 'delivery') {
+    if (tab === 'profile') {
+      setViewMode('settings');
+      showToast('用户画像已迁移到 设置 → 全局能力');
       return;
     }
-    setStageFilter(stage);
-    if (viewMode === 'home') {
-      showToast(`筛选"${stage}"阶段 | 在工作台中可查看该阶段的详细内容`);
-    }
+    setViewMode('workspace');
+    setEditorTab(tab);
   }
 
-  function handleStageClick(stage: string) {
-    navigateStage(stage);
+  function handleTopnavShortcut(shortcutId: TopnavShortcutId) {
+    switch (shortcutId) {
+      case 'modes':
+        setViewMode('home');
+        showToast('已打开 16 类项目模式');
+        return;
+      case 'materials':
+        if (!activeProject) {
+          setViewMode('wizard');
+          setWizardStep(1);
+          showToast('请先创建项目，再上传和识别资料');
+          return;
+        }
+        setViewMode('workspace');
+        setEditorTab('materials');
+        showToast('已打开资料识别与素材页');
+        return;
+      case 'workspace':
+        if (!activeProject) {
+          setViewMode('wizard');
+          setWizardStep(1);
+          showToast('请先创建项目，再进入智能工作台');
+          return;
+        }
+        setViewMode('workspace');
+        setEditorTab('overview');
+        showToast('已打开智能工作台');
+        return;
+      case 'delivery':
+        if (!activeProject) {
+          setViewMode('wizard');
+          setWizardStep(1);
+          showToast('请先创建项目，再进入交付中心');
+          return;
+        }
+        setViewMode('workspace');
+        setEditorTab('delivery');
+        showToast('已打开交付中心');
+        return;
+      default:
+        setViewMode('home');
+    }
   }
 
   /* ================================================================
@@ -1177,19 +1354,23 @@ export default function App() {
               placeholder="搜索资源、笔记、题目..."
             />
           </div>
-          <nav className="topnav-stages">
-            {stageOrder.map((stage, i) => {
-              const sc = stageColors[stage] || stageColors['拆解'];
+          <nav className="topnav-shortcuts" aria-label="全局快捷入口">
+            {topnavShortcuts.map((shortcut) => {
+              const active =
+                (shortcut.id === 'modes' && viewMode === 'home') ||
+                (shortcut.id === 'materials' && viewMode === 'workspace' && editorTab === 'materials') ||
+                (shortcut.id === 'workspace' && viewMode === 'workspace' && editorTab === 'overview') ||
+                (shortcut.id === 'delivery' && viewMode === 'workspace' && editorTab === 'delivery');
               return (
-                <a
-                  key={stage}
-                  className={stageFilter === stage ? 'active' : ''}
-                  style={{ color: i === 0 ? sc.color : undefined }}
-                  onClick={() => handleStageClick(stage)}
-                  title={`筛选${stage}阶段内容`}
+                <button
+                  key={shortcut.id}
+                  type="button"
+                  className={active ? 'active' : ''}
+                  onClick={() => handleTopnavShortcut(shortcut.id)}
+                  title={shortcut.title}
                 >
-                  {stage}
-                </a>
+                  {shortcut.label}
+                </button>
               );
             })}
           </nav>
@@ -1218,6 +1399,12 @@ export default function App() {
               style={{ width: '100%', padding: '10px', fontSize: '14px' }}
             >
               + 新建项目
+            </button>
+            <button
+              className="sidebar-secondary-action"
+              onClick={() => void importProjectArchive()}
+            >
+              导入项目
             </button>
           </div>
 
@@ -1249,25 +1436,9 @@ export default function App() {
               <a className={viewMode === 'settings' ? 'active' : ''} onClick={() => setViewMode('settings')}>
                 <span className="nav-icon">&#x2699;</span> 设置
               </a>
-              <a onClick={() => { setShowHelp(true); showToast('帮助面板已打开'); }}>
+              <a className={viewMode === 'help' ? 'active' : ''} onClick={() => setViewMode('help')}>
                 <span className="nav-icon">?</span> 帮助与支持
               </a>
-              {showHelp && (
-                <div style={{ padding: '12px', background: 'var(--color-surface-container-low)', borderRadius: '8px', margin: '8px', fontSize: '12px', lineHeight: 1.6, border: '1px solid var(--color-outline-variant)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <strong>帮助 · Cram Engine</strong>
-                    <button onClick={() => setShowHelp(false)} style={{ fontSize: '11px', padding: '2px 8px' }}>✕ 关闭</button>
-                  </div>
-                  <p style={{ margin: '4px 0' }}>📖 <strong>快速上手</strong></p>
-                  <p style={{ margin: '2px 0', color: 'var(--color-on-surface-variant)' }}>1. 新建项目 → 填写基本信息<br/>2. 导入课件资料到课程内容<br/>3. 在工作台录入/导入题目<br/>4. 使用练习面板刷题<br/>5. AI 对话获取学习建议</p>
-                  <p style={{ margin: '8px 0 4px' }}>🔧 <strong>系统信息</strong></p>
-                  <p style={{ margin: '2px 0', color: 'var(--color-on-surface-variant)' }}>
-                    LaTeX: {latexStatusLabel}<br/>
-                    API: {settingsHasApiKey ? '✅ 已配置' : '⚠️ API Key 未填写'}<br/>
-                    项目: {projects.length} 个
-                  </p>
-                </div>
-              )}
             </nav>
             <div className="status-card" style={{ padding: '10px', fontSize: '11px', marginTop: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
@@ -1288,77 +1459,90 @@ export default function App() {
           <div className="main-scroll">
             {/* ======== 首页 ======== */}
             {viewMode === 'home' && (
-              <>
-                {/* Hero */}
-                <section style={{
-                  background: '#fff',
-                  border: '1px solid #e2e3e0',
-                  borderRadius: '12px',
-                  padding: '48px',
-                  marginBottom: '32px',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{ position: 'relative', zIndex: 1, maxWidth: '560px' }}>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '36px', fontWeight: 700, lineHeight: 1.2, marginBottom: '16px', color: 'var(--color-on-surface)' }}>
-                      &#x2726; 把每一门课，<br />烤成一炉好题
-                    </h1>
-                    <p style={{ fontSize: '15px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6, marginBottom: '24px' }}>
-                      从课件到实战，AI 助力拆解知识结构、讲授核心概念、开展针对性检题，并实时追踪补漏，为你的学习旅程查缺补漏。
+              <div className="home-page">
+                <section className="home-hero">
+                  <div className="home-hero-copy">
+                    <span className="upload-kind">Cram Engine Desktop</span>
+                    <h1>学习、科研、教学与测评的一体化工作台</h1>
+                    <p>
+                      从 API 配置、资料识别和项目创建开始，到论文助手、实验仿真、教学设计、在线测验、
+                      知识图谱、错题整理和成果交付，所有功能都围绕真实项目流转。
                     </p>
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div className="home-hero-actions">
                       <button className="primary" onClick={() => { setViewMode('wizard'); setWizardStep(1); }}>
-                        &#x1F4C2; 快速开始：导入资料
+                        新建项目
                       </button>
-                      <button onClick={() => { setViewMode('wizard'); setWizardStep(1); }}>
-                        &#x1F3CB; 从模板创建
+                      <button onClick={() => setViewMode('help')}>
+                        查看完整指南
                       </button>
                     </div>
                   </div>
-                  <div style={{
-                    position: 'absolute',
-                    right: '-8%',
-                    bottom: '-30%',
-                    width: '300px',
-                    height: '300px',
-                    borderRadius: '50%',
-                    background: 'rgba(94,57,224,0.04)',
-                    filter: 'blur(60px)'
-                  }} />
+                  <div className="home-hero-panel" aria-label="平台能力摘要">
+                    <strong>16 类项目模式</strong>
+                    <span>学习复习 / 论文科研 / 教学设计 / 测评活动 / 成果交付</span>
+                    <div className="home-hero-metrics">
+                      <div><b>{projectModeTemplates.length}</b><small>项目模式</small></div>
+                      <div><b>39</b><small>交付定义</small></div>
+                      <div><b>{projects.length}</b><small>本地项目</small></div>
+                    </div>
+                  </div>
                 </section>
 
-                {/* 智能闭环 4 卡片 */}
-                <section style={{ marginBottom: '32px' }}>
+                <section>
                   <div className="section-header">
-                    <h3>智能闭环</h3>
-                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>
-                      INTELLIGENT CYCLE
-                    </span>
+                    <h3>从配置到交付</h3>
+                    <span className="view-all">WORKFLOW</span>
                   </div>
-                  <div className="cards">
-                    {stageOrder.map((stage) => {
-                      const sc = stageColors[stage] || stageColors['拆解'];
-                      return (
-                        <div key={stage} className="hero-card">
-                          <div className="hero-icon" style={{ background: sc.bg, color: sc.color }}>
-                            <span style={{ fontSize: '22px' }}>
-                              {stage === '拆解' ? '☁' : stage === '讲授' ? '\u{1F393}' : stage === '检题' ? '✎' : '\u{1F527}'}
-                            </span>
-                          </div>
-                          <h4>{stage}</h4>
-                          <p>
-                            {stage === '拆解' && '将复杂的教学大纲拆解为原子化知识点'}
-                            {stage === '讲授' && 'AI 导师结合上下文提供深度原理解析'}
-                            {stage === '检题' && '基于你的掌握进度生成自适应模拟题'}
-                            {stage === '补漏' && '精准定位薄弱环节，强化长时记忆'}
-                          </p>
-                        </div>
-                      );
-                    })}
+                  <div className="home-workflow-grid">
+                    {homeWorkflow.map((item, index) => (
+                      <article key={item.title} className="home-workflow-card">
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </article>
+                    ))}
                   </div>
                 </section>
 
-                {/* 最近项目 */}
+                <section>
+                  <div className="section-header">
+                    <h3>核心能力</h3>
+                    <span className="view-all">CAPABILITIES</span>
+                  </div>
+                  <div className="home-capability-grid">
+                    {homeCapabilities.map((item) => (
+                      <article key={item.title} className="home-capability-card">
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <div className="section-header">
+                    <h3>选择项目模式</h3>
+                    <span className="view-all">点击即可预选模式</span>
+                  </div>
+                  <div className="home-mode-grid">
+                    {homeModeHighlights.map((template) => (
+                      <button
+                        key={template.mode}
+                        className="home-mode-card"
+                        onClick={() => {
+                          selectProjectMode(template.mode);
+                          setViewMode('wizard');
+                          setWizardStep(1);
+                        }}
+                      >
+                        <span>{template.icon}</span>
+                        <strong>{template.title}</strong>
+                        <small>{template.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
                 <section>
                   <div className="section-header">
                     <h3>最近项目</h3>
@@ -1366,9 +1550,10 @@ export default function App() {
                       {showAllProjects ? '收起列表 &uarr;' : '查看全部存档 &rarr;'}
                     </span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+                  <div className="home-recent-grid">
                     {projects.slice(0, showAllProjects ? projects.length : 3).map((project) => {
                       const summary = projectSummaries[project.id];
+                      const display = getProjectModeDisplay(project);
                       return (
                         <div
                           key={project.id}
@@ -1383,24 +1568,15 @@ export default function App() {
                           onClick={() => void openProject(project.id)}
                         >
                           {/* 封面色块 */}
-                          <div style={{
-                            height: '100px',
-                            background: 'linear-gradient(135deg, #e6deff 0%, #f4f0ff 100%)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '32px',
-                            color: 'var(--color-primary)',
-                            opacity: 0.6
-                          }}>
-                            &#x1F4DA;
+                          <div className="home-project-mode-cover">
+                            <span className="home-project-mode-icon" title={display.subtitle}>{display.icon}</span>
                           </div>
                           <div style={{ padding: '14px', flex: 1 }}>
                             <h5 style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
                               {project.name}
                             </h5>
                             <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', marginBottom: '10px' }}>
-                              {project.courseName} &middot; {project.examType}
+                              {display.title} &middot; {display.subtitle}
                             </p>
                             {summary && summary.questionCount > 0 && (
                               <>
@@ -1422,7 +1598,6 @@ export default function App() {
                         </div>
                       );
                     })}
-                    {/* 空状态卡片 */}
                     {projects.length < 3 && (
                       <div
                         className="scholar-card"
@@ -1459,7 +1634,7 @@ export default function App() {
                     )}
                   </div>
                 </section>
-              </>
+              </div>
             )}
 
             {/* ======== 设置页 ======== */}
@@ -1473,8 +1648,55 @@ export default function App() {
                   initialSettings={settings}
                   onSave={saveSettings}
                   onDiscard={discardSettings}
+                  workspaceOverview={activeProject ? (
+                    <div className="settings-governance-content">
+                      <div className="settings-governance-note">
+                        <strong>当前项目：{activeProject.meta.name}</strong>
+                        <span>这里仅展示全局能力与当前项目的联动摘要；详细编辑请切换到“学习画像”或“智能体中心”。</span>
+                      </div>
+                      <div className="workspace-governance-summary">
+                        <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
+                        <div><span>题库</span><strong>{activeProject.questions.length}</strong></div>
+                        <div><span>个性化资源</span><strong>{personalizedResources.length}</strong></div>
+                        <div><span>阶段报告</span><strong>{stageReports.length}</strong></div>
+                        <div><span>学习路径</span><strong>{learningPathPlan ? '已生成' : '未生成'}</strong></div>
+                        <div><span>画像状态</span><strong>{learningProfileState?.profile.updatedAt ? '已更新' : '待完善'}</strong></div>
+                      </div>
+                    </div>
+                  ) : undefined}
+                  workspaceProfile={activeProject ? (
+                    <LearningProfilePage
+                      projectId={activeProject.meta.id}
+                      state={learningProfileState ?? activeProject.learningProfile ?? null}
+                      onChange={(next) => {
+                        setLearningProfileState(next);
+                        setActiveProject({ ...activeProject, learningProfile: next });
+                      }}
+                      onSave={saveLearningProfile}
+                      onAnalyze={analyzeLearningProfile}
+                      onStatus={setStatus}
+                    />
+                  ) : undefined}
+                  workspaceAgents={activeProject ? (
+                    <AgentOrchestrationPage
+                      profileReady={Boolean(learningProfileState?.profile.updatedAt)}
+                      resourceCount={personalizedResources.length}
+                      hasPathPlan={Boolean(learningPathPlan)}
+                      reportCount={stageReports.length}
+                      onOpenTab={openAgentTarget}
+                    />
+                  ) : undefined}
                 />
               </div>
+            )}
+
+            {viewMode === 'help' && (
+              <HelpCenterPage
+                apiStatusLabel={apiStatusLabel}
+                latexStatusLabel={latexStatusLabel}
+                projectCount={projects.length}
+                hasApiKey={settingsHasApiKey}
+              />
             )}
 
             {viewMode === 'wizard' && (
@@ -1501,14 +1723,14 @@ export default function App() {
                 {/* Step 1: 基本信息 */}
                 {wizardStep === 1 && (
                   <div className="panel" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="wizard-form-stack">
                       <ProjectModeSelector selectedMode={wizard.mode} onSelect={selectProjectMode} />
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                      <label className="wizard-mode-field wide">
                         项目名称
-                        <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder="例如：计算机系统结构 101" style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
+                        <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder="例如：计算机系统结构 101" />
                       </label>
                       <div className="wizard-common-field-grid">
-                        <label className="wizard-mode-field">
+                        <label className="wizard-mode-field wide">
                           AI Provider / 模型
                           <select
                             value={`${wizard.provider}:${wizard.model}`}
@@ -1527,7 +1749,7 @@ export default function App() {
                         {selectedWizardTemplate.wizardFields.filter((field) => !handledWizardFieldKeys.has(field.key)).map(renderModeField)}
                       </div>
                       {wizard.mode === 'exam-review' && (
-                        <label className="wizard-mode-field">
+                        <label className="wizard-mode-field wide">
                           教材 / 范围
                           <div className="wizard-input-row align-start">
                             <textarea
@@ -1540,11 +1762,11 @@ export default function App() {
                           </div>
                         </label>
                       )}
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                      <label className="wizard-mode-field wide">
                         链接现有项目目录（可选）
                         <div className="wizard-input-row">
-                          <input value={wizard.linkedFolder} onChange={(e) => updateWizard('linkedFolder', e.target.value)} placeholder="已有 stages/configs/progress 资料" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
-                          <button disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()} style={{ padding: '14px 20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 600 }}>📁 选择目录</button>
+                          <input value={wizard.linkedFolder} onChange={(e) => updateWizard('linkedFolder', e.target.value)} placeholder="已有 stages/configs/progress 资料" />
+                          <button className="wizard-secondary-action" disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()}>📁 选择目录</button>
                         </div>
                       </label>
                     </div>
@@ -1554,37 +1776,37 @@ export default function App() {
                 {/* Step 2: 工作目标 / 出题要求 */}
                 {wizardStep === 2 && (
                   <div className="panel" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                    <div className="wizard-form-stack">
+                      <label className="wizard-mode-field wide">
                         {wizard.mode === 'exam-review' ? '补充要求' : '项目目标 / 补充要求'}
                         <div className="wizard-input-row align-start">
-                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '例如：多用中文例子；重点讲简答题套路' : '说明项目目标、期望成果和其他约束'} style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
-                          <button disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入">📎</button>
+                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '例如：多用中文例子；重点讲简答题套路' : '说明项目目标、期望成果和其他约束'} />
+                          <button className="wizard-icon-action" disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} title="从文本文件导入">📎</button>
                         </div>
                       </label>
                       {isQuestionOrientedMode(wizard.mode) && (
-                        <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                        <label className="wizard-mode-field wide">
                           课堂材料 / 参考资料
                           <div className="wizard-input-row align-start">
-                            <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder="说明已有讲义、题库、参考文件和资料来源" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '120px', borderRadius: '10px', resize: 'vertical' }} />
-                            <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="上传课堂材料或参考资料">📎</button>
+                            <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder="说明已有讲义、题库、参考文件和资料来源" />
+                            <button className="wizard-icon-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} title="上传课堂材料或参考资料">📎</button>
                           </div>
                         </label>
                       )}
                       {wizard.mode === 'exam-review' && (
                         <>
-                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                          <label className="wizard-mode-field wide">
                             必考点（每行一个）
                             <div className="wizard-input-row align-start">
-                              <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder="老师明确强调的必考点" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
-                              <button disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入必考点">📎</button>
+                              <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder="老师明确强调的必考点" />
+                              <button className="wizard-icon-action" disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} title="从文本文件导入必考点">📎</button>
                             </div>
                           </label>
-                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                          <label className="wizard-mode-field wide">
                             重点知识（每行一个）
                             <div className="wizard-input-row align-start">
-                              <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder="需要逐步拆解讲透的重点内容" style={{ flex: 1, padding: '14px 18px', fontSize: '16px', minHeight: '100px', borderRadius: '10px', resize: 'vertical' }} />
-                              <button disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '13px' }} title="从文本文件导入重点知识">📎</button>
+                              <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder="需要逐步拆解讲透的重点内容" />
+                              <button className="wizard-icon-action" disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} title="从文本文件导入重点知识">📎</button>
                             </div>
                           </label>
                         </>
@@ -1596,44 +1818,42 @@ export default function App() {
                 {/* Step 3: 题目或素材导入 */}
                 {wizardStep === 3 && (
                   <div className="panel" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="wizard-form-stack">
                       {isQuestionOrientedMode(wizard.mode) ? (
                         <>
-                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                          <label className="wizard-mode-field wide">
                             初始题目批量粘贴（可选）
                             <textarea
                               rows={10}
                               value={wizard.initialQuestionText}
                               onChange={(e) => updateWizard('initialQuestionText', e.target.value)}
                               placeholder="可粘贴多道题，系统会自动拆分题干、选项、答案并归类"
-                              style={{ padding: '16px 18px', fontSize: '16px', minHeight: '250px', width: '100%', borderRadius: '10px', resize: 'vertical' }}
                             />
                           </label>
-                          <div className="wizard-input-row">
-                            <button disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()} style={{ padding: '12px 20px', fontSize: '15px', fontWeight: 600 }}>📁 从文件导入题目</button>
-                            <span className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                          <div className="wizard-action-row">
+                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()}>📁 从文件导入题目</button>
+                            <span className="muted wizard-helper-text">
                               支持 txt / md / json / csv，自动识别拆分
                             </span>
                           </div>
-                          <p className="muted" style={{ fontSize: '13px', fontStyle: 'italic', textAlign: 'center', marginTop: '4px' }}>
+                          <p className="muted wizard-helper-text center">
                             也可以在项目创建后通过工作台的题目功能导入更多内容
                           </p>
                         </>
                       ) : (
                         <>
-                          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+                          <label className="wizard-mode-field wide">
                             素材 / 参考文件说明（可选）
                             <textarea
                               rows={8}
                               value={wizard.notes}
                               onChange={(e) => updateWizard('notes', e.target.value)}
                               placeholder={`说明要用于${selectedWizardTemplate.title}的素材、数据或参考文件`}
-                              style={{ padding: '16px 18px', fontSize: '16px', minHeight: '210px', width: '100%', borderRadius: '10px', resize: 'vertical' }}
                             />
                           </label>
-                          <div className="wizard-input-row">
-                            <button disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} style={{ padding: '12px 20px', fontSize: '15px', fontWeight: 600 }}>📁 导入素材 / 参考文件</button>
-                            <span className="muted" style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                          <div className="wizard-action-row">
+                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')}>📁 导入素材 / 参考文件</button>
+                            <span className="muted wizard-helper-text">
                               文件路径会写入资料说明，创建项目后仍可继续补充
                             </span>
                           </div>
@@ -1715,22 +1935,6 @@ export default function App() {
                       {tab.label}
                     </button>
                   ))}
-                  {false && (
-                    <>
-                  <button className={editorTab === 'profile' ? 'active' : ''} onClick={() => setEditorTab('profile')}>画像</button>
-                  <button className={editorTab === 'agents' ? 'active' : ''} onClick={() => setEditorTab('agents')}>智能体</button>
-                  <button className={editorTab === 'resources' ? 'active' : ''} onClick={() => setEditorTab('resources')}>资源</button>
-                  <button className={editorTab === 'path' ? 'active' : ''} onClick={() => setEditorTab('path')}>路径</button>
-                  <button className={editorTab === 'report' ? 'active' : ''} onClick={() => setEditorTab('report')}>报告</button>
-                  <button className={editorTab === 'delivery' ? 'active' : ''} onClick={() => setEditorTab('delivery')}>交付</button>
-                  <button className={editorTab === 'overview' ? 'active' : ''} onClick={() => setEditorTab('overview')}>概览</button>
-                  <button className={editorTab === 'materials' ? 'active' : ''} onClick={() => setEditorTab('materials')}>素材</button>
-                  <button className={editorTab === 'practice' ? 'active' : ''} onClick={() => setEditorTab('practice')}>练习</button>
-                  <button className={editorTab === 'import' ? 'active' : ''} onClick={() => setEditorTab('import')}>题库</button>
-                  <button className={editorTab === 'config' ? 'active' : ''} onClick={() => setEditorTab('config')}>YAML</button>
-                  <button className={editorTab === 'progress' ? 'active' : ''} onClick={() => setEditorTab('progress')}>进度</button>
-                    </>
-                  )}
                 </nav>
 
                 {editorTab === 'simulation-run' && (
@@ -1858,10 +2062,10 @@ export default function App() {
                         <strong>开始检题</strong>
                         <small>进入练习页刷题、标错和复盘</small>
                       </button>
-                      <button className="workspace-jump-card" onClick={() => setEditorTab('progress')}>
+                      <button className="workspace-jump-card" onClick={() => setEditorTab('report')}>
                         <span>04</span>
-                        <strong>记录补漏</strong>
-                        <small>把薄弱点写入进度页，导出前统一整理</small>
+                        <strong>复盘补漏</strong>
+                        <small>进入报告页汇总薄弱点、风险和下一步建议</small>
                       </button>
                     </div>
 
@@ -1870,30 +2074,6 @@ export default function App() {
                       <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(activeProject.meta.requirements || activeProject.meta.textbook || '暂无项目说明，建议先进入素材页上传资料。') }} />
                     </div>
                   </section>
-                )}
-
-                {editorTab === 'profile' && (
-                  <LearningProfilePage
-                    projectId={activeProject.meta.id}
-                    state={learningProfileState ?? activeProject.learningProfile ?? null}
-                    onChange={(next) => {
-                      setLearningProfileState(next);
-                      setActiveProject({ ...activeProject, learningProfile: next });
-                    }}
-                    onSave={saveLearningProfile}
-                    onAnalyze={analyzeLearningProfile}
-                    onStatus={setStatus}
-                  />
-                )}
-
-                {editorTab === 'agents' && (
-                  <AgentOrchestrationPage
-                    profileReady={Boolean(learningProfileState?.profile.updatedAt)}
-                    resourceCount={personalizedResources.length}
-                    hasPathPlan={Boolean(learningPathPlan)}
-                    reportCount={stageReports.length}
-                    onOpenTab={(tab) => setEditorTab(tab)}
-                  />
                 )}
 
                 {editorTab === 'resources' && (
@@ -1964,21 +2144,21 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div className="materials-page-grid">
-                      <div className="mini-section">
+                    <div className="materials-page-grid materials-library-grid">
+                      <div className="mini-section materials-section-card">
                         <div className="subsection-title">已导入素材</div>
                         <div className="stack-list">
                           {activeProject.uploads.length ? activeProject.uploads.map((upload) => (
                             <div key={upload.storedPath} className="upload-card material-card">
                               <div className="upload-kind">{upload.kind === 'image' ? '图片' : '文件'}</div>
                               <UploadImagePreview projectId={activeProject.meta.id} upload={upload} />
-                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{upload.name}</div>
+                              <div className="materials-card-title">{upload.name}</div>
                               <div className="muted">{upload.parsed?.summary || '已导入，等待解析'}</div>
                               {upload.parsed?.extractedText && (
                                 <div className="parsed-preview">{upload.parsed.extractedText}</div>
                               )}
                               {upload.parsed && (
-                                <button onClick={() => void saveUploadToKnowledgeBase(upload)} style={{ fontSize: '12px' }}>
+                                <button className="materials-card-action" onClick={() => void saveUploadToKnowledgeBase(upload)}>
                                   提炼到知识库
                                 </button>
                               )}
@@ -1987,7 +2167,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="mini-section">
+                      <div className="mini-section materials-section-card">
                         <div className="subsection-title">项目知识库</div>
                         <input
                           value={knowledgeQuery}
@@ -2005,7 +2185,7 @@ export default function App() {
                               <div className="knowledge-tags">
                                 {entry.tags.map((tag) => <span key={`${entry.id}-${tag}`} className="upload-kind">{tag}</span>)}
                               </div>
-                              <button onClick={() => void loadKnowledgeResources(entry.tags[0] || entry.title)} style={{ fontSize: '12px' }}>
+                              <button className="materials-card-action" onClick={() => void loadKnowledgeResources(entry.tags[0] || entry.title)}>
                                 知识点拓展
                               </button>
                             </div>
@@ -2155,6 +2335,9 @@ export default function App() {
             <button className={aiTab === 'chat' ? 'active' : ''} onClick={() => setAiTab('chat')}>
               &#x1F4AC; 对话
             </button>
+            <button className={aiTab === 'history' ? 'active' : ''} onClick={() => setAiTab('history')}>
+              &#x23F1; 历史
+            </button>
             <button className={aiTab === 'reference' ? 'active' : ''} onClick={() => setAiTab('reference')}>
               &#x1F4DA; 参考资料
             </button>
@@ -2179,6 +2362,36 @@ export default function App() {
                   </div>
                 ))}
               </>
+            )}
+            {aiTab === 'history' && (
+              <div className="ai-history-panel">
+                <div className="ai-history-summary">
+                  <strong>{activeProject?.meta.name ?? '未选择项目'}</strong>
+                  <span>{activeProject?.chatHistory.length ?? 0} 条项目独立历史记录</span>
+                </div>
+                <input
+                  className="ai-history-search"
+                  value={chatSearchQuery}
+                  onChange={(event) => setChatSearchQuery(event.target.value)}
+                  placeholder="搜索当前项目历史对话"
+                />
+                <div className="ai-history-list">
+                  {filteredChatHistory.length ? filteredChatHistory.map((turn, index) => (
+                    <button
+                      key={`history-${turn.createdAt}-${index}`}
+                      className={turn.role === 'assistant' ? 'ai-history-card assistant' : 'ai-history-card user'}
+                      onClick={() => continueFromHistory(turn)}
+                    >
+                      <span>{turn.role === 'assistant' ? 'AI 助教' : '我'} · {formatDate(turn.createdAt)}</span>
+                      <strong>{turn.content.slice(0, 64) || '空内容'}</strong>
+                      <small>{turn.content.slice(64, 180)}</small>
+                      <em>继续追问</em>
+                    </button>
+                  )) : (
+                    <div className="empty-slim">没有匹配的项目历史对话。清空搜索词后可查看全部记录。</div>
+                  )}
+                </div>
+              </div>
             )}
             {aiTab === 'reference' && (
               <div style={{ fontSize: '13px', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>
@@ -2236,6 +2449,17 @@ export default function App() {
         <button className="ai-fab" onClick={() => setAiDrawerOpen(true)} title="打开 AI 助手">
           &#x1F4AC;
         </button>
+      )}
+
+      {selectionAsk && (
+        <div
+          className="selection-ask-popover"
+          style={{ left: selectionAsk.x, top: selectionAsk.y }}
+        >
+          <button onClick={askAiAboutSelection}>
+            问一问 AI
+          </button>
+        </div>
       )}
 
       {/* ---- Toast 消息提示 ---- */}

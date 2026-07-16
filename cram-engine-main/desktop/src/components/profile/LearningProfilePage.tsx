@@ -120,7 +120,7 @@ export function LearningProfilePage({ projectId, state, onChange, onSave, onAnal
 
       <div className="profile-editor-grid">
         <div className="profile-editor-main">
-          <label>
+          <label className="profile-field compact">
             知识水平
             <select
               value={draft.knowledgeLevel}
@@ -130,37 +130,37 @@ export function LearningProfilePage({ projectId, state, onChange, onSave, onAnal
             </select>
           </label>
 
-          <label>
+          <label className="profile-field wide">
             学习目标
             <textarea value={draft.learningGoal} onChange={(event) => setDraft({ ...draft, learningGoal: event.target.value })} />
           </label>
 
-          <label>
+          <label className="profile-field">
             认知风格
             <textarea value={draft.cognitiveStyle} onChange={(event) => setDraft({ ...draft, cognitiveStyle: event.target.value })} />
           </label>
 
-          <label>
+          <label className="profile-field">
             薄弱点
             <textarea value={listToText(draft.weakPoints)} onChange={(event) => setDraft({ ...draft, weakPoints: textToList(event.target.value) })} />
           </label>
 
-          <label>
+          <label className="profile-field">
             错题模式
             <textarea value={listToText(draft.mistakePatterns)} onChange={(event) => setDraft({ ...draft, mistakePatterns: textToList(event.target.value) })} />
           </label>
 
-          <label>
+          <label className="profile-field">
             资源偏好
             <textarea value={listToText(draft.resourcePreferences)} onChange={(event) => setDraft({ ...draft, resourcePreferences: textToList(event.target.value) })} />
           </label>
 
           <div className="profile-inline-fields">
-            <label>
+            <label className="profile-field">
               可用时间
               <input value={draft.availableTime} onChange={(event) => setDraft({ ...draft, availableTime: event.target.value })} />
             </label>
-            <label>
+            <label className="profile-field compact">
               置信度
               <select
                 value={draft.confidence}
@@ -171,12 +171,12 @@ export function LearningProfilePage({ projectId, state, onChange, onSave, onAnal
             </label>
           </div>
 
-          <label>
+          <label className="profile-field">
             学习动机
             <input value={draft.motivation} onChange={(event) => setDraft({ ...draft, motivation: event.target.value })} />
           </label>
 
-          <label>
+          <label className="profile-field wide">
             补充备注
             <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
           </label>

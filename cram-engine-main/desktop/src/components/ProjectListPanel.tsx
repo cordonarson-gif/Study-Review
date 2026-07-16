@@ -5,7 +5,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { ProjectMeta, ProjectSortKey, ProjectSummary } from '../lib/types';
+import { getProjectModeDisplay } from '../lib/projectDisplay';
+import type { ProjectMeta, ProjectSortKey } from '../lib/types';
 
 type Props = {
   projects: ProjectMeta[];
@@ -91,6 +92,7 @@ export default function ProjectListPanel({
         filtered.map((project) => {
           const summary = summaries[project.id];
           const isActive = activeProjectId === project.id;
+          const display = getProjectModeDisplay(project);
 
           return (
             <div
@@ -99,10 +101,13 @@ export default function ProjectListPanel({
               onClick={() => onOpen(project.id)}
             >
               <div className="project-card-main">
-                <span className="project-card-name">{project.name}</span>
+                <span className="project-card-heading">
+                  <span className="project-card-badge" title={display.subtitle}>{display.icon}</span>
+                  <span className="project-card-name">{project.name}</span>
+                </span>
                 <span className="project-card-meta">
-                  <span>{project.courseName}</span>
-                  <span>{project.examType}</span>
+                  <span>{display.title}</span>
+                  <span>{display.subtitle}</span>
                 </span>
                 {summary && (
                   <span className="project-card-stats">
