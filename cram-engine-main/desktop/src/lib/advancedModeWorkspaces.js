@@ -53,9 +53,18 @@ export function runParameterSweep({ model, start, end, steps, coefficient, initi
   return { points };
 }
 
-function sourceId(prefix, item, index) {
-  const id = String(item?.id ?? '').trim();
-  return `${prefix}:${id || index + 1}`;
+function sourceId(prefix, item, index, allocatedIds) {
+  const rawId = String(item?.id ?? '').trim();
+  const base = rawId
+    ? `${prefix}:${encodeURIComponent(rawId)}`
+    : `${prefix}:index-${index + 1}`;
+  let id = base;
+
+  if (allocatedIds.has(id)) {
+    id = `${base}:index-${index + 1}`;
+  }
+  allocatedIds.add(id);
+  return id;
 }
 
 function createGraphBuilder() {
@@ -74,9 +83,10 @@ function createGraphBuilder() {
       }
     },
     addEdge(source, target, type) {
-      const id = `${type}:${source}->${target}`;
-      if (source !== target && !edgeIds.has(id)) {
-        edgeIds.add(id);
+      const tuple = JSON.stringify([source, target, type]);
+      if (source !== target && !edgeIds.has(tuple)) {
+        edgeIds.add(tuple);
+        const id = `edge:${encodeURIComponent(tuple)}`;
         edges.push({ id, source, target, type });
       }
     }
@@ -93,9 +103,10 @@ export function buildKnowledgeGraph(input = {}) {
   const artifacts = Array.isArray(input?.artifacts) ? input.artifacts : [];
   const graph = createGraphBuilder();
   const knowledgeTargets = new Map();
+  const allocatedSourceIds = new Set();
 
   knowledgeBase.forEach((entry, index) => {
-    const id = sourceId('knowledge', entry, index);
+    const id = sourceId('knowledge', entry, index, allocatedSourceIds);
     const title = cleanText(entry?.title) || `知识条目 ${index + 1}`;
     graph.addNode({
       id,
@@ -118,7 +129,7 @@ export function buildKnowledgeGraph(input = {}) {
   });
 
   questions.forEach((question, index) => {
-    const id = sourceId('question', question, index);
+    const id = sourceId('question', question, index, allocatedSourceIds);
     graph.addNode({
       id,
       type: 'question',
@@ -146,7 +157,7 @@ export function buildKnowledgeGraph(input = {}) {
 
   artifacts.forEach((artifact, index) => {
     graph.addNode({
-      id: sourceId('artifact', artifact, index),
+      id: sourceId('artifact', artifact, index, allocatedSourceIds),
       type: 'artifact',
       label: cleanText(artifact?.title) || `成果 ${index + 1}`,
       description: cleanText(artifact?.contentMarkdown),
@@ -161,7 +172,7 @@ export function layoutKnowledgeGraph(graph, width, height) {
   const safeWidth = Number.isFinite(width) ? Math.max(0, width) : 0;
   const safeHeight = Number.isFinite(height) ? Math.max(0, height) : 0;
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+  const edges = Array.isArray(graph?.edges) ? graph.edges.map((edge) => ({ ...edge })) : [];
   const centerX = safeWidth / 2;
   const centerY = safeHeight / 2;
   const maximumRadius = Math.max(0, Math.min(safeWidth, safeHeight) / 2 - 24);
@@ -195,6 +206,7 @@ export function parseCoursewareSlides(markdown) {
   let title = '';
   let content = [];
   let hasHeading = false;
+  let activeFence = null;
 
   const flush = (force = false) => {
     const body = content.join('\n').trim();
@@ -207,10 +219,29 @@ export function parseCoursewareSlides(markdown) {
   };
 
   lines.forEach((line) => {
-    const heading = line.match(/^\s{0,3}#{1,2}\s+(.+?)\s*#*\s*$/);
+    const fence = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
+    if (activeFence) {
+      content.push(line);
+      if (
+        fence
+        && fence[1][0] === activeFence.marker
+        && fence[1].length >= activeFence.length
+        && !fence[2].trim()
+      ) {
+        activeFence = null;
+      }
+      return;
+    }
+    if (fence) {
+      activeFence = { marker: fence[1][0], length: fence[1].length };
+      content.push(line);
+      return;
+    }
+
+    const heading = line.match(/^\s{0,3}#{1,2}[ \t]+(.+?)[ \t]*$/);
     if (heading) {
       flush();
-      title = heading[1];
+      title = heading[1].replace(/[ \t]+#+[ \t]*$/, '').trim();
       hasHeading = true;
       return;
     }
@@ -235,9 +266,23 @@ export function parseCoursewareSlides(markdown) {
 export function getPlayableQuestions(questions) {
   if (!Array.isArray(questions)) return [];
 
-  return questions.filter((question) => {
-    if (!cleanText(question?.answer)) return false;
-    if (!Array.isArray(question?.options)) return false;
-    return question.options.filter((option) => cleanText(option?.text)).length >= 2;
+  return questions.flatMap((question) => {
+    if (!question || typeof question !== 'object') return [];
+
+    const answer = cleanText(question.answer).toUpperCase();
+    const options = Array.isArray(question.options)
+      ? question.options
+        .map((option) => ({
+          key: cleanText(option?.key).toUpperCase(),
+          text: cleanText(option?.text)
+        }))
+        .filter((option) => option.key && option.text)
+      : [];
+
+    if (options.length < 2 || !options.some((option) => option.key === answer)) {
+      return [];
+    }
+
+    return [{ ...question, answer, options }];
   });
 }
