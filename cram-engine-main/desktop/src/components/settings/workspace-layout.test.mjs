@@ -267,6 +267,16 @@ test('workspace renders mode-specific module pages with persistent artifacts', a
   assert.match(app, /saveModeArtifact/);
   assert.match(app, /deleteModeArtifact/);
 
+  assert.match(modePage, /const newestArtifact = next\[0\]/);
+  assert.match(modePage, /newestArtifact\?\.source === 'agent'/);
+  assert.match(modePage, /AI 成果已生成/);
+  assert.match(modePage, /模型不可用，已生成本地模板/);
+  assert.match(modePage, /agent: 'AI生成'/);
+  assert.match(modePage, /fallback: '本地模板'/);
+  assert.match(modePage, /manual: '手动编辑'/);
+  assert.match(modePage, /artifactSourceLabels\[artifact\.source\]/);
+  assert.doesNotMatch(modePage, /error\.(?:message|stack)|String\(error\)/);
+
   for (const text of ['生成成果', '保存成果', '删除成果', '成果库']) {
     assert.match(modePage, new RegExp(text));
   }

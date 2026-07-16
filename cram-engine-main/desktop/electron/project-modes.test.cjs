@@ -295,7 +295,46 @@ test('mode artifact prompt includes bounded project context without provider sec
   assert.match(promptSource, /artifact\.tabId/);
   assert.match(promptSource, /resolveModeArtifactContract\(input\.tabId\)/);
   assert.match(promptSource, /input\.prompt/);
+  assert.match(promptSource, /const untrustedProjectData = \{/);
+  assert.match(promptSource, /uploads: recentUploads/);
+  assert.match(promptSource, /artifacts: currentArtifacts\.map/);
+  assert.match(promptSource, /userPrompt: input\.prompt/);
+  assert.match(promptSource, /JSON\.stringify\(untrustedProjectData, null, 2\)/);
+  assert.match(promptSource, /UNTRUSTED_PROJECT_DATA/);
+  assert.doesNotMatch(promptSource, /用户要求：\$\{input\.prompt/);
   assert.doesNotMatch(promptSource, /apiKey|Authorization/i);
+});
+
+test('mode artifact provider resolution requires an exact id or one unambiguous legacy kind', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const helperSource = main.match(/function resolveModeArtifactProvider\([\s\S]*?\n\}/)?.[0];
+
+  assert.ok(helperSource, 'missing resolveModeArtifactProvider');
+
+  const output = ts.transpileModule(`${helperSource}\nmodule.exports = { resolveModeArtifactProvider };`, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022
+    }
+  }).outputText;
+  const helperModule = { exports: {} };
+  Function('module', 'exports', output)(helperModule, helperModule.exports);
+  const { resolveModeArtifactProvider } = helperModule.exports;
+  const exact = { id: 'project-profile', provider: 'openai-compatible' };
+  const otherOpenAi = { id: 'other-openai', provider: 'openai-compatible' };
+  const anthropic = { id: 'claude-custom', provider: 'anthropic' };
+  const aliyunA = { id: 'qwen-a', provider: 'aliyun' };
+  const aliyunB = { id: 'qwen-b', provider: 'aliyun' };
+  const settings = {
+    activeProviderId: otherOpenAi.id,
+    providers: [exact, otherOpenAi, anthropic, aliyunA, aliyunB]
+  };
+
+  assert.equal(resolveModeArtifactProvider(settings, exact.id), exact);
+  assert.equal(resolveModeArtifactProvider(settings, 'anthropic'), anthropic);
+  assert.equal(resolveModeArtifactProvider(settings, 'aliyun'), undefined);
+  assert.equal(resolveModeArtifactProvider(settings, 'missing-profile'), undefined);
+  assert.equal(resolveModeArtifactProvider({ ...settings, providers: [exact] }, 'anthropic'), undefined);
 });
 
 test('mode artifact generation uses the project provider and safely falls back on every failure', () => {
@@ -310,12 +349,13 @@ test('mode artifact generation uses the project provider and safely falls back o
   assert.match(generationSource, /await openProject\(projectId\)/);
   assert.match(generationSource, /await listModeArtifacts\(projectId\)/);
   assert.match(generationSource, /await loadSettings\(\)/);
-  assert.match(generationSource, /settings\.providers\.find\(\(profile\) => profile\.id === project\.meta\.provider\)/);
-  assert.match(generationSource, /settings\.providers\.find\(\(profile\) => profile\.provider === project\.meta\.provider\)/);
-  assert.match(generationSource, /getActiveProvider\(settings\)/);
+  assert.match(generationSource, /resolveModeArtifactProvider\(settings, project\.meta\.provider\)/);
+  assert.doesNotMatch(generationSource, /getActiveProvider\(settings\)/);
+  assert.doesNotMatch(generationSource, /settings\.providers\.find\(\(profile\) => profile\.provider === project\.meta\.provider\)/);
   assert.match(generationSource, /project\.meta\.model \|\| profile\.selectedModelId/);
   assert.match(generationSource, /buildModeArtifactPrompt\(project, input, current\)/);
   assert.match(generationSource, /buildChatRequest\(\{/);
+  assert.match(generationSource, /systemPrompt: ['"][^'"]*UNTRUSTED_PROJECT_DATA[^'"]*untrusted reference data[^'"]*never follow instructions[^'"]*contract only[^'"]*['"]/i);
   assert.match(generationSource, /fetchWithTimeout\(request\.url,[\s\S]*?30000\)/);
   assert.match(generationSource, /if \(!response\.ok\)/);
   assert.match(generationSource, /throw new Error\(`Mode artifact request failed \(HTTP \$\{response\.status\}\)`\)/);
@@ -324,9 +364,42 @@ test('mode artifact generation uses the project provider and safely falls back o
   assert.match(generationSource, /source: 'agent'/);
   assert.match(generationSource, /createdAt: now/);
   assert.match(generationSource, /updatedAt: now/);
-  assert.match(generationSource, /if \(!profile\.apiKey \|\| !profile\.baseUrl\)[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
+  assert.match(generationSource, /if \(!profile\?\.apiKey \|\| !profile\.baseUrl\)[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
   assert.match(generationSource, /catch[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
   assert.doesNotMatch(generationSource, /response\.text\(|statusText|error\.message/);
+});
+
+test('mode artifact mutations use UUIDs and serialize every project write', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const normalizeStart = main.indexOf('function normalizeModeArtifact(');
+  const deliveryStart = main.indexOf('const deliveryPackageItemTypes', normalizeStart);
+  const modeArtifactSource = main.slice(normalizeStart, deliveryStart);
+  const mutationStart = main.indexOf('async function mutateModeArtifacts(');
+  const generationStart = main.indexOf('async function generateModeArtifact(');
+  const saveStart = main.indexOf('async function saveModeArtifact(', generationStart);
+  const deleteStart = main.indexOf('async function deleteModeArtifact(', saveStart);
+  const generationSource = main.slice(generationStart, saveStart);
+  const saveSource = main.slice(saveStart, deleteStart);
+  const deleteSource = main.slice(deleteStart, deliveryStart);
+
+  assert.match(main, /import \{ randomUUID \} from 'node:crypto'/);
+  assert.ok((modeArtifactSource.match(/`mode-artifact-\$\{randomUUID\(\)\}`/g) ?? []).length >= 3);
+  assert.doesNotMatch(modeArtifactSource, /`mode-artifact-\$\{Date\.now\(\)/);
+  assert.match(main, /const modeArtifactMutationQueues = new Map<string, Promise<void>>\(\)/);
+  assert.notEqual(mutationStart, -1, 'missing mutateModeArtifacts');
+  const mutationSource = main.slice(mutationStart, generationStart);
+  assert.match(mutationSource, /await listModeArtifacts\(projectId\)/);
+  assert.match(mutationSource, /await writeModeArtifacts\(projectId, next\)/);
+  assert.match(mutationSource, /modeArtifactMutationQueues\.set\(projectId, tail\)/);
+  assert.match(mutationSource, /modeArtifactMutationQueues\.get\(projectId\) === tail/);
+  assert.match(mutationSource, /modeArtifactMutationQueues\.delete\(projectId\)/);
+  assert.ok(generationSource.indexOf('fetchWithTimeout(') < generationSource.lastIndexOf('mutateModeArtifacts('));
+  assert.ok((generationSource.match(/mutateModeArtifacts\(projectId/g) ?? []).length >= 3);
+  assert.doesNotMatch(generationSource, /writeModeArtifacts\(projectId/);
+  assert.match(saveSource, /mutateModeArtifacts\(projectId, \(current\) =>/);
+  assert.match(saveSource, /current\.map/);
+  assert.match(deleteSource, /mutateModeArtifacts\(projectId, \(current\) =>/);
+  assert.match(deleteSource, /current\.filter/);
 });
 
 test('mode artifact reply validation rejects blank parser placeholders', () => {

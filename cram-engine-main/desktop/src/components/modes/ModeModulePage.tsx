@@ -11,6 +11,12 @@ type ModeModulePageProps = {
   onStatus?: (message: string) => void;
 };
 
+const artifactSourceLabels: Record<ModeArtifact['source'], string> = {
+  agent: 'AI生成',
+  fallback: '本地模板',
+  manual: '手动编辑'
+};
+
 export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, onChange, onStatus }: ModeModulePageProps) {
   const tabArtifacts = useMemo(() => artifacts.filter((artifact) => artifact.tabId === tab.id), [artifacts, tab.id]);
   const [selectedId, setSelectedId] = useState(tabArtifacts[0]?.id ?? '');
@@ -30,7 +36,8 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
       const next = await onGenerate({ tabId: tab.id, prompt, artifactKind: tab.label });
       onChange(next);
       setPrompt('');
-      onStatus?.('模式成果已生成');
+      const newestArtifact = next[0];
+      onStatus?.(newestArtifact?.source === 'agent' ? 'AI 成果已生成' : '模型不可用，已生成本地模板');
     } finally {
       setBusy(false);
     }
@@ -97,7 +104,7 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
               }}
             >
               <strong>{artifact.title}</strong>
-              <small>{artifact.kind} · {new Date(artifact.updatedAt).toLocaleString('zh-CN')}</small>
+              <small>{artifact.kind} · {artifactSourceLabels[artifact.source]} · {new Date(artifact.updatedAt).toLocaleString('zh-CN')}</small>
             </button>
           )) : <div className="empty-slim">暂无成果，点击“生成成果”创建第一份内容。</div>}
         </aside>
