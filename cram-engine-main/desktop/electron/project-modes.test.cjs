@@ -189,6 +189,146 @@ test('fallback artifact labels cover every advanced mode', () => {
   }
 });
 
+test('mode artifact contracts cover domain tabs with distinct sections and checklists', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const requiredContractTabs = [
+    'paper-literature',
+    'paper-outline',
+    'paper-methods',
+    'paper-innovation',
+    'paper-format',
+    'paper-defense',
+    'research-dataset',
+    'research-plan',
+    'research-statistics',
+    'research-charts',
+    'research-findings',
+    'research-report',
+    'teaching-objectives',
+    'teaching-key-points',
+    'teaching-activities',
+    'teaching-assessment',
+    'teaching-lesson-plan',
+    'teaching-courseware',
+    'assignment-bank',
+    'assignment-paper',
+    'assignment-online-quiz',
+    'assignment-grading',
+    'assignment-wrong-answers',
+    'assignment-feedback',
+    'innovation-evidence',
+    'innovation-problems',
+    'innovation-methods',
+    'innovation-roadmap',
+    'tutor-diagnosis',
+    'tutor-dialogue',
+    'tutor-explanation',
+    'tutor-practice',
+    'tutor-feedback',
+    'development-profile',
+    'development-goals',
+    'development-plan',
+    'development-portfolio',
+    'development-assessment',
+    'simulation-model',
+    'simulation-parameters',
+    'simulation-results',
+    'simulation-report',
+    'courseware-outline',
+    'courseware-content',
+    'courseware-assets',
+    'courseware-publish',
+    'game-rules',
+    'game-results',
+    'game-feedback',
+    'graph-extract',
+    'graph-curation',
+    'graph-export',
+    'mistakes-classify',
+    'mistakes-report'
+  ];
+
+  assert.match(main, /type ModeArtifactContract = \{[\s\S]*?purpose: string;[\s\S]*?sections: string\[\];[\s\S]*?checklist: string\[\];[\s\S]*?\};/);
+  assert.match(main, /const modeArtifactContracts: Partial<Record<WorkspaceTabId, ModeArtifactContract>> = \{/);
+  assert.match(main, /const overviewModeArtifactContract: ModeArtifactContract = \{/);
+  assert.doesNotMatch(main, /'delivery':\s*\{[\s\S]*?purpose:/);
+
+  for (const tabId of requiredContractTabs) {
+    assert.match(
+      main,
+      new RegExp(`'${tabId}':\\s*(?:\\{\\s*purpose:|defineModeArtifactContract\\()`),
+      `missing artifact contract for ${tabId}`
+    );
+  }
+
+  assert.match(main, /function resolveModeArtifactContract\(tabId: WorkspaceTabId\)/);
+  assert.match(main, /modeArtifactContracts\[tabId\] \?\? overviewModeArtifactContract/);
+  assert.match(main, /contract\.sections\.(?:flatMap|map)/);
+  assert.match(main, /contract\.checklist\.map/);
+});
+
+test('mode artifact prompt includes bounded project context without provider secrets', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const promptStart = main.indexOf('function buildModeArtifactPrompt(');
+  const generationStart = main.indexOf('async function generateModeArtifact(', promptStart);
+
+  assert.notEqual(promptStart, -1, 'missing buildModeArtifactPrompt');
+  assert.ok(generationStart > promptStart, 'buildModeArtifactPrompt must precede generation');
+
+  const promptSource = main.slice(promptStart, generationStart);
+  assert.match(promptSource, /project: ProjectDetail/);
+  assert.match(promptSource, /input: GenerateModeArtifactInput/);
+  assert.match(promptSource, /currentArtifacts: ModeArtifact\[\]/);
+  assert.match(promptSource, /project\.meta\.name/);
+  assert.match(promptSource, /project\.meta\.mode/);
+  assert.match(promptSource, /project\.meta\.courseName/);
+  assert.match(promptSource, /project\.meta\.requirements/);
+  assert.match(promptSource, /project\.meta\.modeConfig/);
+  assert.match(promptSource, /JSON\.stringify/);
+  assert.match(promptSource, /project\.uploads[\s\S]*?\.filter[\s\S]*?\.slice\(0, 3\)/);
+  assert.match(promptSource, /upload\.name/);
+  assert.match(promptSource, /upload\.parsed\?\.summary/);
+  assert.match(promptSource, /upload\.parsed\?\.extractedText/);
+  assert.match(promptSource, /currentArtifacts\.map/);
+  assert.match(promptSource, /artifact\.title/);
+  assert.match(promptSource, /artifact\.kind/);
+  assert.match(promptSource, /artifact\.tabId/);
+  assert.match(promptSource, /resolveModeArtifactContract\(input\.tabId\)/);
+  assert.match(promptSource, /input\.prompt/);
+  assert.doesNotMatch(promptSource, /apiKey|Authorization/i);
+});
+
+test('mode artifact generation uses the project provider and safely falls back on every failure', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const generationStart = main.indexOf('async function generateModeArtifact(');
+  const saveStart = main.indexOf('async function saveModeArtifact(', generationStart);
+
+  assert.notEqual(generationStart, -1, 'missing generateModeArtifact');
+  assert.ok(saveStart > generationStart, 'missing saveModeArtifact after generation');
+
+  const generationSource = main.slice(generationStart, saveStart);
+  assert.match(generationSource, /await openProject\(projectId\)/);
+  assert.match(generationSource, /await listModeArtifacts\(projectId\)/);
+  assert.match(generationSource, /await loadSettings\(\)/);
+  assert.match(generationSource, /settings\.providers\.find\(\(profile\) => profile\.id === project\.meta\.provider\)/);
+  assert.match(generationSource, /settings\.providers\.find\(\(profile\) => profile\.provider === project\.meta\.provider\)/);
+  assert.match(generationSource, /getActiveProvider\(settings\)/);
+  assert.match(generationSource, /project\.meta\.model \|\| profile\.selectedModelId/);
+  assert.match(generationSource, /buildModeArtifactPrompt\(project, input, current\)/);
+  assert.match(generationSource, /buildChatRequest\(\{/);
+  assert.match(generationSource, /fetchWithTimeout\(request\.url,[\s\S]*?30000\)/);
+  assert.match(generationSource, /if \(!response\.ok\)/);
+  assert.match(generationSource, /throw new Error\(`Mode artifact request failed \(HTTP \$\{response\.status\}\)`\)/);
+  assert.match(generationSource, /parseChatResponse\(profile\.provider, payload\)\.trim\(\)/);
+  assert.match(generationSource, /if \(!contentMarkdown\)/);
+  assert.match(generationSource, /source: 'agent'/);
+  assert.match(generationSource, /createdAt: now/);
+  assert.match(generationSource, /updatedAt: now/);
+  assert.match(generationSource, /if \(!profile\.apiKey \|\| !profile\.baseUrl\)[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
+  assert.match(generationSource, /catch[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
+  assert.doesNotMatch(generationSource, /response\.text\(|statusText|error\.message/);
+});
+
 test('TypeScript and JavaScript advanced registries are semantically identical', async () => {
   const [typescriptRegistry, javascriptRegistry] = await Promise.all([
     loadRegistryFromTypeScript(),

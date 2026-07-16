@@ -2263,11 +2263,415 @@ async function writeModeArtifacts(projectId: string, artifacts: ModeArtifact[]) 
   return normalized;
 }
 
+type ModeArtifactContract = {
+  purpose: string;
+  sections: string[];
+  checklist: string[];
+};
+
+function defineModeArtifactContract(purpose: string, sections: string[], checklist: string[]): ModeArtifactContract {
+  return { purpose, sections, checklist };
+}
+
+const overviewModeArtifactContract: ModeArtifactContract = {
+  purpose: '梳理当前模式的项目目标、已有基础、关键差距与下一步行动。',
+  sections: ['项目定位', '当前基础', '重点任务', '下一步行动'],
+  checklist: ['目标与项目模式一致', '已标明现有材料和缺口', '下一步行动可执行且可复核']
+};
+
+const modeArtifactContracts: Partial<Record<WorkspaceTabId, ModeArtifactContract>> = {
+  'paper-literature': defineModeArtifactContract(
+    '形成可追溯的文献综述与研究脉络。',
+    ['检索范围与标准', '主题聚类与代表文献', '研究争议与缺口', '引用线索'],
+    ['检索边界明确', '核心判断有文献线索', '研究缺口与论文选题相关']
+  ),
+  'paper-outline': defineModeArtifactContract(
+    '形成论点驱动、层级清楚的论文提纲。',
+    ['中心论题', '章节逻辑', '分节论点与证据', '篇幅分配'],
+    ['章节共同支撑中心论题', '层级无重复或跳跃', '每节均有预期证据']
+  ),
+  'paper-chapters': defineModeArtifactContract(
+    '规划论文各章节的写作任务与衔接关系。',
+    ['章节目标', '核心论证', '材料与图表', '章节衔接'],
+    ['章节职责清晰', '论证与材料匹配', '前后章节过渡自然']
+  ),
+  'paper-methods': defineModeArtifactContract(
+    '给出可执行、可复现的论文研究方法。',
+    ['研究设计', '样本与材料', '分析步骤', '有效性与局限'],
+    ['方法回答研究问题', '步骤可复现', '局限和控制措施已说明']
+  ),
+  'paper-innovation': defineModeArtifactContract(
+    '界定论文相对既有研究的增量贡献。',
+    ['既有研究基线', '创新主张', '支撑依据', '贡献边界'],
+    ['创新不等同于主题新颖', '每项主张有比较基线', '贡献措辞不过度']
+  ),
+  'paper-format': defineModeArtifactContract(
+    '检查论文结构、引用和版式是否符合规范。',
+    ['结构规范', '引用与参考文献', '图表与公式', '版式问题清单'],
+    ['引用格式一致', '图表编号完整', '待修订项可逐条关闭']
+  ),
+  'paper-defense': defineModeArtifactContract(
+    '准备围绕论文问题、方法和贡献的答辩材料。',
+    ['陈述主线', '关键证据', '高频质询', '应答要点'],
+    ['陈述可在限定时间完成', '回答能回到论文证据', '已覆盖方法局限问题']
+  ),
+  'research-dataset': defineModeArtifactContract(
+    '建立可分析、可审计的数据集说明。',
+    ['数据来源', '字段与口径', '质量检查', '清洗与版本记录'],
+    ['来源与授权可追溯', '变量口径明确', '缺失和异常处理有记录']
+  ),
+  'research-plan': defineModeArtifactContract(
+    '形成从研究问题到交付结果的分析计划。',
+    ['研究问题与假设', '数据需求', '分析步骤', '里程碑与风险'],
+    ['问题可由数据回答', '步骤与假设对应', '风险有替代路径']
+  ),
+  'research-statistics': defineModeArtifactContract(
+    '选择并说明适合数据与假设的统计分析。',
+    ['描述性统计', '检验或模型选择', '假设条件', '结果解释规则'],
+    ['统计方法与变量类型匹配', '前提条件已检查', '显著性与效应量分开解释']
+  ),
+  'research-charts': defineModeArtifactContract(
+    '规划能够准确表达分析结论的图表。',
+    ['图表问题', '编码与图形选择', '标注与口径', '误读风险'],
+    ['每张图只回答明确问题', '比例尺和单位准确', '图表不夸大差异']
+  ),
+  'research-findings': defineModeArtifactContract(
+    '提炼有证据边界的研究发现。',
+    ['主要发现', '证据强度', '异常与反例', '解释边界'],
+    ['发现可回溯到分析结果', '相关与因果没有混淆', '反例和不确定性已保留']
+  ),
+  'research-report': defineModeArtifactContract(
+    '整合数据、方法、结果与建议形成研究报告。',
+    ['执行摘要', '数据与方法', '结果与解释', '建议与局限'],
+    ['摘要覆盖核心结论', '方法足以复核', '建议与证据强度相称']
+  ),
+  'teaching-objectives': defineModeArtifactContract(
+    '编写可观察、可评价的教学目标。',
+    ['学习者起点', '知识与能力目标', '表现条件', '达成标准'],
+    ['目标使用可观察行为', '目标与课时匹配', '每项目标有评价方式']
+  ),
+  'teaching-key-points': defineModeArtifactContract(
+    '识别教学重点、难点及突破策略。',
+    ['核心概念', '重点依据', '难点成因', '突破策略'],
+    ['重点服务教学目标', '难点基于学习者分析', '策略具体可实施']
+  ),
+  'teaching-activities': defineModeArtifactContract(
+    '设计师生活动衔接清晰的课堂流程。',
+    ['导入与激活', '探究与讲解', '练习与互动', '总结与迁移'],
+    ['活动指向明确目标', '师生任务与时间清楚', '活动间有逻辑递进']
+  ),
+  'teaching-assessment': defineModeArtifactContract(
+    '设计贯穿课堂的诊断、形成性与总结性评价。',
+    ['评价目标', '评价任务', '评分证据', '反馈与调整'],
+    ['评价覆盖教学目标', '评分标准可操作', '结果能驱动后续教学']
+  ),
+  'teaching-lesson-plan': defineModeArtifactContract(
+    '形成可直接实施的完整教案。',
+    ['教学准备', '教学过程', '时间与资源', '板书与课后任务'],
+    ['目标活动评价一致', '课时分配可行', '资源与应急方案齐备']
+  ),
+  'teaching-courseware': defineModeArtifactContract(
+    '规划与课堂节奏一致的课件内容。',
+    ['页面叙事线', '重点页面', '互动与媒体', '呈现规范'],
+    ['每页承担明确教学功能', '信息密度适合投屏', '媒体资源有来源说明']
+  ),
+  'assignment-bank': defineModeArtifactContract(
+    '建设覆盖目标与难度层级的作业题库。',
+    ['知识点蓝图', '题型与难度', '题目与答案', '质量审查'],
+    ['覆盖率符合蓝图', '题干无歧义', '答案与解析可复核']
+  ),
+  'assignment-paper': defineModeArtifactContract(
+    '组配结构合理、可打印的测验卷。',
+    ['命题蓝图', '试卷结构', '题目编排', '答案与分值'],
+    ['分值与时间匹配', '难度梯度合理', '题号答案一一对应']
+  ),
+  'assignment-online-quiz': defineModeArtifactContract(
+    '形成适合在线发布和自动判分的测验。',
+    ['测验设置', '题目与选项', '判分规则', '发布与重试策略'],
+    ['题型受平台支持', '自动判分规则明确', '反馈与重试策略合理']
+  ),
+  'assignment-grading': defineModeArtifactContract(
+    '制定一致、透明的评分标准。',
+    ['评分维度', '等级描述', '分值规则', '边界案例'],
+    ['维度与任务目标一致', '等级可区分', '同类答案评分一致']
+  ),
+  'assignment-wrong-answers': defineModeArtifactContract(
+    '汇总错误表现并定位知识与策略缺口。',
+    ['错误分布', '典型错例', '原因诊断', '纠正任务'],
+    ['错误分类互斥且完整', '原因不只停留在现象', '纠正任务对应具体缺口']
+  ),
+  'assignment-feedback': defineModeArtifactContract(
+    '生成具体、可行动的作业反馈。',
+    ['整体表现', '亮点证据', '主要问题', '改进建议'],
+    ['反馈引用具体表现', '语气清晰且建设性', '建议可在下一次任务中执行']
+  ),
+  'innovation-landscape': defineModeArtifactContract(
+    '梳理创新议题的技术、研究与应用格局。',
+    ['领域边界', '关键路线与参与者', '成熟度比较', '机会窗口'],
+    ['信息来源可追溯', '路线比较口径一致', '机会判断注明时效性']
+  ),
+  'innovation-problems': defineModeArtifactContract(
+    '筛选值得解决且可验证的创新问题。',
+    ['问题场景', '现有方案不足', '研究问题与假设', '价值与可行性'],
+    ['问题具体可验证', '假设可被证伪', '价值与资源约束均有说明']
+  ),
+  'innovation-methods': defineModeArtifactContract(
+    '设计验证创新假设的方法组合。',
+    ['验证目标', '实验或研究设计', '评价指标', '对照与迭代'],
+    ['方法对应核心假设', '指标可测量', '失败结果也能产生信息']
+  ),
+  'innovation-evidence': defineModeArtifactContract(
+    '建立支持或反驳创新主张的证据链。',
+    ['主张与证据矩阵', '证据来源', '证据强度', '缺口与补证'],
+    ['主张均有证据位置', '来源质量已分级', '反向证据没有被忽略']
+  ),
+  'innovation-roadmap': defineModeArtifactContract(
+    '把创新方向转化为阶段清晰的推进路线。',
+    ['阶段目标', '关键实验与交付物', '资源依赖', '决策门与风险'],
+    ['里程碑可验收', '依赖关系明确', '停止或转向条件已定义']
+  ),
+  'simulation-model': defineModeArtifactContract(
+    '描述实验模拟对象、边界与核心机制。',
+    ['系统边界', '实体与关系', '状态与方程', '模型假设'],
+    ['模型回答实验问题', '变量和单位一致', '简化假设已披露']
+  ),
+  'simulation-parameters': defineModeArtifactContract(
+    '建立可复现实验的参数配置与取值依据。',
+    ['参数字典', '基准值与范围', '取值依据', '敏感性方案'],
+    ['参数单位完整', '取值有来源或校准依据', '关键参数安排敏感性分析']
+  ),
+  'simulation-run': defineModeArtifactContract(
+    '规划模拟运行场景、批次与记录方式。',
+    ['运行场景', '实验批次', '随机性与种子', '日志与复现'],
+    ['基准和对照场景齐备', '重复次数有依据', '运行配置可复现']
+  ),
+  'simulation-results': defineModeArtifactContract(
+    '解释模拟输出、差异和稳定性。',
+    ['核心指标', '场景比较', '不确定性与敏感性', '异常结果'],
+    ['结果与场景配置对应', '波动范围已呈现', '异常没有被静默删除']
+  ),
+  'simulation-report': defineModeArtifactContract(
+    '形成包含模型、参数、结果和限制的模拟报告。',
+    ['实验摘要', '模型与参数', '运行结果', '结论与局限'],
+    ['模型和参数足以复现', '结论不超出模拟边界', '局限与后续验证已说明']
+  ),
+  'tutor-diagnosis': defineModeArtifactContract(
+    '诊断学习者当前理解、错误模式与学习需求。',
+    ['学习目标', '表现证据', '知识与策略诊断', '优先干预点'],
+    ['诊断基于具体证据', '区分知识缺口与粗心', '干预优先级明确']
+  ),
+  'tutor-dialogue': defineModeArtifactContract(
+    '设计循序渐进的辅导对话脚本。',
+    ['对话目标', '提问路径', '学习者分支', '收束与确认'],
+    ['问题由浅入深', '分支覆盖常见回答', '教师不过早给出答案']
+  ),
+  'tutor-explanation': defineModeArtifactContract(
+    '生成适合当前认知水平的概念讲解。',
+    ['先备知识', '核心解释', '例子与反例', '理解检查'],
+    ['术语已解释', '例子准确且贴近目标', '包含主动理解检查']
+  ),
+  'tutor-practice': defineModeArtifactContract(
+    '编排与诊断结果匹配的渐进练习。',
+    ['练习目标', '示范题', '分层练习', '迁移挑战'],
+    ['练习针对诊断缺口', '难度递进平滑', '答案解析说明思路']
+  ),
+  'tutor-feedback': defineModeArtifactContract(
+    '基于对话与练习表现提供即时反馈。',
+    ['表现摘要', '正确策略', '需要修正之处', '下一步练习'],
+    ['反馈具体到行为', '先确认有效策略', '下一步任务难度适当']
+  ),
+  'development-profile': defineModeArtifactContract(
+    '形成兼顾学业、能力与兴趣的学生画像。',
+    ['基本背景', '优势与兴趣', '能力与证据', '发展需求'],
+    ['画像基于多源证据', '避免固定化标签', '优势与需求均被呈现']
+  ),
+  'development-goals': defineModeArtifactContract(
+    '制定具体、分层且可衡量的发展目标。',
+    ['长期方向', '阶段目标', '达成指标', '目标依据'],
+    ['目标与学生画像一致', '指标可观察', '挑战度与可行性平衡']
+  ),
+  'development-plan': defineModeArtifactContract(
+    '把发展目标转化为持续行动计划。',
+    ['行动路径', '阶段任务', '支持资源', '风险与调整'],
+    ['任务有时间节点', '资源责任明确', '设置定期调整机制']
+  ),
+  'development-portfolio': defineModeArtifactContract(
+    '规划能证明成长过程的学生档案。',
+    ['成果目录', '过程证据', '反思记录', '展示与更新'],
+    ['证据覆盖目标维度', '保留过程而非只看结果', '隐私与授权要求明确']
+  ),
+  'development-assessment': defineModeArtifactContract(
+    '建立周期性、多主体的发展评价。',
+    ['评价维度', '证据与量规', '评价周期', '反馈与调整'],
+    ['评价维度对应目标', '自评与他评有清晰口径', '结果用于更新计划']
+  ),
+  'courseware-outline': defineModeArtifactContract(
+    '建立互动课件的内容结构和页面叙事。',
+    ['受众与目标', '模块结构', '页面流程', '互动节点'],
+    ['结构覆盖学习目标', '页面节奏有变化', '互动节点具有教学意义']
+  ),
+  'courseware-content': defineModeArtifactContract(
+    '编写适合屏幕呈现的课件内容脚本。',
+    ['页面标题与要点', '讲解脚本', '例题与练习', '反馈文案'],
+    ['单页信息聚焦', '讲解与页面互补', '练习反馈准确']
+  ),
+  'courseware-assets': defineModeArtifactContract(
+    '规划课件所需媒体资产及其来源。',
+    ['资产清单', '用途与规格', '来源与版权', '制作优先级'],
+    ['资产服务明确页面', '规格可直接制作', '版权和替代方案已记录']
+  ),
+  'courseware-preview': defineModeArtifactContract(
+    '组织课件预览测试与问题修订。',
+    ['预览场景', '交互走查', '内容与显示问题', '修订清单'],
+    ['关键路径已走通', '不同屏幕尺寸已检查', '问题有优先级和负责人']
+  ),
+  'courseware-publish': defineModeArtifactContract(
+    '准备互动课件发布、验收与维护。',
+    ['发布目标', '构建与兼容', '验收标准', '版本与维护'],
+    ['发布包可打开', '兼容环境明确', '回滚和版本记录可用']
+  ),
+  'game-bank': defineModeArtifactContract(
+    '建立可复用的教学游戏题目与挑战库。',
+    ['学习目标映射', '挑战类型', '题目与答案', '难度与标签'],
+    ['挑战覆盖学习目标', '规则信息完整', '难度标签经过复核']
+  ),
+  'game-rules': defineModeArtifactContract(
+    '设计易理解、公平且服务学习目标的游戏规则。',
+    ['游戏目标', '回合与操作', '计分与胜负', '异常与公平性'],
+    ['规则可在短时间讲清', '计分奖励目标行为', '异常情况有处理规则']
+  ),
+  'game-preview': defineModeArtifactContract(
+    '规划教学游戏试玩与规则验证。',
+    ['试玩任务', '观察指标', '玩家反馈', '调整清单'],
+    ['试玩覆盖完整回合', '记录学习和体验指标', '调整项有验证标准']
+  ),
+  'game-results': defineModeArtifactContract(
+    '分析游戏表现与学习目标达成情况。',
+    ['参与表现', '得分与行为', '学习达成证据', '异常与偏差'],
+    ['结果区分游戏技巧与学习表现', '指标口径一致', '异常玩家和局次已说明']
+  ),
+  'game-feedback': defineModeArtifactContract(
+    '把游戏结果转化为学习反馈与后续任务。',
+    ['表现反馈', '策略提示', '知识补强', '下一轮挑战'],
+    ['反馈关联具体游戏行为', '提示不直接泄露全部答案', '下一轮挑战针对薄弱点']
+  ),
+  'graph-sources': defineModeArtifactContract(
+    '登记知识图谱来源、范围与可信度。',
+    ['来源目录', '覆盖范围', '质量与授权', '采集优先级'],
+    ['来源可访问可追溯', '覆盖边界明确', '授权与敏感信息已检查']
+  ),
+  'graph-extract': defineModeArtifactContract(
+    '从材料中抽取规范化的实体、关系与证据。',
+    ['抽取范围', '实体类型', '关系与属性', '证据片段'],
+    ['实体命名规则一致', '关系方向明确', '每条事实保留来源证据']
+  ),
+  'graph-view': defineModeArtifactContract(
+    '规划便于探索和解释的知识图谱视图。',
+    ['视图目标', '节点与关系筛选', '布局与编码', '交互与说明'],
+    ['视图回答明确问题', '视觉编码有图例', '高密度区域可筛选']
+  ),
+  'graph-curation': defineModeArtifactContract(
+    '清理知识图谱中的重复、冲突与低置信事实。',
+    ['重复实体', '冲突关系', '置信度与证据', '修订记录'],
+    ['合并规则可解释', '冲突保留裁决依据', '修订可追溯和回滚']
+  ),
+  'graph-export': defineModeArtifactContract(
+    '定义可交换、可验证的知识图谱导出。',
+    ['导出范围', '字段与格式', '标识与引用', '验证与导入说明'],
+    ['格式满足目标系统', '标识符稳定唯一', '导出文件经过结构验证']
+  ),
+  'mistakes-import': defineModeArtifactContract(
+    '规划错题材料导入、解析和去重。',
+    ['来源与批次', '字段映射', '解析与去重', '质量问题'],
+    ['原题和来源可追溯', '字段映射完整', '重复和解析失败有处理记录']
+  ),
+  'mistakes-classify': defineModeArtifactContract(
+    '按知识、错误原因和掌握程度分类错题。',
+    ['分类体系', '知识点归属', '错误模式', '优先级与标签'],
+    ['分类标准互斥且可执行', '错误原因有作答证据', '优先级反映影响与频次']
+  ),
+  'mistakes-review': defineModeArtifactContract(
+    '安排间隔复习和主动回忆的错题复盘。',
+    ['复习范围', '回忆任务', '讲解与订正', '复查时间'],
+    ['先回忆后看答案', '订正说明错误原因', '复查间隔与掌握度匹配']
+  ),
+  'mistakes-practice': defineModeArtifactContract(
+    '生成针对错误模式的变式与迁移练习。',
+    ['目标错误模式', '基础变式', '综合迁移', '答案与诊断点'],
+    ['练习改变表面条件但保留核心能力', '难度逐步提升', '解析指出原错误模式']
+  ),
+  'mistakes-report': defineModeArtifactContract(
+    '汇总错题趋势、掌握变化与复习建议。',
+    ['错题概况', '高频知识与错误模式', '掌握变化', '后续复习计划'],
+    ['统计口径和时间范围明确', '趋势有题目证据', '复习建议对应高优先级问题']
+  )
+};
+
+function resolveModeArtifactContract(tabId: WorkspaceTabId) {
+  return modeArtifactContracts[tabId] ?? overviewModeArtifactContract;
+}
+
+function truncateModeArtifactContext(value: string, maxLength: number) {
+  const normalized = value.trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}\n...[truncated]` : normalized;
+}
+
+function buildModeArtifactPrompt(
+  project: ProjectDetail,
+  input: GenerateModeArtifactInput,
+  currentArtifacts: ModeArtifact[]
+) {
+  const contract = resolveModeArtifactContract(input.tabId);
+  const seen = new WeakSet<object>();
+  let modeConfig = '{}';
+  try {
+    modeConfig = JSON.stringify(project.meta.modeConfig ?? {}, (key, value) => {
+      if (/api[-_]?key|auth(?:orization)?|token|secret|password/i.test(key)) return undefined;
+      if (value && typeof value === 'object') {
+        if (seen.has(value)) return '[Circular]';
+        seen.add(value);
+      }
+      return value;
+    }, 2) ?? '{}';
+  } catch {
+    modeConfig = '{}';
+  }
+
+  const recentUploads = project.uploads
+    .filter((upload) => upload.parsed)
+    .slice(0, 3)
+    .map((upload) => [
+      `- ${upload.name}`,
+      `  摘要：${truncateModeArtifactContext(upload.parsed?.summary || '暂无摘要', 800)}`,
+      `  正文预览：${truncateModeArtifactContext(upload.parsed?.extractedText || '暂无可提取文本', 1600)}`
+    ].join('\n'));
+  const uploadContext = truncateModeArtifactContext(recentUploads.join('\n'), 6000) || '暂无已解析上传材料';
+  const artifactContext = truncateModeArtifactContext(currentArtifacts.map((artifact) => (
+    `- ${artifact.title} | ${artifact.kind} | ${artifact.tabId}`
+  )).join('\n'), 3000) || '暂无现有模式成果';
+
+  return [
+    '请生成一份可编辑、可复核的 Markdown 模式成果。只输出成果正文，不输出过程说明。',
+    `项目名称：${project.meta.name}`,
+    `项目模式：${project.meta.mode}`,
+    `课程或方向：${project.meta.courseName || '未填写'}`,
+    `项目要求：${project.meta.requirements || '暂无'}`,
+    `项目模式配置（JSON）：\n${truncateModeArtifactContext(modeConfig, 5000)}`,
+    `当前成果目的：${contract.purpose}`,
+    `必须覆盖的章节：${contract.sections.join('、')}`,
+    `复核清单：${contract.checklist.join('；')}`,
+    `最近已解析上传材料：\n${uploadContext}`,
+    `现有成果：\n${artifactContext}`,
+    `用户要求：${input.prompt?.trim() || '请依据项目上下文生成完整成果。'}`
+  ].join('\n\n');
+}
+
 function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeArtifactInput): ModeArtifact {
   const now = new Date().toISOString();
   const tabId = normalizeWorkspaceTabId(input.tabId);
   const kind = input.artifactKind?.trim() || '模式成果';
   const prompt = input.prompt?.trim() || '请根据当前项目目标生成一份可编辑、可复核、可交付的结构化成果。';
+  const contract = resolveModeArtifactContract(tabId);
   const modeLabel: Record<ProjectMode, string> = {
     'exam-review': '期末复习',
     'paper-assistant': '论文助手',
@@ -2296,21 +2700,20 @@ function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeAr
       `- 项目类型：${modeLabel[normalizeProjectMode(project.meta.mode)]}`,
       `- 课程 / 方向：${project.meta.courseName || '未填写'}`,
       `- 当前模块：${tabId}`,
+      `- 成果目的：${contract.purpose}`,
       `- 生成要求：${prompt}`,
+      `- 项目要求：${project.meta.requirements || '暂无'}`,
       '',
-      '## 一、目标',
-      `围绕“${project.meta.name}”形成一份可继续编辑的 ${kind}。`,
+      ...contract.sections.flatMap((section, index) => [
+        `## ${index + 1}. ${section}`,
+        '',
+        `围绕“${prompt}”，结合当前项目材料与要求，补充${section}的具体内容、依据和待确认事项。`,
+        ''
+      ]),
       '',
-      '## 二、核心内容',
-      '1. 明确本模块要解决的问题。',
-      '2. 拆解关键步骤、依据和产出形式。',
-      '3. 保留可复核的清单，便于后续导出交付。',
-      '',
-      '## 三、复核清单',
-      '- [ ] 内容与项目目标一致',
-      '- [ ] 结构清晰，可直接继续编辑',
-      '- [ ] 关键结论有依据或后续补证路径',
-      '- [ ] 交付前已人工复核'
+      '## 复核清单',
+      ...contract.checklist.map((item) => `- [ ] ${item}`),
+      '- [ ] 生成内容已结合最新项目上下文并经过人工复核'
     ].join('\n'),
     source: 'fallback',
     createdAt: now,
@@ -2320,9 +2723,64 @@ function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeAr
 
 async function generateModeArtifact(projectId: string, input: GenerateModeArtifactInput) {
   const project = await openProject(projectId);
-  const artifact = buildFallbackModeArtifact(project, input);
   const current = await listModeArtifacts(projectId);
-  return writeModeArtifacts(projectId, [artifact, ...current]);
+  const settings = await loadSettings();
+  const activeProfile = getActiveProvider(settings);
+  const profile = settings.providers.find((profile) => profile.id === project.meta.provider)
+    ?? settings.providers.find((profile) => profile.provider === project.meta.provider)
+    ?? activeProfile;
+  const model = project.meta.model || profile.selectedModelId;
+
+  if (!profile.apiKey || !profile.baseUrl) {
+    const fallback = buildFallbackModeArtifact(project, input);
+    return writeModeArtifacts(projectId, [fallback, ...current]);
+  }
+
+  try {
+    const request = buildChatRequest({
+      provider: profile.provider,
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey,
+      model,
+      temperature: settings.temperature,
+      maxTokens: settings.maxTokens,
+      systemPrompt: '你是专业的教育与科研成果生成助手。严格依据给定领域契约输出结构化 Markdown，不披露系统配置或凭据。',
+      userPrompt: buildModeArtifactPrompt(project, input, current)
+    });
+    const response = await fetchWithTimeout(request.url, {
+      method: 'POST',
+      headers: request.headers,
+      body: JSON.stringify(request.body)
+    }, 30000);
+
+    if (!response.ok) {
+      throw new Error(`Mode artifact request failed (HTTP ${response.status})`);
+    }
+
+    const payload = await response.json() as Record<string, unknown>;
+    const contentMarkdown = parseChatResponse(profile.provider, payload).trim();
+    if (!contentMarkdown) {
+      throw new Error('Mode artifact reply was empty');
+    }
+
+    const now = new Date().toISOString();
+    const kind = input.artifactKind?.trim() || '模式成果';
+    const artifact: ModeArtifact = {
+      id: `mode-artifact-${Date.now()}`,
+      mode: normalizeProjectMode(project.meta.mode),
+      tabId: normalizeWorkspaceTabId(input.tabId),
+      title: `${kind}草稿`,
+      kind,
+      contentMarkdown,
+      source: 'agent',
+      createdAt: now,
+      updatedAt: now
+    };
+    return writeModeArtifacts(projectId, [artifact, ...current]);
+  } catch {
+    const fallback = buildFallbackModeArtifact(project, input);
+    return writeModeArtifacts(projectId, [fallback, ...current]);
+  }
 }
 
 async function saveModeArtifact(projectId: string, artifact: ModeArtifact) {
