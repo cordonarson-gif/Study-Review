@@ -218,6 +218,116 @@ export type StageReport = {
   updatedAt: string;
 };
 
+export type ProjectMode =
+  | 'exam-review'
+  | 'paper-assistant'
+  | 'research-analysis'
+  | 'teaching-design'
+  | 'assignment-quiz';
+
+export type WizardFieldType = 'text' | 'textarea' | 'select' | 'number' | 'file-list';
+
+export type WizardField = {
+  key: string;
+  label: string;
+  type: WizardFieldType;
+  required: boolean;
+  placeholder?: string;
+  options?: string[];
+};
+
+export type WorkspaceTabId =
+  | 'overview'
+  | 'profile'
+  | 'materials'
+  | 'agents'
+  | 'resources'
+  | 'path'
+  | 'practice'
+  | 'import'
+  | 'report'
+  | 'delivery'
+  | 'config'
+  | 'progress'
+  | 'paper-overview'
+  | 'paper-literature'
+  | 'paper-outline'
+  | 'paper-chapters'
+  | 'paper-methods'
+  | 'paper-innovation'
+  | 'paper-format'
+  | 'paper-defense'
+  | 'research-overview'
+  | 'research-dataset'
+  | 'research-plan'
+  | 'research-statistics'
+  | 'research-charts'
+  | 'research-findings'
+  | 'research-report'
+  | 'teaching-overview'
+  | 'teaching-objectives'
+  | 'teaching-key-points'
+  | 'teaching-activities'
+  | 'teaching-assessment'
+  | 'teaching-lesson-plan'
+  | 'teaching-courseware'
+  | 'assignment-overview'
+  | 'assignment-bank'
+  | 'assignment-paper'
+  | 'assignment-online-quiz'
+  | 'assignment-grading'
+  | 'assignment-wrong-answers'
+  | 'assignment-feedback';
+
+export type WorkspaceTabTemplate = {
+  id: WorkspaceTabId;
+  label: string;
+  description: string;
+};
+
+export type AgentTemplate = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+export type DeliverableTemplate = {
+  id: string;
+  label: string;
+  checklist: string[];
+};
+
+export type ProjectModeTemplate = {
+  mode: ProjectMode;
+  title: string;
+  description: string;
+  icon: string;
+  recommendedFor: string[];
+  wizardFields: WizardField[];
+  tabs: WorkspaceTabTemplate[];
+  agents: AgentTemplate[];
+  deliverables: DeliverableTemplate[];
+  supportedUploads: string[];
+};
+
+export type ModeArtifact = {
+  id: string;
+  mode: ProjectMode;
+  tabId: WorkspaceTabId;
+  title: string;
+  kind: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual' | 'fallback';
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GenerateModeArtifactInput = {
+  tabId: WorkspaceTabId;
+  prompt: string;
+  artifactKind: string;
+};
+
 export type DeliveryPackageItemType =
   | 'resources'
   | 'reports'
@@ -298,6 +408,8 @@ export type KnowledgeBaseEntry = {
 
 export type ProjectMeta = {
   id: string;
+  mode: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   root: string;
@@ -329,9 +441,12 @@ export type ProjectDetail = {
   learningPathPlan?: LearningPathPlan | null;
   stageReports?: StageReport[];
   deliveryPackage?: DeliveryPackage | null;
+  modeArtifacts?: ModeArtifact[];
 };
 
 export type CreateProjectInput = {
+  mode?: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   linkedFolder?: string;
