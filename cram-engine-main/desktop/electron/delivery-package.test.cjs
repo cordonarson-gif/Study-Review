@@ -30,3 +30,12 @@ test('DeliveryAgent has project-local persistence and export generation', () => 
   assert.match(main, /async function saveDeliveryPackage\(projectId: string, deliveryPackage: DeliveryPackage\)/);
   assert.match(main, /async function exportDeliveryPackage\(projectId: string\)/);
 });
+
+test('DeliveryAgent includes mode artifacts in delivery generation', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+
+  assert.match(main, /modeArtifacts/);
+  assert.match(main, /listModeArtifacts\(projectId\)/);
+  assert.match(main, /buildModeDeliveryItems/);
+  assert.match(main, /mode-artifacts/);
+});

@@ -2302,12 +2302,33 @@ function buildDeliveryStatus(count: number, readyThreshold = 1): DeliveryPackage
   return count >= readyThreshold ? 'ready' : 'needs-review';
 }
 
+function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtifact[]): DeliveryPackageItem[] {
+  if (normalizeProjectMode(project.meta.mode) === 'exam-review') {
+    return [];
+  }
+
+  return [
+    normalizeDeliveryPackageItem({
+      id: 'delivery-mode-artifacts',
+      type: 'archive',
+      title: '模式成果包',
+      description: modeArtifacts.length
+        ? `当前项目已沉淀 ${modeArtifacts.length} 份模式成果，可随交付包导出。`
+        : '尚未生成模式成果，建议先在当前项目页面生成至少一份内容。',
+      status: modeArtifacts.length ? 'ready' : 'missing',
+      sourceIds: modeArtifacts.map((artifact) => artifact.id),
+      checklist: ['成果标题清晰', 'Markdown 内容可读', '已复核后再导出']
+    }, 6)
+  ];
+}
+
 function buildFallbackDeliveryPackage(
   project: ProjectDetail,
   profile: LearningProfile,
   pathPlan: LearningPathPlan | null,
   resources: PersonalizedResource[],
-  reports: StageReport[]
+  reports: StageReport[],
+  modeArtifacts: ModeArtifact[] = []
 ): DeliveryPackage {
   const now = new Date().toISOString();
   const practice = summarizePractice(project);
@@ -2328,6 +2349,7 @@ function buildFallbackDeliveryPackage(
       `已汇总 ${resources.length} 份个性化资料、${reports.length} 份阶段报告、${project.questions.length} 道题目、${project.knowledgeBase.length} 条知识库记录。`,
       pathPlan ? `学习路径进度 ${doneTasks}/${pathTasks.length}。` : '学习路径尚未生成。',
       `学习画像置信度：${profile.confidence}。`
+      , modeArtifacts.length ? `模式成果 ${modeArtifacts.length} 份。` : '模式成果尚未生成。'
     ].join(' '),
     items: [
       {
@@ -2394,6 +2416,7 @@ function buildFallbackDeliveryPackage(
         sourceIds: project.uploads.map((upload) => upload.storedPath),
         checklist: ['课程配置已确认', '学习进度已更新', '上传素材可追溯', '导出文件可打开']
       }
+      , ...buildModeDeliveryItems(project, modeArtifacts)
     ],
     checklist: [
       readyCount >= 4 ? '核心交付项已基本齐备' : '核心交付项仍需补充',
@@ -2415,8 +2438,9 @@ async function generateDeliveryPackage(projectId: string) {
   const pathPlan = await getLearningPathPlan(projectId);
   const resources = await listPersonalizedResources(projectId);
   const reports = await listStageReports(projectId);
+  const modeArtifacts = await listModeArtifacts(projectId);
   const existing = await getDeliveryPackage(projectId);
-  const generated = buildFallbackDeliveryPackage(project, profileState.profile, pathPlan, resources, reports);
+  const generated = buildFallbackDeliveryPackage(project, profileState.profile, pathPlan, resources, reports, modeArtifacts);
 
   return writeDeliveryPackage(projectId, {
     ...generated,
