@@ -170,7 +170,15 @@ type ProjectMode =
   | 'paper-assistant'
   | 'research-analysis'
   | 'teaching-design'
-  | 'assignment-quiz';
+  | 'assignment-quiz'
+  | 'research-innovation'
+  | 'lab-simulation'
+  | 'virtual-teacher'
+  | 'student-development'
+  | 'interactive-courseware'
+  | 'teaching-game'
+  | 'knowledge-graph'
+  | 'mistake-collection';
 
 type WorkspaceTabId =
   | 'overview'
@@ -213,7 +221,55 @@ type WorkspaceTabId =
   | 'assignment-online-quiz'
   | 'assignment-grading'
   | 'assignment-wrong-answers'
-  | 'assignment-feedback';
+  | 'assignment-feedback'
+  | 'innovation-overview'
+  | 'innovation-landscape'
+  | 'innovation-problems'
+  | 'innovation-methods'
+  | 'innovation-evidence'
+  | 'innovation-roadmap'
+  | 'simulation-overview'
+  | 'simulation-model'
+  | 'simulation-parameters'
+  | 'simulation-run'
+  | 'simulation-results'
+  | 'simulation-report'
+  | 'tutor-overview'
+  | 'tutor-diagnosis'
+  | 'tutor-dialogue'
+  | 'tutor-explanation'
+  | 'tutor-practice'
+  | 'tutor-feedback'
+  | 'development-overview'
+  | 'development-profile'
+  | 'development-goals'
+  | 'development-plan'
+  | 'development-portfolio'
+  | 'development-assessment'
+  | 'courseware-overview'
+  | 'courseware-outline'
+  | 'courseware-content'
+  | 'courseware-assets'
+  | 'courseware-preview'
+  | 'courseware-publish'
+  | 'game-overview'
+  | 'game-bank'
+  | 'game-rules'
+  | 'game-preview'
+  | 'game-results'
+  | 'game-feedback'
+  | 'graph-overview'
+  | 'graph-sources'
+  | 'graph-extract'
+  | 'graph-view'
+  | 'graph-curation'
+  | 'graph-export'
+  | 'mistakes-overview'
+  | 'mistakes-import'
+  | 'mistakes-classify'
+  | 'mistakes-review'
+  | 'mistakes-practice'
+  | 'mistakes-report';
 
 type ModeArtifact = {
   id: string;
@@ -500,7 +556,15 @@ const projectModes: ProjectMode[] = [
   'paper-assistant',
   'research-analysis',
   'teaching-design',
-  'assignment-quiz'
+  'assignment-quiz',
+  'research-innovation',
+  'lab-simulation',
+  'virtual-teacher',
+  'student-development',
+  'interactive-courseware',
+  'teaching-game',
+  'knowledge-graph',
+  'mistake-collection'
 ];
 
 const workspaceTabs: WorkspaceTabId[] = [
@@ -544,7 +608,55 @@ const workspaceTabs: WorkspaceTabId[] = [
   'assignment-online-quiz',
   'assignment-grading',
   'assignment-wrong-answers',
-  'assignment-feedback'
+  'assignment-feedback',
+  'innovation-overview',
+  'innovation-landscape',
+  'innovation-problems',
+  'innovation-methods',
+  'innovation-evidence',
+  'innovation-roadmap',
+  'simulation-overview',
+  'simulation-model',
+  'simulation-parameters',
+  'simulation-run',
+  'simulation-results',
+  'simulation-report',
+  'tutor-overview',
+  'tutor-diagnosis',
+  'tutor-dialogue',
+  'tutor-explanation',
+  'tutor-practice',
+  'tutor-feedback',
+  'development-overview',
+  'development-profile',
+  'development-goals',
+  'development-plan',
+  'development-portfolio',
+  'development-assessment',
+  'courseware-overview',
+  'courseware-outline',
+  'courseware-content',
+  'courseware-assets',
+  'courseware-preview',
+  'courseware-publish',
+  'game-overview',
+  'game-bank',
+  'game-rules',
+  'game-preview',
+  'game-results',
+  'game-feedback',
+  'graph-overview',
+  'graph-sources',
+  'graph-extract',
+  'graph-view',
+  'graph-curation',
+  'graph-export',
+  'mistakes-overview',
+  'mistakes-import',
+  'mistakes-classify',
+  'mistakes-review',
+  'mistakes-practice',
+  'mistakes-report'
 ];
 
 function normalizeProjectMode(mode: unknown): ProjectMode {
@@ -2161,7 +2273,15 @@ function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeAr
     'paper-assistant': '论文助手',
     'research-analysis': '科研数据分析',
     'teaching-design': '教学设计',
-    'assignment-quiz': '作业测验'
+    'assignment-quiz': '作业测验',
+    'research-innovation': '科研创新',
+    'lab-simulation': '实验模拟',
+    'virtual-teacher': '虚拟教师',
+    'student-development': '学生发展',
+    'interactive-courseware': '互动课件',
+    'teaching-game': '教学游戏',
+    'knowledge-graph': '知识图谱',
+    'mistake-collection': '错题集'
   };
 
   return {
