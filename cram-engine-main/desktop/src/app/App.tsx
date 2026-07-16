@@ -43,6 +43,10 @@ import { LearningPathPage } from '../components/path/LearningPathPage';
 import { StageReportPage } from '../components/report/StageReportPage';
 import { PersonalizedResourcesPage } from '../components/resources/PersonalizedResourcesPage';
 import { DeliveryPackagePage } from '../components/delivery/DeliveryPackagePage';
+import { SimulationWorkbenchPage } from '../components/modes/SimulationWorkbenchPage';
+import { KnowledgeGraphPage } from '../components/modes/KnowledgeGraphPage';
+import { CoursewareStudioPage } from '../components/modes/CoursewareStudioPage';
+import { TeachingGamePage } from '../components/modes/TeachingGamePage';
 import { ModeModulePage } from '../components/modes/ModeModulePage';
 import { ProjectModeSelector } from '../components/modes/ProjectModeSelector';
 import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
@@ -108,6 +112,16 @@ type WizardStringField = 'name' | 'courseName' | 'examType' | 'textbook' | 'requ
 
 const wizardStringFields = new Set<WizardStringField>(['name', 'courseName', 'examType', 'textbook', 'requirements']);
 const handledWizardFieldKeys = new Set(['name', 'requirements', 'notes', 'textbook']);
+const specializedModeTabs = new Set<WorkspaceTabId>([
+  'simulation-run',
+  'graph-view',
+  'courseware-preview',
+  'game-bank',
+  'game-preview',
+  'mistakes-import',
+  'mistakes-review',
+  'mistakes-practice'
+]);
 
 function isWizardStringField(key: string): key is WizardStringField {
   return wizardStringFields.has(key as WizardStringField);
@@ -1719,7 +1733,91 @@ export default function App() {
                   )}
                 </nav>
 
-                {isModeTab(editorTab) && editorTab !== 'delivery' && activeProject.meta.mode !== 'exam-review' && (
+                {editorTab === 'simulation-run' && (
+                  <SimulationWorkbenchPage
+                    onGenerate={generateModeArtifact}
+                    onChange={(next) => {
+                      setModeArtifacts(next);
+                      setActiveProject({ ...activeProject, modeArtifacts: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'graph-view' && (
+                  <KnowledgeGraphPage
+                    knowledgeBase={activeProject.knowledgeBase}
+                    questions={activeProject.questions}
+                    artifacts={modeArtifacts}
+                  />
+                )}
+
+                {editorTab === 'courseware-preview' && (
+                  <CoursewareStudioPage
+                    artifacts={modeArtifacts}
+                    onGenerate={generateModeArtifact}
+                    onSave={saveModeArtifact}
+                    onChange={(next) => {
+                      setModeArtifacts(next);
+                      setActiveProject({ ...activeProject, modeArtifacts: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
+
+                {editorTab === 'game-bank' && (
+                  <section className="panel project-single-page">
+                    <QuestionImportPanel
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsAdded={(questions) => {
+                        setActiveProject({ ...activeProject, questions });
+                        setEditorTab('game-preview');
+                      }}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {editorTab === 'game-preview' && (
+                  <TeachingGamePage questions={activeProject.questions} onGoToBank={() => setEditorTab('game-bank')} />
+                )}
+
+                {editorTab === 'mistakes-import' && (
+                  <section className="panel project-single-page">
+                    <QuestionImportPanel
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsAdded={(questions) => {
+                        setActiveProject({ ...activeProject, questions });
+                        setEditorTab('mistakes-review');
+                      }}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {editorTab === 'mistakes-review' && (
+                  <section className="panel project-single-page">
+                    <PracticePanel
+                      questions={activeProject.questions}
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsUpdated={(questions) => setActiveProject({ ...activeProject, questions })}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {editorTab === 'mistakes-practice' && (
+                  <section className="panel project-single-page">
+                    <PracticePanel
+                      questions={activeProject.questions}
+                      activeProjectId={activeProject.meta.id}
+                      onQuestionsUpdated={(questions) => setActiveProject({ ...activeProject, questions })}
+                      onStatus={setStatus}
+                    />
+                  </section>
+                )}
+
+                {isModeTab(editorTab) && !specializedModeTabs.has(editorTab) && editorTab !== 'delivery' && activeProject.meta.mode !== 'exam-review' && (
                   <ModeModulePage
                     tab={activeWorkspaceTabs.find((tab) => tab.id === editorTab) ?? activeWorkspaceTabs[0]}
                     artifacts={modeArtifacts}

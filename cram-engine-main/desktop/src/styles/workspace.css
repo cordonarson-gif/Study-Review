@@ -258,6 +258,478 @@
   }
 }
 
+/* ---- Interactive advanced mode workspaces ---- */
+.specialized-mode-page {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.specialized-mode-page h3,
+.specialized-mode-page h4,
+.specialized-mode-page p {
+  margin-top: 0;
+}
+
+.simulation-model-control {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.simulation-parameter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.simulation-parameter-grid label,
+.courseware-source-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.simulation-parameter-grid input,
+.courseware-source-editor textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.inline-validation {
+  padding: 10px 12px;
+  border-left: 3px solid var(--color-error, #ba1a1a);
+  background: rgba(186, 26, 26, 0.07);
+  color: var(--color-error, #ba1a1a);
+  font-size: 13px;
+}
+
+.simulation-summary-grid,
+.graph-source-counters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-outline-variant);
+}
+
+.simulation-summary-grid div,
+.graph-source-counters div,
+.game-status-row div {
+  min-width: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--color-surface-container-lowest);
+}
+
+.simulation-summary-grid span,
+.graph-source-counters span,
+.game-status-row span {
+  color: var(--color-on-surface-variant);
+  font-size: 11px;
+}
+
+.simulation-summary-grid strong,
+.graph-source-counters strong,
+.game-status-row strong {
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
+
+.simulation-output-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.simulation-chart,
+.knowledge-graph-canvas {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+}
+
+.simulation-chart {
+  aspect-ratio: 15 / 8;
+}
+
+.simulation-chart svg,
+.knowledge-graph-canvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.simulation-chart line {
+  stroke: var(--color-outline);
+  stroke-width: 1;
+}
+
+.simulation-chart polyline {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.simulation-table-scroll {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+}
+
+.simulation-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.simulation-table-scroll th,
+.simulation-table-scroll td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--color-outline-variant);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.simulation-table-scroll th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface-variant);
+  font-size: 11px;
+}
+
+.graph-source-counters {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.graph-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.graph-filter-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+}
+
+.knowledge-graph-layout {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.32fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.knowledge-graph-canvas {
+  aspect-ratio: 19 / 11;
+}
+
+.graph-edges line {
+  stroke: var(--color-outline);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.graph-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.graph-node circle {
+  fill: var(--color-surface-container-highest);
+  stroke: var(--color-outline);
+  stroke-width: 2;
+}
+
+.graph-node-question circle { fill: #e8f2ff; }
+.graph-node-artifact circle { fill: #e8f7ed; }
+.graph-node-tag circle { fill: #fff1dc; }
+.graph-node-knowledge-point circle { fill: #f5eefa; }
+
+.graph-node.selected circle,
+.graph-node:focus-visible circle {
+  stroke: var(--color-primary);
+  stroke-width: 4;
+}
+
+.graph-node text {
+  fill: var(--color-on-surface);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.graph-detail-panel {
+  min-width: 0;
+  padding: 16px;
+  overflow: auto;
+  border-left: 1px solid var(--color-outline-variant);
+}
+
+.graph-detail-panel h4,
+.graph-detail-panel p,
+.graph-detail-panel small {
+  overflow-wrap: anywhere;
+}
+
+.graph-detail-panel p,
+.graph-detail-panel small,
+.graph-detail-panel li span {
+  color: var(--color-on-surface-variant);
+  line-height: 1.55;
+}
+
+.graph-detail-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.graph-detail-panel li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.courseware-studio-layout {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.42fr) minmax(0, 0.58fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.courseware-source-editor textarea {
+  min-height: 480px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.55;
+}
+
+.courseware-preview-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.courseware-preview-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(70px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.courseware-preview-toolbar strong {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.courseware-slide-preview {
+  aspect-ratio: 16 / 9;
+  min-width: 0;
+  padding: clamp(20px, 4%, 42px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-lowest);
+  overflow: auto;
+}
+
+.courseware-slide-preview > div {
+  width: 100%;
+  min-width: 0;
+}
+
+.courseware-slide-preview span {
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.courseware-slide-preview h4 {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.courseware-slide-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.game-status-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(100px, 1fr)) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.game-progress-track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--color-surface-container-highest);
+}
+
+.game-progress-track i {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.game-question-stage {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game-question-stage h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.game-option-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-option {
+  min-height: 70px;
+  min-width: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.game-option span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-container-high);
+}
+
+.game-option strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.game-option.selected { border-color: var(--color-primary); }
+.game-option.correct { border-color: #2e7d32; background: rgba(46, 125, 50, 0.08); }
+.game-option.wrong { border-color: #ba1a1a; background: rgba(186, 26, 26, 0.07); }
+
+.game-feedback {
+  padding: 14px;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-surface-container-low);
+}
+
+.game-feedback.correct { border-left-color: #2e7d32; }
+.game-feedback.wrong { border-left-color: #ba1a1a; }
+.game-feedback p { margin: 6px 0 0; line-height: 1.6; }
+
+.game-empty-state,
+.game-result-state {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.game-result-state > strong {
+  font-size: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.specialized-mode-page button:focus-visible,
+.specialized-mode-page input:focus-visible,
+.specialized-mode-page textarea:focus-visible,
+.specialized-mode-page [role='button']:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .simulation-parameter-grid,
+  .simulation-output-grid,
+  .knowledge-graph-layout,
+  .courseware-studio-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-source-counters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .graph-detail-panel {
+    border-top: 1px solid var(--color-outline-variant);
+    border-left: 0;
+  }
+
+  .courseware-source-editor textarea {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 620px) {
+  .simulation-summary-grid,
+  .graph-source-counters,
+  .game-option-list,
+  .game-status-row {
+    grid-template-columns: 1fr;
+  }
+
+  .game-status-row button {
+    width: 100%;
+  }
+}
+
 /* ---- Stack Lists ---- */
 .stage-list,
 .project-list,

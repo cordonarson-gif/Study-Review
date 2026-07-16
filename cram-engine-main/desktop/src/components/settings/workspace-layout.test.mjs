@@ -274,3 +274,23 @@ test('workspace renders mode-specific module pages with persistent artifacts', a
   assert.match(workspaceCss, /\.mode-module-page\b/);
   assert.match(workspaceCss, /\.mode-artifact-grid\b/);
 });
+
+test('workspace routes advanced modes to interactive specialized pages', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+
+  assert.match(app, /import \{ SimulationWorkbenchPage \} from '\.\.\/components\/modes\/SimulationWorkbenchPage'/);
+  assert.match(app, /import \{ KnowledgeGraphPage \} from '\.\.\/components\/modes\/KnowledgeGraphPage'/);
+  assert.match(app, /import \{ CoursewareStudioPage \} from '\.\.\/components\/modes\/CoursewareStudioPage'/);
+  assert.match(app, /import \{ TeachingGamePage \} from '\.\.\/components\/modes\/TeachingGamePage'/);
+
+  assert.match(app, /editorTab === 'simulation-run'[\s\S]*?<SimulationWorkbenchPage\b/);
+  assert.match(app, /editorTab === 'graph-view'[\s\S]*?<KnowledgeGraphPage\b/);
+  assert.match(app, /editorTab === 'courseware-preview'[\s\S]*?<CoursewareStudioPage\b/);
+  assert.match(app, /editorTab === 'game-preview'[\s\S]*?<TeachingGamePage\b/);
+  assert.match(app, /editorTab === 'game-bank'[\s\S]*?<QuestionImportPanel\b[\s\S]*?setEditorTab\('game-preview'\)/);
+  assert.match(app, /editorTab === 'mistakes-import'[\s\S]*?<QuestionImportPanel\b[\s\S]*?setEditorTab\('mistakes-review'\)/);
+  assert.match(app, /editorTab === 'mistakes-review'[\s\S]*?<PracticePanel\b/);
+  assert.match(app, /editorTab === 'mistakes-practice'[\s\S]*?<PracticePanel\b/);
+  assert.match(app, /specializedModeTabs/);
+  assert.match(app, /!specializedModeTabs\.has\(editorTab\)/);
+});
