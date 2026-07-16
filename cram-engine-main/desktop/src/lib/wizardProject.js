@@ -49,6 +49,8 @@ export function buildWizardProjectPayload(wizard, initialQuestions = []) {
   const courseName = normalizeText(wizard.courseName);
 
   return {
+    mode: wizard.mode || 'exam-review',
+    modeConfig: wizard.modeConfig && typeof wizard.modeConfig === 'object' ? wizard.modeConfig : {},
     name: name || courseName,
     courseName: courseName || name,
     linkedFolder: normalizeText(wizard.linkedFolder) || undefined,

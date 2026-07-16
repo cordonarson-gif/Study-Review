@@ -209,6 +209,74 @@ type StageReport = {
   updatedAt: string;
 };
 
+type ProjectMode =
+  | 'exam-review'
+  | 'paper-assistant'
+  | 'research-analysis'
+  | 'teaching-design'
+  | 'assignment-quiz';
+
+type WorkspaceTabId =
+  | 'overview'
+  | 'profile'
+  | 'materials'
+  | 'agents'
+  | 'resources'
+  | 'path'
+  | 'practice'
+  | 'import'
+  | 'report'
+  | 'delivery'
+  | 'config'
+  | 'progress'
+  | 'paper-overview'
+  | 'paper-literature'
+  | 'paper-outline'
+  | 'paper-chapters'
+  | 'paper-methods'
+  | 'paper-innovation'
+  | 'paper-format'
+  | 'paper-defense'
+  | 'research-overview'
+  | 'research-dataset'
+  | 'research-plan'
+  | 'research-statistics'
+  | 'research-charts'
+  | 'research-findings'
+  | 'research-report'
+  | 'teaching-overview'
+  | 'teaching-objectives'
+  | 'teaching-key-points'
+  | 'teaching-activities'
+  | 'teaching-assessment'
+  | 'teaching-lesson-plan'
+  | 'teaching-courseware'
+  | 'assignment-overview'
+  | 'assignment-bank'
+  | 'assignment-paper'
+  | 'assignment-online-quiz'
+  | 'assignment-grading'
+  | 'assignment-wrong-answers'
+  | 'assignment-feedback';
+
+type ModeArtifact = {
+  id: string;
+  mode: ProjectMode;
+  tabId: WorkspaceTabId;
+  title: string;
+  kind: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual' | 'fallback';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GenerateModeArtifactInput = {
+  tabId: WorkspaceTabId;
+  prompt: string;
+  artifactKind: string;
+};
+
 type DeliveryPackageItemType =
   | 'resources'
   | 'reports'
@@ -270,6 +338,8 @@ type SettingsCompatibilityResult = AppSettings & LegacyAppSettings;
 
 type ProjectMeta = {
   id: string;
+  mode: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   root: string;
@@ -327,9 +397,12 @@ type ProjectDetail = {
   learningPathPlan?: LearningPathPlan | null;
   stageReports?: StageReport[];
   deliveryPackage?: DeliveryPackage | null;
+  modeArtifacts?: ModeArtifact[];
 };
 
 type CreateProjectInput = {
+  mode?: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   linkedFolder?: string;
@@ -387,6 +460,10 @@ declare global {
       listStageReports: (projectId: string) => Promise<StageReport[]>;
       generateStageReport: (projectId: string) => Promise<StageReport[]>;
       saveStageReport: (projectId: string, report: StageReport) => Promise<StageReport[]>;
+      listModeArtifacts: (projectId: string) => Promise<ModeArtifact[]>;
+      generateModeArtifact: (projectId: string, input: GenerateModeArtifactInput) => Promise<ModeArtifact[]>;
+      saveModeArtifact: (projectId: string, artifact: ModeArtifact) => Promise<ModeArtifact[]>;
+      deleteModeArtifact: (projectId: string, artifactId: string) => Promise<ModeArtifact[]>;
       getDeliveryPackage: (projectId: string) => Promise<DeliveryPackage | null>;
       generateDeliveryPackage: (projectId: string) => Promise<DeliveryPackage>;
       saveDeliveryPackage: (projectId: string, deliveryPackage: DeliveryPackage) => Promise<DeliveryPackage>;

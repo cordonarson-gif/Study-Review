@@ -165,6 +165,74 @@ type StageReport = {
   updatedAt: string;
 };
 
+type ProjectMode =
+  | 'exam-review'
+  | 'paper-assistant'
+  | 'research-analysis'
+  | 'teaching-design'
+  | 'assignment-quiz';
+
+type WorkspaceTabId =
+  | 'overview'
+  | 'profile'
+  | 'materials'
+  | 'agents'
+  | 'resources'
+  | 'path'
+  | 'practice'
+  | 'import'
+  | 'report'
+  | 'delivery'
+  | 'config'
+  | 'progress'
+  | 'paper-overview'
+  | 'paper-literature'
+  | 'paper-outline'
+  | 'paper-chapters'
+  | 'paper-methods'
+  | 'paper-innovation'
+  | 'paper-format'
+  | 'paper-defense'
+  | 'research-overview'
+  | 'research-dataset'
+  | 'research-plan'
+  | 'research-statistics'
+  | 'research-charts'
+  | 'research-findings'
+  | 'research-report'
+  | 'teaching-overview'
+  | 'teaching-objectives'
+  | 'teaching-key-points'
+  | 'teaching-activities'
+  | 'teaching-assessment'
+  | 'teaching-lesson-plan'
+  | 'teaching-courseware'
+  | 'assignment-overview'
+  | 'assignment-bank'
+  | 'assignment-paper'
+  | 'assignment-online-quiz'
+  | 'assignment-grading'
+  | 'assignment-wrong-answers'
+  | 'assignment-feedback';
+
+type ModeArtifact = {
+  id: string;
+  mode: ProjectMode;
+  tabId: WorkspaceTabId;
+  title: string;
+  kind: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual' | 'fallback';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GenerateModeArtifactInput = {
+  tabId: WorkspaceTabId;
+  prompt: string;
+  artifactKind: string;
+};
+
 type DeliveryPackageItemType =
   | 'resources'
   | 'reports'
@@ -199,6 +267,8 @@ type DeliveryPackage = {
 
 type ProjectMeta = {
   id: string;
+  mode: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   root: string;
@@ -256,9 +326,12 @@ type ProjectDetail = {
   learningPathPlan?: LearningPathPlan | null;
   stageReports?: StageReport[];
   deliveryPackage?: DeliveryPackage | null;
+  modeArtifacts?: ModeArtifact[];
 };
 
 type CreateProjectInput = {
+  mode?: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   linkedFolder?: string;
@@ -343,6 +416,10 @@ function projectDeliveryPackagePath(projectId: string) {
   return path.join(projectDir(projectId), 'delivery', 'package.json');
 }
 
+function projectModeArtifactsPath(projectId: string) {
+  return path.join(projectDir(projectId), 'mode-artifacts', 'index.json');
+}
+
 function projectGeneratedDir(projectId: string) {
   return path.join(projectDir(projectId), 'generated');
 }
@@ -416,6 +493,78 @@ async function readJson<T>(filePath: string, fallback: T): Promise<T> {
   } catch {
     return fallback;
   }
+}
+
+const projectModes: ProjectMode[] = [
+  'exam-review',
+  'paper-assistant',
+  'research-analysis',
+  'teaching-design',
+  'assignment-quiz'
+];
+
+const workspaceTabs: WorkspaceTabId[] = [
+  'overview',
+  'profile',
+  'materials',
+  'agents',
+  'resources',
+  'path',
+  'practice',
+  'import',
+  'report',
+  'delivery',
+  'config',
+  'progress',
+  'paper-overview',
+  'paper-literature',
+  'paper-outline',
+  'paper-chapters',
+  'paper-methods',
+  'paper-innovation',
+  'paper-format',
+  'paper-defense',
+  'research-overview',
+  'research-dataset',
+  'research-plan',
+  'research-statistics',
+  'research-charts',
+  'research-findings',
+  'research-report',
+  'teaching-overview',
+  'teaching-objectives',
+  'teaching-key-points',
+  'teaching-activities',
+  'teaching-assessment',
+  'teaching-lesson-plan',
+  'teaching-courseware',
+  'assignment-overview',
+  'assignment-bank',
+  'assignment-paper',
+  'assignment-online-quiz',
+  'assignment-grading',
+  'assignment-wrong-answers',
+  'assignment-feedback'
+];
+
+function normalizeProjectMode(mode: unknown): ProjectMode {
+  return projectModes.includes(mode as ProjectMode) ? mode as ProjectMode : 'exam-review';
+}
+
+function normalizeWorkspaceTabId(tabId: unknown): WorkspaceTabId {
+  return workspaceTabs.includes(tabId as WorkspaceTabId) ? tabId as WorkspaceTabId : 'overview';
+}
+
+function normalizeModeConfig(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function normalizeProjectMeta(meta: ProjectMeta): ProjectMeta {
+  return {
+    ...meta,
+    mode: normalizeProjectMode((meta as Partial<ProjectMeta>).mode),
+    modeConfig: normalizeModeConfig((meta as Partial<ProjectMeta>).modeConfig)
+  };
 }
 
 const defaultLearningProfile = (now = new Date().toISOString()): LearningProfile => {
@@ -710,7 +859,7 @@ async function fetchProviderModels(profile: ProviderProfile): Promise<ProviderPr
 
 async function listProjects(): Promise<ProjectMeta[]> {
   const projects = await readJson<ProjectMeta[]>(projectRegistryPath(), []);
-  return [...projects].sort((a, b) => {
+  return projects.map(normalizeProjectMeta).sort((a, b) => {
     const left = new Date(a.lastOpenedAt || a.updatedAt || a.createdAt).getTime();
     const right = new Date(b.lastOpenedAt || b.updatedAt || b.createdAt).getTime();
     return right - left;
@@ -722,10 +871,11 @@ async function saveProjects(projects: ProjectMeta[]) {
 }
 
 async function persistProjectMeta(meta: ProjectMeta) {
-  await writeJson(projectMetaPath(meta.id), meta);
+  const normalized = normalizeProjectMeta(meta);
+  await writeJson(projectMetaPath(normalized.id), normalized);
   const projects = await readJson<ProjectMeta[]>(projectRegistryPath(), []);
-  await saveProjects([meta, ...projects.filter((project) => project.id !== meta.id)]);
-  return meta;
+  await saveProjects([normalized, ...projects.map(normalizeProjectMeta).filter((project) => project.id !== normalized.id)]);
+  return normalized;
 }
 
 function buildConfigYaml(input: CreateProjectInput) {
@@ -989,6 +1139,8 @@ async function createProject(input: CreateProjectInput): Promise<ProjectDetail> 
   const root = projectDir(id);
   const meta: ProjectMeta = {
     id,
+    mode: normalizeProjectMode(input.mode),
+    modeConfig: normalizeModeConfig(input.modeConfig),
     name: input.name,
     courseName: input.courseName,
     root,
@@ -1013,6 +1165,7 @@ async function createProject(input: CreateProjectInput): Promise<ProjectDetail> 
   await ensureParentDir(projectChatPath(id));
   await mkdir(projectProfileDir(id), { recursive: true });
   await ensureParentDir(projectDeliveryPackagePath(id));
+  await ensureParentDir(projectModeArtifactsPath(id));
 
   const configYaml = buildConfigYaml(input);
   const progressMarkdown = buildInitialProgress(input.courseName);
@@ -1061,16 +1214,17 @@ async function createProject(input: CreateProjectInput): Promise<ProjectDetail> 
     personalizedResources: await listPersonalizedResources(id),
     learningPathPlan: await getLearningPathPlan(id),
     stageReports: await listStageReports(id),
-    deliveryPackage: await getDeliveryPackage(id)
+    deliveryPackage: await getDeliveryPackage(id),
+    modeArtifacts: await listModeArtifacts(id)
   };
 }
 
 async function openProject(projectId: string): Promise<ProjectDetail> {
   const loadedMeta = await readJson<ProjectMeta | null>(projectMetaPath(projectId), null);
-  const meta = loadedMeta ? {
+  const meta = loadedMeta ? normalizeProjectMeta({
     ...loadedMeta,
     lastOpenedAt: new Date().toISOString()
-  } : null;
+  }) : null;
   if (!meta) {
     throw new Error(`Project not found: ${projectId}`);
   }
@@ -1088,6 +1242,7 @@ async function openProject(projectId: string): Promise<ProjectDetail> {
   const learningPathPlan = await getLearningPathPlan(projectId);
   const stageReports = await listStageReports(projectId);
   const deliveryPackage = await getDeliveryPackage(projectId);
+  const modeArtifacts = await listModeArtifacts(projectId);
   const snapshotRoot = meta.linkedFolder || meta.root;
 
   return {
@@ -1104,7 +1259,8 @@ async function openProject(projectId: string): Promise<ProjectDetail> {
     personalizedResources,
     learningPathPlan,
     stageReports,
-    deliveryPackage
+    deliveryPackage,
+    modeArtifacts
   };
 }
 
@@ -1961,6 +2117,112 @@ async function saveStageReport(projectId: string, report: StageReport) {
   return writeStageReports(projectId, next);
 }
 
+function normalizeModeArtifact(artifact: Partial<ModeArtifact>, index = 0, fallbackMode: ProjectMode = 'exam-review'): ModeArtifact {
+  const now = new Date().toISOString();
+  const tabId = normalizeWorkspaceTabId(artifact.tabId);
+  const mode = normalizeProjectMode(artifact.mode || fallbackMode);
+  const title = String(artifact.title || `${artifact.kind || '模式成果'} ${index + 1}`);
+
+  return {
+    id: String(artifact.id || `mode-artifact-${Date.now()}-${index}`),
+    mode,
+    tabId,
+    title,
+    kind: String(artifact.kind || tabId),
+    contentMarkdown: String(artifact.contentMarkdown || ''),
+    source: artifact.source === 'agent' || artifact.source === 'manual' ? artifact.source : 'fallback',
+    createdAt: typeof artifact.createdAt === 'string' && artifact.createdAt ? artifact.createdAt : now,
+    updatedAt: typeof artifact.updatedAt === 'string' && artifact.updatedAt ? artifact.updatedAt : now
+  };
+}
+
+async function listModeArtifacts(projectId: string) {
+  const meta = await readJson<ProjectMeta | null>(projectMetaPath(projectId), null);
+  const mode = normalizeProjectMode(meta?.mode);
+  const raw = await readJson<Partial<ModeArtifact>[]>(projectModeArtifactsPath(projectId), []);
+  return Array.isArray(raw) ? raw.map((artifact, index) => normalizeModeArtifact(artifact, index, mode)) : [];
+}
+
+async function writeModeArtifacts(projectId: string, artifacts: ModeArtifact[]) {
+  const meta = await readJson<ProjectMeta | null>(projectMetaPath(projectId), null);
+  const mode = normalizeProjectMode(meta?.mode);
+  const normalized = artifacts.map((artifact, index) => normalizeModeArtifact(artifact, index, mode));
+  await writeJson(projectModeArtifactsPath(projectId), normalized);
+  return normalized;
+}
+
+function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeArtifactInput): ModeArtifact {
+  const now = new Date().toISOString();
+  const tabId = normalizeWorkspaceTabId(input.tabId);
+  const kind = input.artifactKind?.trim() || '模式成果';
+  const prompt = input.prompt?.trim() || '请根据当前项目目标生成一份可编辑、可复核、可交付的结构化成果。';
+  const modeLabel: Record<ProjectMode, string> = {
+    'exam-review': '期末复习',
+    'paper-assistant': '论文助手',
+    'research-analysis': '科研数据分析',
+    'teaching-design': '教学设计',
+    'assignment-quiz': '作业测验'
+  };
+
+  return {
+    id: `mode-artifact-${Date.now()}`,
+    mode: normalizeProjectMode(project.meta.mode),
+    tabId,
+    title: `${kind}草稿`,
+    kind,
+    contentMarkdown: [
+      `# ${project.meta.name} - ${kind}`,
+      '',
+      `- 项目类型：${modeLabel[normalizeProjectMode(project.meta.mode)]}`,
+      `- 课程 / 方向：${project.meta.courseName || '未填写'}`,
+      `- 当前模块：${tabId}`,
+      `- 生成要求：${prompt}`,
+      '',
+      '## 一、目标',
+      `围绕“${project.meta.name}”形成一份可继续编辑的 ${kind}。`,
+      '',
+      '## 二、核心内容',
+      '1. 明确本模块要解决的问题。',
+      '2. 拆解关键步骤、依据和产出形式。',
+      '3. 保留可复核的清单，便于后续导出交付。',
+      '',
+      '## 三、复核清单',
+      '- [ ] 内容与项目目标一致',
+      '- [ ] 结构清晰，可直接继续编辑',
+      '- [ ] 关键结论有依据或后续补证路径',
+      '- [ ] 交付前已人工复核'
+    ].join('\n'),
+    source: 'fallback',
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+async function generateModeArtifact(projectId: string, input: GenerateModeArtifactInput) {
+  const project = await openProject(projectId);
+  const artifact = buildFallbackModeArtifact(project, input);
+  const current = await listModeArtifacts(projectId);
+  return writeModeArtifacts(projectId, [artifact, ...current]);
+}
+
+async function saveModeArtifact(projectId: string, artifact: ModeArtifact) {
+  const current = await listModeArtifacts(projectId);
+  const normalized = normalizeModeArtifact({
+    ...artifact,
+    source: 'manual',
+    updatedAt: new Date().toISOString()
+  }, 0, normalizeProjectMode(artifact.mode));
+  const next = current.some((item) => item.id === normalized.id)
+    ? current.map((item) => item.id === normalized.id ? normalized : item)
+    : [normalized, ...current];
+  return writeModeArtifacts(projectId, next);
+}
+
+async function deleteModeArtifact(projectId: string, artifactId: string) {
+  const current = await listModeArtifacts(projectId);
+  return writeModeArtifacts(projectId, current.filter((artifact) => artifact.id !== artifactId));
+}
+
 const deliveryPackageItemTypes: DeliveryPackageItemType[] = [
   'resources',
   'reports',
@@ -2633,6 +2895,10 @@ ipcMain.handle('learningPath:save', (_event, projectId: string, plan: LearningPa
 ipcMain.handle('stageReports:list', (_event, projectId: string) => listStageReports(projectId));
 ipcMain.handle('stageReports:generate', (_event, projectId: string) => generateStageReport(projectId));
 ipcMain.handle('stageReports:save', (_event, projectId: string, report: StageReport) => saveStageReport(projectId, report));
+ipcMain.handle('modeArtifacts:list', (_event, projectId: string) => listModeArtifacts(projectId));
+ipcMain.handle('modeArtifacts:generate', (_event, projectId: string, input: GenerateModeArtifactInput) => generateModeArtifact(projectId, input));
+ipcMain.handle('modeArtifacts:save', (_event, projectId: string, artifact: ModeArtifact) => saveModeArtifact(projectId, artifact));
+ipcMain.handle('modeArtifacts:delete', (_event, projectId: string, artifactId: string) => deleteModeArtifact(projectId, artifactId));
 ipcMain.handle('delivery:get', (_event, projectId: string) => getDeliveryPackage(projectId));
 ipcMain.handle('delivery:generate', (_event, projectId: string) => generateDeliveryPackage(projectId));
 ipcMain.handle('delivery:save', (_event, projectId: string, deliveryPackage: DeliveryPackage) => saveDeliveryPackage(projectId, deliveryPackage));

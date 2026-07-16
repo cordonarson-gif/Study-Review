@@ -90,6 +90,74 @@ type StageReport = {
   updatedAt: string;
 };
 
+type ProjectMode =
+  | 'exam-review'
+  | 'paper-assistant'
+  | 'research-analysis'
+  | 'teaching-design'
+  | 'assignment-quiz';
+
+type WorkspaceTabId =
+  | 'overview'
+  | 'profile'
+  | 'materials'
+  | 'agents'
+  | 'resources'
+  | 'path'
+  | 'practice'
+  | 'import'
+  | 'report'
+  | 'delivery'
+  | 'config'
+  | 'progress'
+  | 'paper-overview'
+  | 'paper-literature'
+  | 'paper-outline'
+  | 'paper-chapters'
+  | 'paper-methods'
+  | 'paper-innovation'
+  | 'paper-format'
+  | 'paper-defense'
+  | 'research-overview'
+  | 'research-dataset'
+  | 'research-plan'
+  | 'research-statistics'
+  | 'research-charts'
+  | 'research-findings'
+  | 'research-report'
+  | 'teaching-overview'
+  | 'teaching-objectives'
+  | 'teaching-key-points'
+  | 'teaching-activities'
+  | 'teaching-assessment'
+  | 'teaching-lesson-plan'
+  | 'teaching-courseware'
+  | 'assignment-overview'
+  | 'assignment-bank'
+  | 'assignment-paper'
+  | 'assignment-online-quiz'
+  | 'assignment-grading'
+  | 'assignment-wrong-answers'
+  | 'assignment-feedback';
+
+type ModeArtifact = {
+  id: string;
+  mode: ProjectMode;
+  tabId: WorkspaceTabId;
+  title: string;
+  kind: string;
+  contentMarkdown: string;
+  source: 'agent' | 'manual' | 'fallback';
+  createdAt: string;
+  updatedAt: string;
+};
+
+type GenerateModeArtifactInput = {
+  tabId: WorkspaceTabId;
+  prompt: string;
+  artifactKind: string;
+};
+
 type DeliveryPackageItemType =
   | 'resources'
   | 'reports'
@@ -361,6 +429,10 @@ try {
     listStageReports: (projectId: string) => ipcRenderer.invoke('stageReports:list', projectId),
     generateStageReport: (projectId: string) => ipcRenderer.invoke('stageReports:generate', projectId),
     saveStageReport: (projectId: string, report: StageReport) => ipcRenderer.invoke('stageReports:save', projectId, report),
+    listModeArtifacts: (projectId: string) => ipcRenderer.invoke('modeArtifacts:list', projectId),
+    generateModeArtifact: (projectId: string, input: GenerateModeArtifactInput) => ipcRenderer.invoke('modeArtifacts:generate', projectId, input),
+    saveModeArtifact: (projectId: string, artifact: ModeArtifact) => ipcRenderer.invoke('modeArtifacts:save', projectId, artifact),
+    deleteModeArtifact: (projectId: string, artifactId: string) => ipcRenderer.invoke('modeArtifacts:delete', projectId, artifactId),
     getDeliveryPackage: (projectId: string) => ipcRenderer.invoke('delivery:get', projectId),
     generateDeliveryPackage: (projectId: string) => ipcRenderer.invoke('delivery:generate', projectId),
     saveDeliveryPackage: (projectId: string, deliveryPackage: DeliveryPackage) => ipcRenderer.invoke('delivery:save', projectId, deliveryPackage),

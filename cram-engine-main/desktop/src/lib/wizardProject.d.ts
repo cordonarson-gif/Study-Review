@@ -1,6 +1,8 @@
-import type { CreateProjectInput, QuestionDraft } from './types';
+import type { CreateProjectInput, ProjectMode, QuestionDraft } from './types';
 
 type WizardProjectState = {
+  mode?: ProjectMode;
+  modeConfig?: Record<string, unknown>;
   name: string;
   courseName: string;
   linkedFolder: string;

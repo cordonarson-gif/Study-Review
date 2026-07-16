@@ -56,6 +56,8 @@ test('buildWizardProjectPayload trims values and falls back between name and cou
   });
 
   assert.deepEqual(payload, {
+    mode: 'exam-review',
+    modeConfig: {},
     name: '网络期末冲刺',
     courseName: '网络期末冲刺',
     linkedFolder: 'C:/courses/network',
@@ -68,6 +70,24 @@ test('buildWizardProjectPayload trims values and falls back between name and cou
     provider: 'openai-compatible',
     model: 'gpt-4.1-mini',
     initialQuestions: []
+  });
+});
+
+test('buildWizardProjectPayload carries project mode and mode configuration', () => {
+  const payload = buildWizardProjectPayload({
+    ...baseWizard,
+    name: '  论文助手项目  ',
+    mode: 'paper-assistant',
+    modeConfig: {
+      paperType: '本科论文',
+      researchObject: '人工智能辅助学习'
+    }
+  });
+
+  assert.equal(payload.mode, 'paper-assistant');
+  assert.deepEqual(payload.modeConfig, {
+    paperType: '本科论文',
+    researchObject: '人工智能辅助学习'
   });
 });
 
