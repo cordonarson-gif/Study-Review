@@ -16,6 +16,7 @@ import {
 } from './provider-api.cjs';
 import { assertAllowedProjectPath } from './file-access.cjs';
 import { detectLatexEnvironment } from './latex-detector.cjs';
+import { buildModeDeliveryEvidence, type DeliveryEvidenceKind } from './delivery-evidence.cjs';
 import { parseQuestionDrafts, type QuestionDraft, type ReviewQuestion } from './question-utils.cjs';
 import {
   createDefaultSettings,
@@ -2942,6 +2943,7 @@ type ModeDeliveryDefinition = {
   title: string;
   description: string;
   tabIds: WorkspaceTabId[];
+  evidence?: DeliveryEvidenceKind;
   checklist: string[];
 };
 
@@ -3181,7 +3183,8 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-game-question-bank',
       title: '游戏题库',
       description: '组织服务教学目标的题目与挑战。',
-      tabIds: ['game-rules'],
+      tabIds: [],
+      evidence: 'playable-questions',
       checklist: ['题目可用', '选项完整', '答案明确']
     },
     {
@@ -3211,7 +3214,8 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-knowledge-graph',
       title: '知识图谱',
       description: '整理可追溯的知识节点、关系和校订记录。',
-      tabIds: ['graph-curation'],
+      tabIds: [],
+      evidence: 'knowledge-sources',
       checklist: ['节点可追溯', '关系有依据', '孤立点已检查']
     },
     {
@@ -3224,10 +3228,11 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
   ],
   'mistake-collection': [
     {
-      id: 'delivery-mistake-bank',
+      id: 'delivery-mistake-library',
       title: '错题库',
       description: '汇总导入、去重和分类后的错题。',
-      tabIds: ['mistakes-overview', 'mistakes-classify'],
+      tabIds: [],
+      evidence: 'wrong-questions',
       checklist: ['题干完整', '答案完整', '解析完整']
     },
     {
@@ -3269,11 +3274,13 @@ function selectLatestModeArtifactsByTab(
 
 function buildModeDeliveryStatus(
   definition: ModeDeliveryDefinition,
-  artifacts: ModeArtifact[]
+  artifacts: ModeArtifact[],
+  evidenceIds: string[]
 ): DeliveryPackageItemStatus {
-  if (!artifacts.length) return 'missing';
+  if (!artifacts.length && !evidenceIds.length) return 'missing';
   if (
     artifacts.length !== definition.tabIds.length
+    || Boolean(definition.evidence && !evidenceIds.length)
     || artifacts.some((artifact) => !artifact.contentMarkdown.trim() || artifact.source === 'fallback')
   ) {
     return 'needs-review';
@@ -3289,13 +3296,17 @@ function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtif
 
   return modeDeliveryDefinitions[mode].map((definition, index) => {
     const matchingArtifacts = selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts);
+    const evidenceIds = buildModeDeliveryEvidence(project, definition.evidence);
     return normalizeDeliveryPackageItem({
       id: definition.id,
       type: 'archive',
       title: definition.title,
-      description: `${definition.description} 已完成 ${matchingArtifacts.length}/${definition.tabIds.length} 个必需页签。`,
-      status: buildModeDeliveryStatus(definition, matchingArtifacts),
-      sourceIds: matchingArtifacts.map((artifact) => artifact.id),
+      description: `${definition.description} 已完成 ${matchingArtifacts.length}/${definition.tabIds.length} 个必需页签，结构化证据 ${evidenceIds.length} 项。`,
+      status: buildModeDeliveryStatus(definition, matchingArtifacts, evidenceIds),
+      sourceIds: uniqueStrings([
+        ...matchingArtifacts.map((artifact) => artifact.id),
+        ...evidenceIds
+      ]),
       checklist: definition.checklist
     }, index + 1);
   });
@@ -3321,7 +3332,8 @@ function buildFallbackDeliveryPackage(
       definition.id,
       buildModeDeliveryStatus(
         definition,
-        selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts)
+        selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts),
+        buildModeDeliveryEvidence(project, definition.evidence)
       )
     ]));
     const readyModeItems = definitions.filter((definition) => modeStatuses.get(definition.id) === 'ready');

@@ -115,13 +115,13 @@ test('non-exam delivery requirements only use reachable artifact-producing templ
       ? sourceBetween(registry, marker, `'${nextTemplate.mode}': [`)
       : registry.slice(registry.indexOf(marker));
     const templateTabIds = new Set(template.tabs.map((tab) => tab.id));
-    const definitionTabGroups = [...modeBlock.matchAll(/tabIds: \[([^\]]*)\]/g)].map((match) =>
-      [...match[1].matchAll(/'([^']+)'/g)].map((tabMatch) => tabMatch[1])
-    );
+    const definitionBlocks = [...modeBlock.matchAll(/\{\s*id: 'delivery-[\s\S]*?\n    \}/g)].map((match) => match[0]);
 
-    assert.ok(definitionTabGroups.length >= 3, `${template.mode} needs delivery tab groups`);
-    for (const tabIds of definitionTabGroups) {
-      assert.ok(tabIds.length > 0, `${template.mode} delivery definition needs a tab`);
+    assert.ok(definitionBlocks.length >= 3, `${template.mode} needs delivery definitions`);
+    for (const definitionBlock of definitionBlocks) {
+      const tabList = definitionBlock.match(/tabIds: \[([^\]]*)\]/)?.[1] ?? '';
+      const tabIds = [...tabList.matchAll(/'([^']+)'/g)].map((tabMatch) => tabMatch[1]);
+      assert.ok(tabIds.length > 0 || /evidence:/.test(definitionBlock), `${template.mode} delivery definition needs a tab or evidence`);
       for (const tabId of tabIds) {
         assert.ok(templateTabIds.has(tabId), `${template.mode} references non-template tab ${tabId}`);
         assert.ok(!nonArtifactTabs.includes(tabId), `${template.mode} requires non-artifact tab ${tabId}`);
@@ -136,9 +136,10 @@ test('mode delivery items use latest current-mode artifacts and require complete
 
   assert.match(builder, /modeDeliveryDefinitions\[mode\]/);
   assert.match(builder, /selectLatestModeArtifactsByTab\(mode, definition\.tabIds, modeArtifacts\)/);
+  assert.match(builder, /const evidenceIds = buildModeDeliveryEvidence\(project, definition\.evidence\)/);
   assert.match(builder, /type: 'archive'/);
-  assert.match(builder, /status: buildModeDeliveryStatus\(definition, matchingArtifacts\)/);
-  assert.match(builder, /sourceIds: matchingArtifacts\.map\(\(artifact\) => artifact\.id\)/);
+  assert.match(builder, /status: buildModeDeliveryStatus\(definition, matchingArtifacts, evidenceIds\)/);
+  assert.match(builder, /sourceIds: uniqueStrings\(\[\s*\.\.\.matchingArtifacts\.map\(\(artifact\) => artifact\.id\),\s*\.\.\.evidenceIds\s*\]\)/);
   assert.match(builder, /\$\{matchingArtifacts\.length\}\/\$\{definition\.tabIds\.length\}/);
 });
 
@@ -154,12 +155,38 @@ test('mode delivery status filters cross-mode history and checks tab, content, a
   assert.match(latest, /latestByTab\.set\(artifact\.tabId, artifact\)/);
   assert.match(latest, /tabIds\.flatMap/);
 
-  assert.match(status, /if \(!artifacts\.length\) return 'missing'/);
+  assert.match(status, /if \(!artifacts\.length && !evidenceIds\.length\) return 'missing'/);
   assert.match(status, /artifacts\.length !== definition\.tabIds\.length/);
+  assert.match(status, /definition\.evidence && !evidenceIds\.length/);
   assert.match(status, /!artifact\.contentMarkdown\.trim\(\)/);
   assert.match(status, /artifact\.source === 'fallback'/);
   assert.match(status, /return 'needs-review'/);
   assert.match(status, /return 'ready'/);
+});
+
+test('structured evidence definitions do not alias specialized data to unrelated artifacts', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const registry = sourceBetween(
+    main,
+    'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
+    '\n};\n\nfunction selectLatestModeArtifactsByTab'
+  );
+  const gameBank = sourceBetween(registry, "id: 'delivery-game-question-bank'", '\n    },');
+  const gameRules = sourceBetween(registry, "id: 'delivery-game-rules'", '\n    },');
+  const mistakeLibrary = sourceBetween(registry, "id: 'delivery-mistake-library'", '\n    },');
+  const knowledgeGraph = sourceBetween(registry, "id: 'delivery-knowledge-graph'", '\n    },');
+
+  assert.match(main, /type DeliveryEvidenceKind/);
+  assert.match(main, /evidence\?: DeliveryEvidenceKind/);
+  assert.match(gameBank, /tabIds: \[\]/);
+  assert.match(gameBank, /evidence: 'playable-questions'/);
+  assert.doesNotMatch(gameBank, /game-rules/);
+  assert.match(gameRules, /tabIds: \['game-rules'\]/);
+  assert.doesNotMatch(gameRules, /evidence:/);
+  assert.match(mistakeLibrary, /tabIds: \[\]/);
+  assert.match(mistakeLibrary, /evidence: 'wrong-questions'/);
+  assert.match(knowledgeGraph, /tabIds: \[\]/);
+  assert.match(knowledgeGraph, /evidence: 'knowledge-sources'/);
 });
 
 test('non-exam fallback contains project sources and mode deliverables without review-only items', () => {
