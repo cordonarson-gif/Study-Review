@@ -136,10 +136,10 @@ test('mode delivery items use latest current-mode artifacts and require complete
 
   assert.match(builder, /modeDeliveryDefinitions\[mode\]/);
   assert.match(builder, /selectLatestModeArtifactsByTab\(mode, definition\.tabIds, modeArtifacts\)/);
-  assert.match(builder, /const evidenceIds = buildModeDeliveryEvidence\(project, definition\.evidence\)/);
+  assert.match(builder, /const evidence = definition\.evidence\s*\? assessModeDeliveryEvidence\(project, definition\.evidence\)/);
   assert.match(builder, /type: 'archive'/);
-  assert.match(builder, /status: buildModeDeliveryStatus\(definition, matchingArtifacts, evidenceIds\)/);
-  assert.match(builder, /sourceIds: uniqueStrings\(\[\s*\.\.\.matchingArtifacts\.map\(\(artifact\) => artifact\.id\),\s*\.\.\.evidenceIds\s*\]\)/);
+  assert.match(builder, /status: buildModeDeliveryStatus\(definition, matchingArtifacts, evidence\)/);
+  assert.match(builder, /sourceIds: uniqueStrings\(\[\s*\.\.\.matchingArtifacts\.map\(\(artifact\) => artifact\.id\),\s*\.\.\.evidence\.sourceIds\s*\]\)/);
   assert.match(builder, /\$\{matchingArtifacts\.length\}\/\$\{definition\.tabIds\.length\}/);
 });
 
@@ -155,9 +155,9 @@ test('mode delivery status filters cross-mode history and checks tab, content, a
   assert.match(latest, /latestByTab\.set\(artifact\.tabId, artifact\)/);
   assert.match(latest, /tabIds\.flatMap/);
 
-  assert.match(status, /if \(!artifacts\.length && !evidenceIds\.length\) return 'missing'/);
+  assert.match(status, /if \(!artifacts\.length && !evidence\.sourceIds\.length\) return 'missing'/);
   assert.match(status, /artifacts\.length !== definition\.tabIds\.length/);
-  assert.match(status, /definition\.evidence && !evidenceIds\.length/);
+  assert.match(status, /definition\.evidence && evidence\.status !== 'ready'/);
   assert.match(status, /!artifact\.contentMarkdown\.trim\(\)/);
   assert.match(status, /artifact\.source === 'fallback'/);
   assert.match(status, /return 'needs-review'/);
@@ -185,7 +185,7 @@ test('structured evidence definitions do not alias specialized data to unrelated
   assert.doesNotMatch(gameRules, /evidence:/);
   assert.match(mistakeLibrary, /tabIds: \[\]/);
   assert.match(mistakeLibrary, /evidence: 'wrong-questions'/);
-  assert.match(knowledgeGraph, /tabIds: \[\]/);
+  assert.match(knowledgeGraph, /tabIds: \['graph-curation'\]/);
   assert.match(knowledgeGraph, /evidence: 'knowledge-sources'/);
 });
 
@@ -209,6 +209,7 @@ test('delivery export embeds complete mode artifact Markdown and self-contained 
   const exporter = sourceBetween(main, 'async function exportDeliveryPackage', '\nasync function getProjectAllowedRoot');
 
   assert.match(renderer, /modeArtifacts: ModeArtifact\[\] = \[\]/);
+  assert.match(renderer, /deliveryEvidence: DeliveryEvidencePayload/);
   assert.ok(renderer.includes('## 模式成果正文'));
   assert.ok(renderer.includes('暂无模式成果正文'));
   assert.match(renderer, /`### \$\{artifact\.title\}`/);
@@ -218,13 +219,21 @@ test('delivery export embeds complete mode artifact Markdown and self-contained 
   assert.match(renderer, /`- 来源：\$\{artifact\.source\}`/);
   assert.match(renderer, /artifact\.updatedAt/);
   assert.match(renderer, /artifact\.contentMarkdown/);
+  assert.ok(renderer.includes('## 结构化证据正文'));
+  assert.ok(renderer.includes('暂无结构化证据正文'));
+  assert.match(renderer, /question\.options/);
+  assert.match(renderer, /question\.answer/);
+  assert.match(renderer, /question\.explanation/);
+  assert.match(renderer, /entry\.summary/);
+  assert.match(renderer, /entry\.tags/);
 
   assert.match(exporter, /const allModeArtifacts = await listModeArtifacts\(projectId\)/);
   assert.match(exporter, /const modeArtifacts = selectDeliveryModeArtifacts\(detail, deliveryPackage, allModeArtifacts\)/);
-  assert.match(exporter, /renderDeliveryPackageMarkdown\(detail, deliveryPackage, modeArtifacts\)/);
+  assert.match(exporter, /const deliveryEvidence = selectDeliveryEvidence\(detail, deliveryPackage\)/);
+  assert.match(exporter, /renderDeliveryPackageMarkdown\(detail, deliveryPackage, modeArtifacts, deliveryEvidence\)/);
   assert.match(
     exporter,
-    /writeJson\(jsonPath, \{\s*\.\.\.deliveryPackage,\s*exportSchemaVersion: 2,\s*deliveryPackage,\s*modeArtifacts\s*\}\)/
+    /writeJson\(jsonPath, \{\s*\.\.\.deliveryPackage,\s*exportSchemaVersion: 2,\s*deliveryPackage,\s*modeArtifacts,\s*deliveryEvidence\s*\}\)/
   );
 });
 

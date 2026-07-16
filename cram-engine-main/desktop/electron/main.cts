@@ -16,7 +16,13 @@ import {
 } from './provider-api.cjs';
 import { assertAllowedProjectPath } from './file-access.cjs';
 import { detectLatexEnvironment } from './latex-detector.cjs';
-import { buildModeDeliveryEvidence, type DeliveryEvidenceKind } from './delivery-evidence.cjs';
+import {
+  assessModeDeliveryEvidence,
+  selectDeliveryEvidence,
+  type DeliveryEvidenceKind,
+  type DeliveryEvidencePayload,
+  type ModeDeliveryEvidenceAssessment
+} from './delivery-evidence.cjs';
 import { parseQuestionDrafts, type QuestionDraft, type ReviewQuestion } from './question-utils.cjs';
 import {
   createDefaultSettings,
@@ -3214,7 +3220,7 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
       id: 'delivery-knowledge-graph',
       title: '知识图谱',
       description: '整理可追溯的知识节点、关系和校订记录。',
-      tabIds: [],
+      tabIds: ['graph-curation'],
       evidence: 'knowledge-sources',
       checklist: ['节点可追溯', '关系有依据', '孤立点已检查']
     },
@@ -3275,12 +3281,12 @@ function selectLatestModeArtifactsByTab(
 function buildModeDeliveryStatus(
   definition: ModeDeliveryDefinition,
   artifacts: ModeArtifact[],
-  evidenceIds: string[]
+  evidence: ModeDeliveryEvidenceAssessment
 ): DeliveryPackageItemStatus {
-  if (!artifacts.length && !evidenceIds.length) return 'missing';
+  if (!artifacts.length && !evidence.sourceIds.length) return 'missing';
   if (
     artifacts.length !== definition.tabIds.length
-    || Boolean(definition.evidence && !evidenceIds.length)
+    || Boolean(definition.evidence && evidence.status !== 'ready')
     || artifacts.some((artifact) => !artifact.contentMarkdown.trim() || artifact.source === 'fallback')
   ) {
     return 'needs-review';
@@ -3296,16 +3302,18 @@ function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtif
 
   return modeDeliveryDefinitions[mode].map((definition, index) => {
     const matchingArtifacts = selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts);
-    const evidenceIds = buildModeDeliveryEvidence(project, definition.evidence);
+    const evidence = definition.evidence
+      ? assessModeDeliveryEvidence(project, definition.evidence)
+      : { sourceIds: [], status: 'ready' as const };
     return normalizeDeliveryPackageItem({
       id: definition.id,
       type: 'archive',
       title: definition.title,
-      description: `${definition.description} 已完成 ${matchingArtifacts.length}/${definition.tabIds.length} 个必需页签，结构化证据 ${evidenceIds.length} 项。`,
-      status: buildModeDeliveryStatus(definition, matchingArtifacts, evidenceIds),
+      description: `${definition.description} 已完成 ${matchingArtifacts.length}/${definition.tabIds.length} 个必需页签，结构化证据 ${evidence.sourceIds.length} 项。`,
+      status: buildModeDeliveryStatus(definition, matchingArtifacts, evidence),
       sourceIds: uniqueStrings([
         ...matchingArtifacts.map((artifact) => artifact.id),
-        ...evidenceIds
+        ...evidence.sourceIds
       ]),
       checklist: definition.checklist
     }, index + 1);
@@ -3333,7 +3341,9 @@ function buildFallbackDeliveryPackage(
       buildModeDeliveryStatus(
         definition,
         selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts),
-        buildModeDeliveryEvidence(project, definition.evidence)
+        definition.evidence
+          ? assessModeDeliveryEvidence(project, definition.evidence)
+          : { sourceIds: [], status: 'ready' as const }
       )
     ]));
     const readyModeItems = definitions.filter((definition) => modeStatuses.get(definition.id) === 'ready');
@@ -3520,7 +3530,8 @@ function selectDeliveryModeArtifacts(
 function renderDeliveryPackageMarkdown(
   project: ProjectDetail,
   deliveryPackage: DeliveryPackage,
-  modeArtifacts: ModeArtifact[] = []
+  modeArtifacts: ModeArtifact[] = [],
+  deliveryEvidence: DeliveryEvidencePayload = { questions: [], knowledgeBase: [] }
 ) {
   const modeArtifactLines = modeArtifacts.length
     ? modeArtifacts.flatMap((artifact) => [
@@ -3536,6 +3547,41 @@ function renderDeliveryPackageMarkdown(
         ''
       ])
     : ['暂无模式成果正文。', ''];
+  const deliveryEvidenceLines = deliveryEvidence.questions.length || deliveryEvidence.knowledgeBase.length
+    ? [
+        ...deliveryEvidence.questions.flatMap((question) => [
+          `### 题目：${question.stem || question.id}`,
+          '',
+          `- ID：${question.id}`,
+          `- 知识点：${question.knowledgePoint || '未填写'}`,
+          `- 错题：${question.wrong ? '是' : '否'}`,
+          '',
+          '#### 选项',
+          '',
+          ...(question.options.length
+            ? question.options.map((option) => `- ${option.key}. ${option.text}`)
+            : ['- 无选项']),
+          '',
+          `**答案：** ${question.answer || '未填写'}`,
+          '',
+          '**解析：**',
+          '',
+          question.explanation || '未填写',
+          ''
+        ]),
+        ...deliveryEvidence.knowledgeBase.flatMap((entry) => [
+          `### 知识：${entry.title || entry.id}`,
+          '',
+          `- ID：${entry.id}`,
+          `- 来源：${entry.source || '未填写'}`,
+          `- 更新时间：${entry.updatedAt || '未填写'}`,
+          `- 标签：${entry.tags.join('、') || '无'}`,
+          '',
+          entry.summary || '暂无摘要',
+          ''
+        ])
+      ]
+    : ['暂无结构化证据正文。', ''];
 
   return [
     `# ${deliveryPackage.title}`,
@@ -3564,6 +3610,9 @@ function renderDeliveryPackageMarkdown(
     '## 模式成果正文',
     '',
     ...modeArtifactLines,
+    '## 结构化证据正文',
+    '',
+    ...deliveryEvidenceLines,
     '## 总检查项',
     '',
     ...deliveryPackage.checklist.map((entry) => `- [ ] ${entry}`),
@@ -3579,18 +3628,24 @@ async function exportDeliveryPackage(projectId: string): Promise<ExportResult> {
   const deliveryPackage = await getDeliveryPackage(projectId) ?? await generateDeliveryPackage(projectId);
   const allModeArtifacts = await listModeArtifacts(projectId);
   const modeArtifacts = selectDeliveryModeArtifacts(detail, deliveryPackage, allModeArtifacts);
+  const deliveryEvidence = selectDeliveryEvidence(detail, deliveryPackage);
   const exportDir = projectGeneratedDir(projectId);
   await mkdir(exportDir, { recursive: true });
 
   const markdownPath = path.join(exportDir, `${slugify(detail.meta.name)}-delivery.md`);
   const jsonPath = path.join(exportDir, `${slugify(detail.meta.name)}-delivery.json`);
 
-  await writeFile(markdownPath, renderDeliveryPackageMarkdown(detail, deliveryPackage, modeArtifacts), 'utf8');
+  await writeFile(
+    markdownPath,
+    renderDeliveryPackageMarkdown(detail, deliveryPackage, modeArtifacts, deliveryEvidence),
+    'utf8'
+  );
   await writeJson(jsonPath, {
     ...deliveryPackage,
     exportSchemaVersion: 2,
     deliveryPackage,
-    modeArtifacts
+    modeArtifacts,
+    deliveryEvidence
   });
 
   return { markdownPath, jsonPath };
