@@ -36,10 +36,7 @@ export function formatSimulationNumber(value) {
   if (value === 0) return '0';
   const magnitude = Math.abs(value);
   if (magnitude < 0.0001 || magnitude >= 1000000) {
-    const exponent = Math.floor(Math.log10(magnitude));
-    const scale = 10 ** (3 - exponent);
-    const roundedMagnitude = Math.round((magnitude + Number.EPSILON) * scale) / scale;
-    return (Math.sign(value) * roundedMagnitude).toExponential(3);
+    return value.toExponential(3);
   }
   return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
 }

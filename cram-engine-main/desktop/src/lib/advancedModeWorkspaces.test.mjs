@@ -55,10 +55,21 @@ test('parseParameterSweepForm rejects numeric strings that are not finite number
 
 test('formatSimulationNumber preserves meaningful tiny and large values', () => {
   assert.equal(formatSimulationNumber(0), '0');
-  assert.equal(formatSimulationNumber(0.000012345), '1.235e-5');
-  assert.equal(formatSimulationNumber(-0.000012345), '-1.235e-5');
+  assert.equal(formatSimulationNumber(0.000012345), '1.234e-5');
+  assert.equal(formatSimulationNumber(-0.000012345), '-1.234e-5');
   assert.equal(formatSimulationNumber(12.34567), '12.3457');
   assert.equal(formatSimulationNumber(1200000), '1.200e+6');
+});
+
+test('formatSimulationNumber preserves values far below Number.EPSILON', () => {
+  assert.equal(formatSimulationNumber(1e-20), '1.000e-20');
+});
+
+test('formatSimulationNumber preserves the smallest positive number', () => {
+  const formatted = formatSimulationNumber(Number.MIN_VALUE);
+
+  assert.doesNotMatch(formatted, /NaN/);
+  assert.match(formatted, /e-324$/);
 });
 
 test('runParameterSweep creates a six-point linear sweep including both endpoints', () => {
