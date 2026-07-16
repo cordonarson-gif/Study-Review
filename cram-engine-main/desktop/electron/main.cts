@@ -2927,24 +2927,338 @@ function buildDeliveryStatus(count: number, readyThreshold = 1): DeliveryPackage
   return count >= readyThreshold ? 'ready' : 'needs-review';
 }
 
+type ModeDeliveryDefinition = {
+  id: string;
+  title: string;
+  description: string;
+  tabIds: WorkspaceTabId[];
+  checklist: string[];
+};
+
+const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
+  'exam-review': [
+    {
+      id: 'delivery-question-bank',
+      title: '题库包',
+      description: '汇总可用于复习与自测的题目。',
+      tabIds: ['practice', 'import'],
+      checklist: ['题干完整', '答案完整', '解析完整']
+    },
+    {
+      id: 'delivery-wrong-answers',
+      title: '错题包',
+      description: '整理错题、错因和对应知识点。',
+      tabIds: ['practice', 'report'],
+      checklist: ['错因明确', '知识点准确', '复盘建议可执行']
+    },
+    {
+      id: 'delivery-review-delivery',
+      title: '复习交付包',
+      description: '汇总资料、路径与阶段报告。',
+      tabIds: ['resources', 'path', 'report'],
+      checklist: ['资料齐备', '路径齐备', '报告齐备']
+    }
+  ],
+  'paper-assistant': [
+    {
+      id: 'delivery-outline',
+      title: '论文大纲',
+      description: '呈现论文问题链与章节结构。',
+      tabIds: ['paper-outline', 'paper-chapters'],
+      checklist: ['章节完整', '逻辑清晰', '问题链明确']
+    },
+    {
+      id: 'delivery-innovation',
+      title: '创新点矩阵',
+      description: '对照已有工作说明创新点与证据路径。',
+      tabIds: ['paper-methods', 'paper-innovation'],
+      checklist: ['对比对象明确', '创新表述克制', '证据路径清楚']
+    },
+    {
+      id: 'delivery-defense',
+      title: '答辩 Q&A',
+      description: '整理答辩问题、回答依据与局限说明。',
+      tabIds: ['paper-defense'],
+      checklist: ['覆盖背景', '覆盖方法', '覆盖不足与展望']
+    }
+  ],
+  'research-analysis': [
+    {
+      id: 'delivery-data-dictionary',
+      title: '数据字典',
+      description: '记录数据字段、变量类型和缺失值口径。',
+      tabIds: ['research-dataset'],
+      checklist: ['字段解释清晰', '变量类型明确', '缺失值说明完整']
+    },
+    {
+      id: 'delivery-analysis-plan',
+      title: '分析计划',
+      description: '说明分析目标、方法选择与检验假设。',
+      tabIds: ['research-plan', 'research-statistics'],
+      checklist: ['方法匹配目标', '限制说明明确', '检验假设清楚']
+    },
+    {
+      id: 'delivery-research-report',
+      title: '研究报告',
+      description: '整合图表、研究发现、结论和局限。',
+      tabIds: ['research-charts', 'research-findings', 'research-report'],
+      checklist: ['结论有依据', '图表解释清晰', '局限与后续工作明确']
+    }
+  ],
+  'teaching-design': [
+    {
+      id: 'delivery-objectives',
+      title: '教学目标',
+      description: '明确可观察、可评价且适配学情的目标。',
+      tabIds: ['teaching-objectives', 'teaching-key-points'],
+      checklist: ['目标清晰', '可评价', '适配学情']
+    },
+    {
+      id: 'delivery-lesson-plan',
+      title: '教案',
+      description: '整合课堂流程、活动、评价和时间分配。',
+      tabIds: ['teaching-activities', 'teaching-assessment', 'teaching-lesson-plan'],
+      checklist: ['流程完整', '活动可执行', '时间分配合理']
+    },
+    {
+      id: 'delivery-courseware',
+      title: '课件大纲',
+      description: '规划课件层次、互动方式和素材建议。',
+      tabIds: ['teaching-courseware'],
+      checklist: ['层次清晰', '互动明确', '板书与素材建议完整']
+    }
+  ],
+  'assignment-quiz': [
+    {
+      id: 'delivery-assignment-sheet',
+      title: '作业单',
+      description: '组织题型、难度、题目与答案解析。',
+      tabIds: ['assignment-bank', 'assignment-paper'],
+      checklist: ['题型符合要求', '难度合理', '答案解析齐备']
+    },
+    {
+      id: 'delivery-rubric',
+      title: '评分规则',
+      description: '明确评分维度、分值和扣分标准。',
+      tabIds: ['assignment-grading'],
+      checklist: ['分值明确', '扣分点明确', '示例答案清楚']
+    },
+    {
+      id: 'delivery-quiz-structure',
+      title: '在线测验结构',
+      description: '整理在线测验、错题标签和反馈结构。',
+      tabIds: ['assignment-online-quiz', 'assignment-wrong-answers', 'assignment-feedback'],
+      checklist: ['题目可导入', '反馈可复用', '错题标签清楚']
+    }
+  ],
+  'research-innovation': [
+    {
+      id: 'delivery-innovation-landscape',
+      title: '前沿图谱',
+      description: '梳理研究前沿、代表工作与差异。',
+      tabIds: ['innovation-landscape'],
+      checklist: ['范围明确', '代表工作齐备', '差异清晰']
+    },
+    {
+      id: 'delivery-innovation-matrix',
+      title: '创新矩阵',
+      description: '关联研究问题、创新方法和证据强度。',
+      tabIds: ['innovation-problems', 'innovation-methods', 'innovation-evidence'],
+      checklist: ['创新表述克制', '证据可追溯', '风险已标注']
+    },
+    {
+      id: 'delivery-innovation-roadmap',
+      title: '验证路线图',
+      description: '规划创新验证步骤、节点和备选方案。',
+      tabIds: ['innovation-roadmap'],
+      checklist: ['步骤可执行', '节点可检查', '备选方案完整']
+    }
+  ],
+  'lab-simulation': [
+    {
+      id: 'delivery-simulation-protocol',
+      title: '实验方案',
+      description: '定义仿真模型、变量、参数和假设。',
+      tabIds: ['simulation-model', 'simulation-parameters'],
+      checklist: ['变量明确', '参数完整', '假设可检查']
+    },
+    {
+      id: 'delivery-simulation-dataset',
+      title: '仿真数据',
+      description: '记录可重复的仿真运行与结果字段。',
+      tabIds: ['simulation-run', 'simulation-results'],
+      checklist: ['结果有限', '步骤可重复', '字段有说明']
+    },
+    {
+      id: 'delivery-simulation-report',
+      title: '实验报告',
+      description: '汇总仿真图表、结论与模型局限。',
+      tabIds: ['simulation-report'],
+      checklist: ['图表清晰', '结论有依据', '局限已说明']
+    }
+  ],
+  'virtual-teacher': [
+    {
+      id: 'delivery-learner-diagnosis',
+      title: '学习诊断',
+      description: '基于学习表现定位基础与薄弱点。',
+      tabIds: ['tutor-diagnosis'],
+      checklist: ['基础明确', '薄弱点具体', '证据充分']
+    },
+    {
+      id: 'delivery-teaching-script',
+      title: '辅导脚本',
+      description: '编排对话、讲解、示例与进阶练习。',
+      tabIds: ['tutor-dialogue', 'tutor-explanation', 'tutor-practice'],
+      checklist: ['结构清晰', '示例匹配', '追问可执行']
+    },
+    {
+      id: 'delivery-learning-feedback',
+      title: '学习反馈',
+      description: '总结学习进步、问题与下一步建议。',
+      tabIds: ['tutor-feedback'],
+      checklist: ['进步可见', '问题明确', '建议具体']
+    }
+  ],
+  'student-development': [
+    {
+      id: 'delivery-development-profile',
+      title: '发展画像',
+      description: '汇总学生优势、兴趣、能力和发展需求。',
+      tabIds: ['development-profile'],
+      checklist: ['信息完整', '优势具体', '需求明确']
+    },
+    {
+      id: 'delivery-development-plan',
+      title: '发展计划',
+      description: '把发展目标转化为可执行行动计划。',
+      tabIds: ['development-goals', 'development-plan'],
+      checklist: ['目标可观察', '行动可执行', '支持人明确']
+    },
+    {
+      id: 'delivery-development-portfolio',
+      title: '成长档案',
+      description: '沉淀成长证据、阶段对比和评价记录。',
+      tabIds: ['development-portfolio', 'development-assessment'],
+      checklist: ['证据可追溯', '阶段有对比', '反思已记录']
+    }
+  ],
+  'interactive-courseware': [
+    {
+      id: 'delivery-courseware-outline',
+      title: '课件大纲',
+      description: '规划课件结构、页面流程和互动节点。',
+      tabIds: ['courseware-outline'],
+      checklist: ['结构完整', '节奏合理', '目标一致']
+    },
+    {
+      id: 'delivery-courseware-script',
+      title: '页面脚本',
+      description: '编写页面要点、讲解备注和反馈文案。',
+      tabIds: ['courseware-content'],
+      checklist: ['标题清晰', '要点简洁', '讲解备注齐备']
+    },
+    {
+      id: 'delivery-courseware-package',
+      title: '课件包',
+      description: '汇总素材、互动预览和发布验收内容。',
+      tabIds: ['courseware-assets', 'courseware-preview', 'courseware-publish'],
+      checklist: ['素材齐备', '互动可用', '预览已复核']
+    }
+  ],
+  'teaching-game': [
+    {
+      id: 'delivery-game-question-bank',
+      title: '游戏题库',
+      description: '组织服务教学目标的题目与挑战。',
+      tabIds: ['game-bank'],
+      checklist: ['题目可用', '选项完整', '答案明确']
+    },
+    {
+      id: 'delivery-game-rules',
+      title: '游戏规则',
+      description: '定义游戏流程、计分和反馈规则。',
+      tabIds: ['game-rules'],
+      checklist: ['流程清晰', '计分公平', '反馈及时']
+    },
+    {
+      id: 'delivery-game-review',
+      title: '游戏复盘',
+      description: '基于试玩结果形成学习表现与改进建议。',
+      tabIds: ['game-preview', 'game-results', 'game-feedback'],
+      checklist: ['结果已记录', '错题可定位', '建议可执行']
+    }
+  ],
+  'knowledge-graph': [
+    {
+      id: 'delivery-graph-schema',
+      title: '图谱模式',
+      description: '定义来源、节点类型、关系类型与命名规则。',
+      tabIds: ['graph-sources', 'graph-extract'],
+      checklist: ['节点类型明确', '关系类型明确', '命名一致']
+    },
+    {
+      id: 'delivery-knowledge-graph',
+      title: '知识图谱',
+      description: '整理可追溯的知识节点、关系和校订记录。',
+      tabIds: ['graph-view', 'graph-curation'],
+      checklist: ['节点可追溯', '关系有依据', '孤立点已检查']
+    },
+    {
+      id: 'delivery-graph-summary',
+      title: '图谱摘要',
+      description: '说明核心概念、关键关系和知识缺口。',
+      tabIds: ['graph-export'],
+      checklist: ['核心概念突出', '关系解释清晰', '缺口已标注']
+    }
+  ],
+  'mistake-collection': [
+    {
+      id: 'delivery-mistake-bank',
+      title: '错题库',
+      description: '汇总导入、去重和分类后的错题。',
+      tabIds: ['mistakes-import', 'mistakes-classify'],
+      checklist: ['题干完整', '答案完整', '解析完整']
+    },
+    {
+      id: 'delivery-mistake-analysis',
+      title: '错因分析',
+      description: '分析错误模式、知识点和掌握状态。',
+      tabIds: ['mistakes-classify', 'mistakes-report'],
+      checklist: ['错因具体', '知识点准确', '掌握状态明确']
+    },
+    {
+      id: 'delivery-mistake-review-plan',
+      title: '复练计划',
+      description: '安排错题回顾、变式练习和复测标准。',
+      tabIds: ['mistakes-review', 'mistakes-practice'],
+      checklist: ['节奏合理', '相似题齐备', '复测标准明确']
+    }
+  ]
+};
+
 function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtifact[]): DeliveryPackageItem[] {
-  if (normalizeProjectMode(project.meta.mode) === 'exam-review') {
+  const mode = normalizeProjectMode(project.meta.mode);
+  if (mode === 'exam-review') {
     return [];
   }
 
-  return [
-    normalizeDeliveryPackageItem({
-      id: 'delivery-mode-artifacts',
+  return modeDeliveryDefinitions[mode].map((definition, index) => {
+    const matchingArtifacts = modeArtifacts.filter((artifact) =>
+      definition.tabIds.includes(artifact.tabId)
+    );
+    return normalizeDeliveryPackageItem({
+      id: definition.id,
       type: 'archive',
-      title: '模式成果包',
-      description: modeArtifacts.length
-        ? `当前项目已沉淀 ${modeArtifacts.length} 份模式成果，可随交付包导出。`
-        : '尚未生成模式成果，建议先在当前项目页面生成至少一份内容。',
-      status: modeArtifacts.length ? 'ready' : 'missing',
-      sourceIds: modeArtifacts.map((artifact) => artifact.id),
-      checklist: ['成果标题清晰', 'Markdown 内容可读', '已复核后再导出']
-    }, 6)
-  ];
+      title: definition.title,
+      description: matchingArtifacts.length
+        ? `${definition.description} 已关联 ${matchingArtifacts.length} 份成果正文。`
+        : `${definition.description} 尚未在 ${definition.tabIds.join('、')} 页签生成成果。`,
+      status: matchingArtifacts.length ? 'ready' : 'missing',
+      sourceIds: matchingArtifacts.map((artifact) => artifact.id),
+      checklist: definition.checklist
+    }, index + 1);
+  });
 }
 
 function buildFallbackDeliveryPackage(
@@ -2956,6 +3270,50 @@ function buildFallbackDeliveryPackage(
   modeArtifacts: ModeArtifact[] = []
 ): DeliveryPackage {
   const now = new Date().toISOString();
+  const mode = normalizeProjectMode(project.meta.mode);
+  if (mode !== 'exam-review') {
+    const definitions = modeDeliveryDefinitions[mode];
+    const projectSourceIds = uniqueStrings([
+      ...project.uploads.map((upload) => upload.storedPath),
+      ...project.knowledgeBase.map((entry) => entry.id)
+    ]);
+    const readyModeItems = definitions.filter((definition) =>
+      modeArtifacts.some((artifact) => definition.tabIds.includes(artifact.tabId))
+    );
+    const deliverableNames = definitions.map((definition) => definition.title).join('、');
+
+    return normalizeDeliveryPackage({
+      title: `${project.meta.name} ${deliverableNames}交付包`,
+      summary: `本交付包面向 ${deliverableNames}，包含 ${projectSourceIds.length} 项项目资料或知识来源；模式成果已生成 ${readyModeItems.length}/${definitions.length} 项。`,
+      items: [
+        {
+          id: 'delivery-project-sources',
+          type: 'archive',
+          title: '项目资料与知识来源',
+          description: projectSourceIds.length
+            ? `已汇总 ${project.uploads.length} 份上传资料和 ${project.knowledgeBase.length} 条知识来源。`
+            : '尚未上传项目资料或沉淀知识来源，建议在导出前补充可追溯依据。',
+          status: projectSourceIds.length ? 'ready' : 'missing',
+          sourceIds: projectSourceIds,
+          checklist: ['资料可打开', '知识来源可追溯', '敏感信息已检查']
+        },
+        ...buildModeDeliveryItems(project, modeArtifacts)
+      ],
+      checklist: [
+        projectSourceIds.length ? '项目资料与知识来源已汇总' : '项目资料与知识来源待补充',
+        ...definitions.map((definition) =>
+          readyModeItems.includes(definition)
+            ? `${definition.title}正文已生成`
+            : `${definition.title}正文待生成`
+        )
+      ],
+      exportNotes: 'Markdown 包含交付清单与成果正文，JSON 保留交付结构和模式成果，导出前请核对来源与内容完整性。',
+      source: 'agent',
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
   const practice = summarizePractice(project);
   const pathTasks = pathPlan?.stages.flatMap((stage) => stage.tasks) ?? [];
   const doneTasks = pathTasks.filter((task) => task.status === 'done').length;
@@ -3084,7 +3442,26 @@ async function saveDeliveryPackage(projectId: string, deliveryPackage: DeliveryP
   }));
 }
 
-function renderDeliveryPackageMarkdown(project: ProjectDetail, deliveryPackage: DeliveryPackage) {
+function renderDeliveryPackageMarkdown(
+  project: ProjectDetail,
+  deliveryPackage: DeliveryPackage,
+  modeArtifacts: ModeArtifact[] = []
+) {
+  const modeArtifactLines = modeArtifacts.length
+    ? modeArtifacts.flatMap((artifact) => [
+        `### ${artifact.title}`,
+        '',
+        `- 模式：${artifact.mode}`,
+        `- 页签：${artifact.tabId}`,
+        `- 类型：${artifact.kind}`,
+        `- 来源：${artifact.source}`,
+        `- 更新时间：${new Date(artifact.updatedAt).toLocaleString('zh-CN')}`,
+        '',
+        artifact.contentMarkdown,
+        ''
+      ])
+    : ['暂无模式成果正文。', ''];
+
   return [
     `# ${deliveryPackage.title}`,
     '',
@@ -3109,6 +3486,9 @@ function renderDeliveryPackageMarkdown(project: ProjectDetail, deliveryPackage: 
       ...item.checklist.map((entry) => `- [ ] ${entry}`),
       ''
     ]),
+    '## 模式成果正文',
+    '',
+    ...modeArtifactLines,
     '## 总检查项',
     '',
     ...deliveryPackage.checklist.map((entry) => `- [ ] ${entry}`),
@@ -3122,14 +3502,15 @@ function renderDeliveryPackageMarkdown(project: ProjectDetail, deliveryPackage: 
 async function exportDeliveryPackage(projectId: string): Promise<ExportResult> {
   const detail = await openProject(projectId);
   const deliveryPackage = await getDeliveryPackage(projectId) ?? await generateDeliveryPackage(projectId);
+  const modeArtifacts = await listModeArtifacts(projectId);
   const exportDir = projectGeneratedDir(projectId);
   await mkdir(exportDir, { recursive: true });
 
   const markdownPath = path.join(exportDir, `${slugify(detail.meta.name)}-delivery.md`);
   const jsonPath = path.join(exportDir, `${slugify(detail.meta.name)}-delivery.json`);
 
-  await writeFile(markdownPath, renderDeliveryPackageMarkdown(detail, deliveryPackage), 'utf8');
-  await writeJson(jsonPath, deliveryPackage);
+  await writeFile(markdownPath, renderDeliveryPackageMarkdown(detail, deliveryPackage, modeArtifacts), 'utf8');
+  await writeJson(jsonPath, { deliveryPackage, modeArtifacts });
 
   return { markdownPath, jsonPath };
 }
