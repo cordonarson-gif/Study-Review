@@ -105,7 +105,8 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
         prompt: `请根据以下确定性参数扫描结果生成实验仿真报告。\n模型：${modelLabels[input.model]}\n参数：${JSON.stringify(input)}\n结果：\n${rows}`
       });
       onChange(next);
-      onStatus?.('实验仿真报告已生成');
+      const newestArtifact = next[0];
+      onStatus?.(newestArtifact?.source === 'agent' ? 'AI 仿真报告已生成' : '模型不可用，已生成本地模板');
     } finally {
       setBusy(false);
     }

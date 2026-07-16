@@ -331,6 +331,26 @@ test('advanced workspaces preserve consistent run, selection, and draft state', 
   assert.match(courseware, /const selectedArtifact = coursewareArtifacts\.find/);
 });
 
+test('specialized generators expose agent, fallback, and manual artifact sources', async () => {
+  const simulation = await readFile(new URL('../modes/SimulationWorkbenchPage.tsx', import.meta.url), 'utf8');
+  const courseware = await readFile(new URL('../modes/CoursewareStudioPage.tsx', import.meta.url), 'utf8');
+
+  assert.match(simulation, /const newestArtifact = next\[0\]/);
+  assert.match(simulation, /newestArtifact\?\.source === 'agent'/);
+  assert.match(simulation, /AI 仿真报告已生成/);
+  assert.match(simulation, /模型不可用，已生成本地模板/);
+
+  assert.match(courseware, /const newestArtifact = next\[0\]/);
+  assert.match(courseware, /newestArtifact\?\.source === 'agent'/);
+  assert.match(courseware, /AI 课件已生成/);
+  assert.match(courseware, /模型不可用，已生成本地模板/);
+  assert.match(courseware, /课件已保存/);
+  assert.match(courseware, /agent: 'AI生成'/);
+  assert.match(courseware, /fallback: '本地模板'/);
+  assert.match(courseware, /manual: '手动编辑'/);
+  assert.match(courseware, /artifactSourceLabels\[artifact\.source\]/);
+});
+
 test('advanced workspaces guard asynchronous and shrinking runtime state', async () => {
   const simulation = await readFile(new URL('../modes/SimulationWorkbenchPage.tsx', import.meta.url), 'utf8');
   const graph = await readFile(new URL('../modes/KnowledgeGraphPage.tsx', import.meta.url), 'utf8');

@@ -11,6 +11,11 @@ type CoursewareStudioPageProps = {
 };
 
 const sourceTabs = new Set(['courseware-content', 'courseware-outline', 'courseware-preview']);
+const artifactSourceLabels: Record<ModeArtifact['source'], string> = {
+  agent: 'AI生成',
+  fallback: '本地模板',
+  manual: '手动编辑'
+};
 const defaultCourseware = `# 课程导入
 写下本节课的主题、目标和导入问题。
 
@@ -91,20 +96,24 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
     setBusy(true);
     try {
       let next: ModeArtifact[];
+      let statusMessage: string;
       if (submittedArtifact) {
         next = await onSave({ ...submittedArtifact, contentMarkdown: submittedSource });
+        statusMessage = '课件已保存';
       } else {
         next = await onGenerate({
           tabId: 'courseware-preview',
           artifactKind: '互动课件',
           prompt: submittedSource
         });
+        const newestArtifact = next[0];
+        statusMessage = newestArtifact?.source === 'agent' ? 'AI 课件已生成' : '模型不可用，已生成本地模板';
       }
       onChange(next);
       if (draftRef.current === submittedSource && selectedArtifactIdRef.current === submittedArtifactId) {
         setDirty(false);
       }
-      onStatus?.('课件已保存');
+      onStatus?.(statusMessage);
     } finally {
       setBusy(false);
     }
@@ -123,7 +132,7 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
           <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)} disabled={busy}>
             <option value="">新建课件</option>
             {coursewareArtifacts.map((artifact) => (
-              <option key={artifact.id} value={artifact.id}>{artifact.title}</option>
+              <option key={artifact.id} value={artifact.id}>{artifact.title} · {artifactSourceLabels[artifact.source]}</option>
             ))}
           </select>
           <textarea
