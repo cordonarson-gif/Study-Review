@@ -11,6 +11,15 @@ export type ParameterSweepInput = {
   initialValue: number;
 };
 
+export type ParameterSweepForm = {
+  model: ParameterSweepModel;
+  start: string;
+  end: string;
+  steps: string;
+  coefficient: string;
+  initialValue: string;
+};
+
 export type ParameterSweepPoint = {
   x: number;
   y: number;
@@ -71,6 +80,7 @@ export type CoursewareSlide = {
   content: string;
 };
 
+export function parseParameterSweepForm(form: ParameterSweepForm): ParameterSweepInput;
 export function runParameterSweep(input: ParameterSweepInput): ParameterSweepResult;
 export function buildKnowledgeGraph(input?: KnowledgeGraphInput): KnowledgeGraph;
 export function layoutKnowledgeGraph(graph: KnowledgeGraph, width: number, height: number): PositionedKnowledgeGraph;

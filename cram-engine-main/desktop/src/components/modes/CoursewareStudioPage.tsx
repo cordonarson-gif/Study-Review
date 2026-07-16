@@ -27,16 +27,18 @@ const defaultCourseware = `# 课程导入
 ## 总结与检查
 列出本节课的结论和离堂检测。`;
 
-function latestCoursewareArtifact(artifacts: ModeArtifact[]) {
+function listCoursewareArtifacts(artifacts: ModeArtifact[]) {
   return artifacts
     .filter((artifact) => sourceTabs.has(artifact.tabId))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, onStatus }: CoursewareStudioPageProps) {
-  const sourceArtifact = useMemo(() => latestCoursewareArtifact(artifacts), [artifacts]);
-  const sourceIdentity = sourceArtifact ? `${sourceArtifact.id}:${sourceArtifact.updatedAt}` : 'default';
-  const [draft, setDraft] = useState(sourceArtifact?.contentMarkdown ?? defaultCourseware);
+  const coursewareArtifacts = useMemo(() => listCoursewareArtifacts(artifacts), [artifacts]);
+  const [selectedArtifactId, setSelectedArtifactId] = useState(coursewareArtifacts[0]?.id ?? '');
+  const selectedArtifact = coursewareArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null;
+  const sourceIdentity = selectedArtifact ? `${selectedArtifact.id}:${selectedArtifact.updatedAt}` : 'default';
+  const [draft, setDraft] = useState(selectedArtifact?.contentMarkdown ?? defaultCourseware);
   const [draftSourceIdentity, setDraftSourceIdentity] = useState(sourceIdentity);
   const [dirty, setDirty] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -45,22 +47,40 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
   const currentSlide = slides[Math.min(slideIndex, slides.length - 1)] ?? slides[0];
 
   useEffect(() => {
-    if (dirty || sourceIdentity === draftSourceIdentity) return;
-    setDraft(sourceArtifact?.contentMarkdown ?? defaultCourseware);
+    if (dirty) return;
+    if (selectedArtifactId && !selectedArtifact) {
+      setSelectedArtifactId(coursewareArtifacts[0]?.id ?? '');
+      return;
+    }
+    if (!selectedArtifactId && coursewareArtifacts.length && draftSourceIdentity === 'default') {
+      setSelectedArtifactId(coursewareArtifacts[0].id);
+      return;
+    }
+    if (sourceIdentity === draftSourceIdentity) return;
+    setDraft(selectedArtifact?.contentMarkdown ?? defaultCourseware);
     setDraftSourceIdentity(sourceIdentity);
     setSlideIndex(0);
-  }, [dirty, draftSourceIdentity, sourceArtifact, sourceIdentity]);
+  }, [coursewareArtifacts, dirty, draftSourceIdentity, selectedArtifact, selectedArtifactId, sourceIdentity]);
 
   useEffect(() => {
     if (slideIndex >= slides.length) setSlideIndex(Math.max(0, slides.length - 1));
   }, [slideIndex, slides.length]);
 
+  function selectArtifact(artifactId: string) {
+    const artifact = coursewareArtifacts.find((item) => item.id === artifactId) ?? null;
+    setSelectedArtifactId(artifactId);
+    setDraft(artifact?.contentMarkdown ?? defaultCourseware);
+    setDraftSourceIdentity(artifact ? `${artifact.id}:${artifact.updatedAt}` : 'default');
+    setDirty(false);
+    setSlideIndex(0);
+  }
+
   async function saveCourseware() {
     setBusy(true);
     try {
       let next: ModeArtifact[];
-      if (sourceArtifact) {
-        next = await onSave({ ...sourceArtifact, contentMarkdown: draft });
+      if (selectedArtifact) {
+        next = await onSave({ ...selectedArtifact, contentMarkdown: draft });
       } else {
         next = await onGenerate({
           tabId: 'courseware-preview',
@@ -86,6 +106,12 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
       <div className="courseware-studio-layout">
         <label className="courseware-source-editor">
           Markdown 源稿
+          <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)}>
+            <option value="">新建课件</option>
+            {coursewareArtifacts.map((artifact) => (
+              <option key={artifact.id} value={artifact.id}>{artifact.title}</option>
+            ))}
+          </select>
           <textarea
             value={draft}
             onChange={(event) => {

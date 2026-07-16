@@ -1,9 +1,35 @@
 const SUPPORTED_MODELS = new Set(['linear', 'decay', 'saturation']);
+const PARAMETER_SWEEP_FORM_FIELDS = [
+  ['start', '起始值'],
+  ['end', '结束值'],
+  ['steps', '步数'],
+  ['coefficient', '系数'],
+  ['initialValue', '初始值']
+];
 
 function assertFiniteNumber(value, label) {
   if (!Number.isFinite(value)) {
     throw new Error(`${label}必须是有限数字`);
   }
+}
+
+export function parseParameterSweepForm(form) {
+  const model = String(form?.model ?? '').trim();
+  const input = { model };
+
+  for (const [field, label] of PARAMETER_SWEEP_FORM_FIELDS) {
+    const rawValue = String(form?.[field] ?? '').trim();
+    if (!rawValue) {
+      throw new Error(`${field}（${label}）不能为空`);
+    }
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) {
+      throw new Error(`${field}（${label}）必须是有限数字`);
+    }
+    input[field] = value;
+  }
+
+  return input;
 }
 
 export function runParameterSweep({ model, start, end, steps, coefficient, initialValue }) {

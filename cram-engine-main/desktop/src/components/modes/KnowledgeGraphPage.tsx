@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { KnowledgeBaseEntry, ModeArtifact, ReviewQuestion } from '../../lib/types';
 import {
   buildKnowledgeGraph,
@@ -33,19 +33,25 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
   );
   const [enabledTypes, setEnabledTypes] = useState<Set<KnowledgeGraphNodeType>>(() => new Set(Object.keys(typeLabels) as KnowledgeGraphNodeType[]));
   const [selectedId, setSelectedId] = useState('');
+  const visibleNodes = graph.nodes.filter((node) => enabledTypes.has(node.type));
 
   const positioned = useMemo(() => {
-    const nodes = graph.nodes.filter((node) => enabledTypes.has(node.type));
-    const nodeIds = new Set(nodes.map((node) => node.id));
+    const nodeIds = new Set(visibleNodes.map((node) => node.id));
     return layoutKnowledgeGraph(
-      { nodes, edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) },
+      { nodes: visibleNodes, edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) },
       graphWidth,
       graphHeight
     );
-  }, [enabledTypes, graph]);
+  }, [graph.edges, visibleNodes]);
 
   const nodeById = useMemo(() => new Map(positioned.nodes.map((node) => [node.id, node])), [positioned.nodes]);
-  const selected = graph.nodes.find((node) => node.id === selectedId) ?? positioned.nodes[0] ?? null;
+  const selected = positioned.nodes.find((node) => node.id === selectedId) ?? positioned.nodes[0] ?? null;
+
+  useEffect(() => {
+    if (positioned.nodes.some((node) => node.id === selectedId)) return;
+    setSelectedId(positioned.nodes[0]?.id ?? '');
+  }, [positioned.nodes, selectedId]);
+
   const evidence = selected
     ? graph.edges
         .filter((edge) => edge.source === selected.id || edge.target === selected.id)

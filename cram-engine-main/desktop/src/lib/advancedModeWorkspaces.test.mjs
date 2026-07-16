@@ -5,9 +5,52 @@ import {
   buildKnowledgeGraph,
   getPlayableQuestions,
   layoutKnowledgeGraph,
+  parseParameterSweepForm,
   parseCoursewareSlides,
   runParameterSweep
 } from './advancedModeWorkspaces.js';
+
+test('parseParameterSweepForm trims numeric strings and rejects blank fields', () => {
+  assert.deepEqual(parseParameterSweepForm({
+    model: 'linear',
+    start: ' 0 ',
+    end: ' 10.5 ',
+    steps: ' 3 ',
+    coefficient: ' 2 ',
+    initialValue: ' -1 '
+  }), {
+    model: 'linear',
+    start: 0,
+    end: 10.5,
+    steps: 3,
+    coefficient: 2,
+    initialValue: -1
+  });
+
+  for (const field of ['start', 'end', 'steps', 'coefficient', 'initialValue']) {
+    const form = {
+      model: 'linear',
+      start: '0',
+      end: '10',
+      steps: '3',
+      coefficient: '1',
+      initialValue: '0',
+      [field]: '   '
+    };
+    assert.throws(() => parseParameterSweepForm(form), new RegExp(field));
+  }
+});
+
+test('parseParameterSweepForm rejects numeric strings that are not finite numbers', () => {
+  assert.throws(() => parseParameterSweepForm({
+    model: 'linear',
+    start: 'not-a-number',
+    end: '10',
+    steps: '3',
+    coefficient: '1',
+    initialValue: '0'
+  }), /start/);
+});
 
 test('runParameterSweep creates a six-point linear sweep including both endpoints', () => {
   const result = runParameterSweep({

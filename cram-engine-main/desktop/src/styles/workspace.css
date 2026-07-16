@@ -296,6 +296,7 @@
 }
 
 .simulation-parameter-grid input,
+.courseware-source-editor select,
 .courseware-source-editor textarea {
   width: 100%;
   min-width: 0;

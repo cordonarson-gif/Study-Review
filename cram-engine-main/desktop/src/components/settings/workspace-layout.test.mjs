@@ -294,3 +294,29 @@ test('workspace routes advanced modes to interactive specialized pages', async (
   assert.match(app, /specializedModeTabs/);
   assert.match(app, /!specializedModeTabs\.has\(editorTab\)/);
 });
+
+test('advanced workspaces preserve consistent run, selection, and draft state', async () => {
+  const simulation = await readFile(new URL('../modes/SimulationWorkbenchPage.tsx', import.meta.url), 'utf8');
+  const graph = await readFile(new URL('../modes/KnowledgeGraphPage.tsx', import.meta.url), 'utf8');
+  const courseware = await readFile(new URL('../modes/CoursewareStudioPage.tsx', import.meta.url), 'utf8');
+
+  assert.match(simulation, /parseParameterSweepForm/);
+  assert.match(simulation, /const \[lastRunInput, setLastRunInput\]/);
+  assert.match(simulation, /function invalidateRun\(\)[\s\S]*?setPoints\(\[\]\)[\s\S]*?setLastRunInput\(null\)/);
+  assert.match(simulation, /function updateModel[\s\S]*?invalidateRun\(\)/);
+  assert.match(simulation, /function updateNumber[\s\S]*?invalidateRun\(\)/);
+  assert.match(simulation, /const input = lastRunInput/);
+  assert.match(simulation, /if \(!points\.length \|\| !lastRunInput\) return/);
+
+  assert.match(graph, /const visibleNodes = graph\.nodes\.filter/);
+  assert.match(graph, /positioned\.nodes\.find\(\(node\) => node\.id === selectedId\)/);
+  assert.match(graph, /useEffect\(\(\) => \{[\s\S]*?setSelectedId\(positioned\.nodes\[0\]\?\.id \?\? ''\)/);
+  assert.doesNotMatch(graph, /const selected = graph\.nodes\.find/);
+
+  assert.match(courseware, /const \[selectedArtifactId, setSelectedArtifactId\]/);
+  assert.match(courseware, /<select[\s\S]*?value=\{selectedArtifactId\}/);
+  assert.match(courseware, /function selectArtifact\(artifactId: string\)/);
+  assert.match(courseware, /if \(dirty\) return/);
+  assert.match(courseware, /const selectedArtifact = coursewareArtifacts\.find/);
+  assert.match(courseware, /if \(selectedArtifact\)[\s\S]*?onSave\(\{ \.\.\.selectedArtifact, contentMarkdown: draft \}\)/);
+});

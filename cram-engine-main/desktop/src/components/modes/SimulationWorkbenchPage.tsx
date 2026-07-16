@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { GenerateModeArtifactInput, ModeArtifact } from '../../lib/types';
 import {
+  parseParameterSweepForm,
   runParameterSweep,
   type ParameterSweepInput,
   type ParameterSweepModel,
@@ -52,43 +53,52 @@ function buildPolyline(points: ParameterSweepPoint[]) {
 export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: SimulationWorkbenchPageProps) {
   const [form, setForm] = useState(initialForm);
   const [points, setPoints] = useState<ParameterSweepPoint[]>([]);
+  const [lastRunInput, setLastRunInput] = useState<ParameterSweepInput | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const polyline = useMemo(() => buildPolyline(points), [points]);
 
+  function invalidateRun() {
+    setPoints([]);
+    setLastRunInput(null);
+  }
+
+  function updateModel(model: ParameterSweepModel) {
+    setForm((current) => ({ ...current, model }));
+    setError('');
+    invalidateRun();
+  }
+
   function updateNumber(field: NumericField, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
     setError('');
+    invalidateRun();
   }
 
   function getInput(): ParameterSweepInput {
-    return {
-      model: form.model,
-      start: Number(form.start),
-      end: Number(form.end),
-      steps: Number(form.steps),
-      coefficient: Number(form.coefficient),
-      initialValue: Number(form.initialValue)
-    };
+    return parseParameterSweepForm(form);
   }
 
   function runSimulation() {
     try {
-      const result = runParameterSweep(getInput());
+      const input = getInput();
+      const result = runParameterSweep(input);
       setPoints(result.points);
+      setLastRunInput(input);
       setError('');
       onStatus?.(`仿真完成，共生成 ${result.points.length} 个采样点`);
     } catch (cause) {
       setPoints([]);
+      setLastRunInput(null);
       setError(cause instanceof Error ? cause.message : '参数无效，请检查输入');
     }
   }
 
   async function generateReport() {
-    if (!points.length) return;
+    if (!points.length || !lastRunInput) return;
     setBusy(true);
     try {
-      const input = getInput();
+      const input = lastRunInput;
       const rows = points.map((point) => `x=${formatNumber(point.x)}, y=${formatNumber(point.y)}`).join('\n');
       const next = await onGenerate({
         tabId: 'simulation-report',
@@ -127,7 +137,7 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
           <button
             key={model}
             className={form.model === model ? 'active' : ''}
-            onClick={() => setForm((current) => ({ ...current, model }))}
+            onClick={() => updateModel(model)}
           >
             {modelLabels[model]}
           </button>
