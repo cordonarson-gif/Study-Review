@@ -320,13 +320,41 @@ test('mode artifact generation uses the project provider and safely falls back o
   assert.match(generationSource, /if \(!response\.ok\)/);
   assert.match(generationSource, /throw new Error\(`Mode artifact request failed \(HTTP \$\{response\.status\}\)`\)/);
   assert.match(generationSource, /parseChatResponse\(profile\.provider, payload\)\.trim\(\)/);
-  assert.match(generationSource, /if \(!contentMarkdown\)/);
+  assert.match(generationSource, /if \(!isUsableModeArtifactReply\(contentMarkdown\)\)/);
   assert.match(generationSource, /source: 'agent'/);
   assert.match(generationSource, /createdAt: now/);
   assert.match(generationSource, /updatedAt: now/);
   assert.match(generationSource, /if \(!profile\.apiKey \|\| !profile\.baseUrl\)[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
   assert.match(generationSource, /catch[\s\S]*?buildFallbackModeArtifact\(project, input\)/);
   assert.doesNotMatch(generationSource, /response\.text\(|statusText|error\.message/);
+});
+
+test('mode artifact reply validation rejects blank parser placeholders', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const helperSource = main.match(/function isUsableModeArtifactReply\([\s\S]*?\n\}/)?.[0];
+
+  assert.ok(helperSource, 'missing isUsableModeArtifactReply');
+
+  const output = ts.transpileModule(`${helperSource}\nmodule.exports = { isUsableModeArtifactReply };`, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022
+    }
+  }).outputText;
+  const helperModule = { exports: {} };
+  Function('module', 'exports', output)(helperModule, helperModule.exports);
+  const { isUsableModeArtifactReply } = helperModule.exports;
+
+  assert.equal(isUsableModeArtifactReply(''), false);
+  assert.equal(isUsableModeArtifactReply('   \n'), false);
+  assert.equal(isUsableModeArtifactReply('模型未返回内容。'), false);
+  assert.equal(isUsableModeArtifactReply('  模型未返回内容。  '), false);
+  assert.equal(isUsableModeArtifactReply('# 可用成果'), true);
+
+  const generationStart = main.indexOf('async function generateModeArtifact(');
+  const saveStart = main.indexOf('async function saveModeArtifact(', generationStart);
+  const generationSource = main.slice(generationStart, saveStart);
+  assert.match(generationSource, /if \(!isUsableModeArtifactReply\(contentMarkdown\)\)/);
 });
 
 test('TypeScript and JavaScript advanced registries are semantically identical', async () => {

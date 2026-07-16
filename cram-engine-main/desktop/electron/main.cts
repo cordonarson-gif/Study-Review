@@ -2721,6 +2721,11 @@ function buildFallbackModeArtifact(project: ProjectDetail, input: GenerateModeAr
   };
 }
 
+function isUsableModeArtifactReply(reply: string) {
+  const normalized = reply.trim();
+  return Boolean(normalized) && normalized !== '模型未返回内容。';
+}
+
 async function generateModeArtifact(projectId: string, input: GenerateModeArtifactInput) {
   const project = await openProject(projectId);
   const current = await listModeArtifacts(projectId);
@@ -2759,7 +2764,7 @@ async function generateModeArtifact(projectId: string, input: GenerateModeArtifa
 
     const payload = await response.json() as Record<string, unknown>;
     const contentMarkdown = parseChatResponse(profile.provider, payload).trim();
-    if (!contentMarkdown) {
+    if (!isUsableModeArtifactReply(contentMarkdown)) {
       throw new Error('Mode artifact reply was empty');
     }
 
