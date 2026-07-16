@@ -78,7 +78,33 @@
 - [ ] Run `npm run test:settings-ui`, `npm run test:renderer`, and `npm run typecheck`; verify all pass.
 - [ ] Commit with `feat: add interactive advanced mode workspaces`.
 
-### Task 5: Requirements and Quality Review
+### Task 5: Provider-Backed Domain Artifact Generation
+
+**Files:** `electron/project-modes.test.cjs`, `electron/main.cts`
+
+- [ ] Add failing source tests for a `buildModeArtifactPrompt` helper, project `modeConfig`, upload summaries, current artifacts, `buildChatRequest`, `parseChatResponse`, and a catch path that returns `buildFallbackModeArtifact`.
+- [ ] Run `node --test electron/project-modes.test.cjs` and verify the new assertions fail because generation is fallback-only.
+- [ ] Replace the single fallback body with a per-tab contract map covering research evidence, hypotheses, virtual-teacher sessions, student milestones, simulation reports, courseware storyboards, game mechanics, graph insights, and mistake patterns.
+- [ ] Implement `buildModeArtifactPrompt(project, input, currentArtifacts)` with project metadata, serialized `modeConfig`, the three most recent parsed uploads, titles of existing artifacts, the current tab contract, and the user's prompt.
+- [ ] In `generateModeArtifact`, resolve the exact project provider before the active fallback. If API key/base URL are configured, call `buildChatRequest`, parse the response, and persist an `agent` artifact. On missing configuration, non-OK response, invalid empty content, timeout, or transport failure, persist the tab-specific `fallback` artifact.
+- [ ] Ensure generated content never includes API keys or raw response bodies and artifact titles remain deterministic.
+- [ ] Run `node --test electron/project-modes.test.cjs`, `npm run test:electron`, and `npm run typecheck`; verify all pass.
+- [ ] Commit with `feat: generate mode-specific project artifacts`.
+
+### Task 6: Mode-Aware Delivery Content Export
+
+**Files:** `electron/delivery-package.test.cjs`, `electron/main.cts`
+
+- [ ] Add failing tests that delivery generation reads template-equivalent deliverables for every mode and `exportDeliveryPackage` embeds mode artifact titles and Markdown content.
+- [ ] Run `node --test electron/delivery-package.test.cjs` and verify the new assertions fail because export currently contains only source counts.
+- [ ] Add an Electron-side deliverable registry keyed by `ProjectMode`, with mode-specific item titles and checklists matching the renderer templates.
+- [ ] Replace the generic non-exam archive item with mode-aware items whose statuses and source ids are derived from matching artifact tabs.
+- [ ] Extend `renderDeliveryPackageMarkdown(project, deliveryPackage, modeArtifacts)` with a `## 模式成果正文` section and one heading/content block per artifact.
+- [ ] Extend delivery JSON export to `{ deliveryPackage, modeArtifacts }` so the exported content is self-contained.
+- [ ] Run `node --test electron/delivery-package.test.cjs`, `npm run test:electron`, and `npm run typecheck`; verify all pass.
+- [ ] Commit with `feat: export complete mode delivery content`.
+
+### Task 7: Requirements and Quality Review
 
 **Files:** all files changed by Tasks 1-4
 
@@ -88,7 +114,7 @@
 - [ ] Fix defects with a failing regression test before production changes.
 - [ ] Run focused tests after every fix and commit with `fix: complete advanced mode workflows` if changes are required.
 
-### Task 6: Full Verification and Debug Run
+### Task 8: Full Verification and Debug Run
 
 **Files:** no source edits unless verification exposes a defect
 
@@ -102,8 +128,7 @@
 
 ## Self-Review
 
-- Spec coverage: every original scenario maps to an existing or new mode, and every interaction-heavy scenario has a dedicated implementation task.
+- Spec coverage: every original scenario maps to an existing or new mode, every interaction-heavy scenario has a dedicated implementation task, and cross-mode generation/export gaps found by the audit have explicit tasks.
 - Scope: public quiz hosting, arbitrary code execution, general-purpose game engines, and guaranteed scientific novelty are explicitly excluded.
 - Type consistency: new mode and tab ids use the same literals in renderer, preload, global declarations, Electron normalization, registry, and routing.
 - No placeholders: every planned page has inputs, state transitions, visible output, empty/error states, and a persistence path where output is generated.
-

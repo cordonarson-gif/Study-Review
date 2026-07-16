@@ -55,7 +55,9 @@ Specialized pages receive project data through props. Pure transformations live 
 
 ### Artifact and delivery flow
 
-All generated documents and simulation summaries use the existing mode-artifact IPC. The delivery package already includes non-exam mode artifacts, so new modes inherit persistence and export behavior. Interactive previews do not write separate opaque formats; users save the source or report as Markdown artifacts.
+All generated documents and simulation summaries use the existing mode-artifact IPC. When the project's provider is configured, generation calls that provider with project metadata, mode configuration, recent upload summaries, current artifacts, and a tab-specific output contract. A deterministic tab-specific template is used only when the provider is unavailable or its request fails.
+
+Delivery generation derives labels and checklists from the selected project template. Delivery export embeds every selected artifact's Markdown content after the summary instead of exporting source ids alone. Interactive previews do not write separate opaque formats; users save the source or report as Markdown artifacts.
 
 ## Error Handling
 
@@ -64,6 +66,7 @@ All generated documents and simulation summaries use the existing mode-artifact 
 - Slide parsing always returns at least one preview slide.
 - Game preview excludes questions without options and explains how to import usable questions.
 - Artifact generation keeps the existing deterministic fallback when no API provider is configured or a provider call fails.
+- Provider errors are recorded through artifact `source: 'fallback'`; API keys and raw error response bodies are never written into artifacts.
 
 ## UI Direction
 
@@ -89,5 +92,6 @@ Automated tests cover:
 - No new workspace is a decorative placeholder.
 - Simulation, graph, courseware, game, and mistake workflows perform real local interactions.
 - Generated outputs persist in the project and appear in delivery generation.
+- Configured providers generate mode-specific content, while offline projects still produce useful tab-specific fallbacks.
+- Delivery Markdown and JSON include the actual mode artifacts needed to review the result outside the app.
 - Existing projects and the five phase-one modes continue to work.
-
