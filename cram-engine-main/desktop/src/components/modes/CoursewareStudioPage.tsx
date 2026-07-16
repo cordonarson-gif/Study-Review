@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GenerateModeArtifactInput, ModeArtifact } from '../../lib/types';
 import { parseCoursewareSlides } from '../../lib/advancedModeWorkspaces.js';
 
@@ -39,6 +39,8 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
   const selectedArtifact = coursewareArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null;
   const sourceIdentity = selectedArtifact ? `${selectedArtifact.id}:${selectedArtifact.updatedAt}` : 'default';
   const [draft, setDraft] = useState(selectedArtifact?.contentMarkdown ?? defaultCourseware);
+  const selectedArtifactIdRef = useRef(selectedArtifactId);
+  const draftRef = useRef(draft);
   const [draftSourceIdentity, setDraftSourceIdentity] = useState(sourceIdentity);
   const [dirty, setDirty] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -49,15 +51,20 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
   useEffect(() => {
     if (dirty) return;
     if (selectedArtifactId && !selectedArtifact) {
-      setSelectedArtifactId(coursewareArtifacts[0]?.id ?? '');
+      const nextId = coursewareArtifacts[0]?.id ?? '';
+      selectedArtifactIdRef.current = nextId;
+      setSelectedArtifactId(nextId);
       return;
     }
     if (!selectedArtifactId && coursewareArtifacts.length && draftSourceIdentity === 'default') {
+      selectedArtifactIdRef.current = coursewareArtifacts[0].id;
       setSelectedArtifactId(coursewareArtifacts[0].id);
       return;
     }
     if (sourceIdentity === draftSourceIdentity) return;
-    setDraft(selectedArtifact?.contentMarkdown ?? defaultCourseware);
+    const nextDraft = selectedArtifact?.contentMarkdown ?? defaultCourseware;
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
     setDraftSourceIdentity(sourceIdentity);
     setSlideIndex(0);
   }, [coursewareArtifacts, dirty, draftSourceIdentity, selectedArtifact, selectedArtifactId, sourceIdentity]);
@@ -68,28 +75,35 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
 
   function selectArtifact(artifactId: string) {
     const artifact = coursewareArtifacts.find((item) => item.id === artifactId) ?? null;
+    selectedArtifactIdRef.current = artifactId;
+    draftRef.current = artifact?.contentMarkdown ?? defaultCourseware;
     setSelectedArtifactId(artifactId);
-    setDraft(artifact?.contentMarkdown ?? defaultCourseware);
+    setDraft(draftRef.current);
     setDraftSourceIdentity(artifact ? `${artifact.id}:${artifact.updatedAt}` : 'default');
     setDirty(false);
     setSlideIndex(0);
   }
 
   async function saveCourseware() {
+    const submittedSource = draftRef.current;
+    const submittedArtifactId = selectedArtifactIdRef.current;
+    const submittedArtifact = coursewareArtifacts.find((artifact) => artifact.id === submittedArtifactId) ?? null;
     setBusy(true);
     try {
       let next: ModeArtifact[];
-      if (selectedArtifact) {
-        next = await onSave({ ...selectedArtifact, contentMarkdown: draft });
+      if (submittedArtifact) {
+        next = await onSave({ ...submittedArtifact, contentMarkdown: submittedSource });
       } else {
         next = await onGenerate({
           tabId: 'courseware-preview',
           artifactKind: '互动课件',
-          prompt: draft
+          prompt: submittedSource
         });
       }
       onChange(next);
-      setDirty(false);
+      if (draftRef.current === submittedSource && selectedArtifactIdRef.current === submittedArtifactId) {
+        setDirty(false);
+      }
       onStatus?.('课件已保存');
     } finally {
       setBusy(false);
@@ -106,7 +120,7 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
       <div className="courseware-studio-layout">
         <label className="courseware-source-editor">
           Markdown 源稿
-          <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)}>
+          <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)} disabled={busy}>
             <option value="">新建课件</option>
             {coursewareArtifacts.map((artifact) => (
               <option key={artifact.id} value={artifact.id}>{artifact.title}</option>
@@ -114,7 +128,9 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
           </select>
           <textarea
             value={draft}
+            disabled={busy}
             onChange={(event) => {
+              draftRef.current = event.target.value;
               setDraft(event.target.value);
               setDirty(true);
             }}
@@ -123,9 +139,9 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
 
         <div className="courseware-preview-column">
           <div className="courseware-preview-toolbar">
-            <button aria-label="上一页" onClick={() => setSlideIndex((index) => Math.max(0, index - 1))} disabled={slideIndex === 0}>上一页</button>
+            <button aria-label="上一页" onClick={() => setSlideIndex((index) => Math.max(0, index - 1))} disabled={busy || slideIndex === 0}>上一页</button>
             <strong>{slideIndex + 1} / {slides.length}</strong>
-            <button aria-label="下一页" onClick={() => setSlideIndex((index) => Math.min(slides.length - 1, index + 1))} disabled={slideIndex >= slides.length - 1}>下一页</button>
+            <button aria-label="下一页" onClick={() => setSlideIndex((index) => Math.min(slides.length - 1, index + 1))} disabled={busy || slideIndex >= slides.length - 1}>下一页</button>
           </div>
           <article className="courseware-slide-preview" aria-live="polite">
             <div>

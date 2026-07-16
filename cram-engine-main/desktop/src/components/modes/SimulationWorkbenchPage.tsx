@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { GenerateModeArtifactInput, ModeArtifact } from '../../lib/types';
 import {
+  formatSimulationNumber,
   parseParameterSweepForm,
   runParameterSweep,
   type ParameterSweepInput,
@@ -31,10 +32,6 @@ const initialForm: Record<NumericField, string> & { model: ParameterSweepModel }
   initialValue: '0'
 };
 
-function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
-}
-
 function buildPolyline(points: ParameterSweepPoint[]) {
   if (!points.length) return '';
   const xValues = points.map((point) => point.x);
@@ -43,10 +40,12 @@ function buildPolyline(points: ParameterSweepPoint[]) {
   const maxX = Math.max(...xValues);
   const minY = Math.min(...yValues);
   const maxY = Math.max(...yValues);
-  const xRange = maxX - minX || 1;
-  const yRange = maxY - minY || 1;
   return points
-    .map((point) => `${40 + ((point.x - minX) / xRange) * 520},${24 + (1 - (point.y - minY) / yRange) * 252}`)
+    .map((point) => {
+      const xRatio = maxX === minX ? 0.5 : (point.x - minX) / (maxX - minX);
+      const yRatio = maxY === minY ? 0.5 : (point.y - minY) / (maxY - minY);
+      return `${40 + xRatio * 520},${24 + (1 - yRatio) * 252}`;
+    })
     .join(' ');
 }
 
@@ -99,7 +98,7 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
     setBusy(true);
     try {
       const input = lastRunInput;
-      const rows = points.map((point) => `x=${formatNumber(point.x)}, y=${formatNumber(point.y)}`).join('\n');
+      const rows = points.map((point) => `x=${formatSimulationNumber(point.x)}, y=${formatSimulationNumber(point.y)}`).join('\n');
       const next = await onGenerate({
         tabId: 'simulation-report',
         artifactKind: '实验仿真报告',
@@ -158,9 +157,9 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
         <>
           <div className="simulation-summary-grid">
             <div><span>采样点</span><strong>{summary.count}</strong></div>
-            <div><span>最小值</span><strong>{formatNumber(summary.minimum)}</strong></div>
-            <div><span>最大值</span><strong>{formatNumber(summary.maximum)}</strong></div>
-            <div><span>终点值</span><strong>{formatNumber(summary.final)}</strong></div>
+            <div><span>最小值</span><strong>{formatSimulationNumber(summary.minimum)}</strong></div>
+            <div><span>最大值</span><strong>{formatSimulationNumber(summary.maximum)}</strong></div>
+            <div><span>终点值</span><strong>{formatSimulationNumber(summary.final)}</strong></div>
           </div>
 
           <div className="simulation-output-grid">
@@ -176,7 +175,7 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
                 <thead><tr><th>序号</th><th>x</th><th>y</th></tr></thead>
                 <tbody>
                   {points.map((point, index) => (
-                    <tr key={`${point.x}-${index}`}><td>{index + 1}</td><td>{formatNumber(point.x)}</td><td>{formatNumber(point.y)}</td></tr>
+                    <tr key={`${point.x}-${index}`}><td>{index + 1}</td><td>{formatSimulationNumber(point.x)}</td><td>{formatSimulationNumber(point.y)}</td></tr>
                   ))}
                 </tbody>
               </table>

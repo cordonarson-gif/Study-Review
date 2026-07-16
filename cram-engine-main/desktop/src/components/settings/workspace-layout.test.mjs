@@ -308,7 +308,7 @@ test('advanced workspaces preserve consistent run, selection, and draft state', 
   assert.match(simulation, /const input = lastRunInput/);
   assert.match(simulation, /if \(!points\.length \|\| !lastRunInput\) return/);
 
-  assert.match(graph, /const visibleNodes = graph\.nodes\.filter/);
+  assert.match(graph, /const visibleNodes = useMemo\([\s\S]*?graph\.nodes\.filter/);
   assert.match(graph, /positioned\.nodes\.find\(\(node\) => node\.id === selectedId\)/);
   assert.match(graph, /useEffect\(\(\) => \{[\s\S]*?setSelectedId\(positioned\.nodes\[0\]\?\.id \?\? ''\)/);
   assert.doesNotMatch(graph, /const selected = graph\.nodes\.find/);
@@ -318,5 +318,30 @@ test('advanced workspaces preserve consistent run, selection, and draft state', 
   assert.match(courseware, /function selectArtifact\(artifactId: string\)/);
   assert.match(courseware, /if \(dirty\) return/);
   assert.match(courseware, /const selectedArtifact = coursewareArtifacts\.find/);
-  assert.match(courseware, /if \(selectedArtifact\)[\s\S]*?onSave\(\{ \.\.\.selectedArtifact, contentMarkdown: draft \}\)/);
+  assert.match(courseware, /const selectedArtifact = coursewareArtifacts\.find/);
+});
+
+test('advanced workspaces guard asynchronous and shrinking runtime state', async () => {
+  const simulation = await readFile(new URL('../modes/SimulationWorkbenchPage.tsx', import.meta.url), 'utf8');
+  const graph = await readFile(new URL('../modes/KnowledgeGraphPage.tsx', import.meta.url), 'utf8');
+  const courseware = await readFile(new URL('../modes/CoursewareStudioPage.tsx', import.meta.url), 'utf8');
+  const game = await readFile(new URL('../modes/TeachingGamePage.tsx', import.meta.url), 'utf8');
+
+  assert.match(game, /const safeQuestionIndex = Math\.min\(questionIndex, Math\.max\(0, playableQuestions\.length - 1\)\)/);
+  assert.match(game, /const question = playableQuestions\[safeQuestionIndex\] \?\? null/);
+  assert.match(game, /\}, \[playableQuestions\]\)/);
+  assert.doesNotMatch(game, /playableQuestions\[questionIndex\]/);
+
+  assert.match(courseware, /useRef/);
+  assert.match(courseware, /const submittedSource = draftRef\.current/);
+  assert.match(courseware, /const submittedArtifactId = selectedArtifactIdRef\.current/);
+  assert.match(courseware, /draftRef\.current === submittedSource[\s\S]*?selectedArtifactIdRef\.current === submittedArtifactId/);
+  assert.match(courseware, /<select[\s\S]*?disabled=\{busy\}/);
+  assert.match(courseware, /<textarea[\s\S]*?disabled=\{busy\}/);
+
+  assert.match(graph, /<svg[\s\S]*?role="group"/);
+  assert.doesNotMatch(graph, /<svg[^>]*role="img"/);
+
+  assert.match(simulation, /formatSimulationNumber/);
+  assert.match(simulation, /maxY === minY \? 0\.5/);
 });

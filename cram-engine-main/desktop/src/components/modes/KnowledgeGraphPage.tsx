@@ -33,7 +33,10 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
   );
   const [enabledTypes, setEnabledTypes] = useState<Set<KnowledgeGraphNodeType>>(() => new Set(Object.keys(typeLabels) as KnowledgeGraphNodeType[]));
   const [selectedId, setSelectedId] = useState('');
-  const visibleNodes = graph.nodes.filter((node) => enabledTypes.has(node.type));
+  const visibleNodes = useMemo(
+    () => graph.nodes.filter((node) => enabledTypes.has(node.type)),
+    [enabledTypes, graph.nodes]
+  );
 
   const positioned = useMemo(() => {
     const nodeIds = new Set(visibleNodes.map((node) => node.id));
@@ -98,7 +101,7 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
       <div className="knowledge-graph-layout">
         <div className="knowledge-graph-canvas">
           {positioned.nodes.length ? (
-            <svg viewBox={`0 0 ${graphWidth} ${graphHeight}`} role="img" aria-label="知识图谱节点与连接">
+            <svg viewBox={`0 0 ${graphWidth} ${graphHeight}`} role="group" aria-label="知识图谱节点与连接">
               <g className="graph-edges">
                 {positioned.edges.map((edge) => {
                   const source = nodeById.get(edge.source);

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildKnowledgeGraph,
+  formatSimulationNumber,
   getPlayableQuestions,
   layoutKnowledgeGraph,
   parseParameterSweepForm,
@@ -50,6 +51,14 @@ test('parseParameterSweepForm rejects numeric strings that are not finite number
     coefficient: '1',
     initialValue: '0'
   }), /start/);
+});
+
+test('formatSimulationNumber preserves meaningful tiny and large values', () => {
+  assert.equal(formatSimulationNumber(0), '0');
+  assert.equal(formatSimulationNumber(0.000012345), '1.235e-5');
+  assert.equal(formatSimulationNumber(-0.000012345), '-1.235e-5');
+  assert.equal(formatSimulationNumber(12.34567), '12.3457');
+  assert.equal(formatSimulationNumber(1200000), '1.200e+6');
 });
 
 test('runParameterSweep creates a six-point linear sweep including both endpoints', () => {
@@ -356,4 +365,19 @@ test('getPlayableQuestions normalizes cloned options and requires the answer to 
   assert.notEqual(result[0].options, input[0].options);
   assert.notEqual(result[0].options[0], input[0].options[0]);
   assert.deepEqual(input, snapshot);
+});
+
+test('getPlayableQuestions rejects duplicate option keys after normalization', () => {
+  const result = getPlayableQuestions([{
+    ...questions[0],
+    id: 'q-duplicate-options',
+    answer: 'A',
+    options: [
+      { key: 'A', text: '第一个答案' },
+      { key: ' a ', text: '重复答案' },
+      { key: 'B', text: '另一个答案' }
+    ]
+  }]);
+
+  assert.deepEqual(result, []);
 });

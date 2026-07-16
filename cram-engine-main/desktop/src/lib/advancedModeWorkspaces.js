@@ -32,6 +32,18 @@ export function parseParameterSweepForm(form) {
   return input;
 }
 
+export function formatSimulationNumber(value) {
+  if (value === 0) return '0';
+  const magnitude = Math.abs(value);
+  if (magnitude < 0.0001 || magnitude >= 1000000) {
+    const exponent = Math.floor(Math.log10(magnitude));
+    const scale = 10 ** (3 - exponent);
+    const roundedMagnitude = Math.round((magnitude + Number.EPSILON) * scale) / scale;
+    return (Math.sign(value) * roundedMagnitude).toExponential(3);
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+}
+
 export function runParameterSweep({ model, start, end, steps, coefficient, initialValue }) {
   if (!SUPPORTED_MODELS.has(model)) {
     throw new Error('模型类型不受支持');
@@ -305,7 +317,9 @@ export function getPlayableQuestions(questions) {
         .filter((option) => option.key && option.text)
       : [];
 
-    if (options.length < 2 || !options.some((option) => option.key === answer)) {
+    const optionKeys = new Set(options.map((option) => option.key));
+
+    if (options.length < 2 || optionKeys.size !== options.length || !optionKeys.has(answer)) {
       return [];
     }
 

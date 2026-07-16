@@ -81,6 +81,7 @@ export type CoursewareSlide = {
 };
 
 export function parseParameterSweepForm(form: ParameterSweepForm): ParameterSweepInput;
+export function formatSimulationNumber(value: number): string;
 export function runParameterSweep(input: ParameterSweepInput): ParameterSweepResult;
 export function buildKnowledgeGraph(input?: KnowledgeGraphInput): KnowledgeGraph;
 export function layoutKnowledgeGraph(graph: KnowledgeGraph, width: number, height: number): PositionedKnowledgeGraph;

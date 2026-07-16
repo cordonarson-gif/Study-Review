@@ -14,7 +14,8 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
   const [answered, setAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
-  const question = playableQuestions[questionIndex] ?? null;
+  const safeQuestionIndex = Math.min(questionIndex, Math.max(0, playableQuestions.length - 1));
+  const question = playableQuestions[safeQuestionIndex] ?? null;
 
   useEffect(() => {
     setQuestionIndex(0);
@@ -22,7 +23,7 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
     setAnswered(false);
     setScore(0);
     setFinished(false);
-  }, [questions]);
+  }, [playableQuestions]);
 
   function submitAnswer() {
     if (!question || !selectedKey || answered) return;
@@ -31,11 +32,11 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
   }
 
   function continueGame() {
-    if (questionIndex >= playableQuestions.length - 1) {
+    if (safeQuestionIndex >= playableQuestions.length - 1) {
       setFinished(true);
       return;
     }
-    setQuestionIndex((index) => index + 1);
+    setQuestionIndex(safeQuestionIndex + 1);
     setSelectedKey('');
     setAnswered(false);
   }
@@ -48,7 +49,7 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
     setFinished(false);
   }
 
-  if (!playableQuestions.length) {
+  if (!playableQuestions.length || !question) {
     return (
       <section className="panel specialized-mode-page teaching-game-page">
         <div className="page-section-header"><div><div className="section-title">教学游戏</div><h3>课堂挑战</h3></div></div>
@@ -75,12 +76,12 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
   }
 
   const correct = selectedKey === question?.answer;
-  const progress = Math.round(((questionIndex + 1) / playableQuestions.length) * 100);
+  const progress = Math.round(((safeQuestionIndex + 1) / playableQuestions.length) * 100);
 
   return (
     <section className="panel specialized-mode-page teaching-game-page">
       <div className="game-status-row">
-        <div><span>进度</span><strong>{questionIndex + 1} / {playableQuestions.length}</strong></div>
+        <div><span>进度</span><strong>{safeQuestionIndex + 1} / {playableQuestions.length}</strong></div>
         <div><span>得分</span><strong>{score}</strong></div>
         <button onClick={restart}>重新开始</button>
       </div>
@@ -117,7 +118,7 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
           {!answered ? (
             <button className="primary" onClick={submitAnswer} disabled={!selectedKey}>确认答案</button>
           ) : (
-            <button className="primary" onClick={continueGame}>{questionIndex === playableQuestions.length - 1 ? '查看成绩' : '下一题'}</button>
+            <button className="primary" onClick={continueGame}>{safeQuestionIndex === playableQuestions.length - 1 ? '查看成绩' : '下一题'}</button>
           )}
         </div>
       </div>
