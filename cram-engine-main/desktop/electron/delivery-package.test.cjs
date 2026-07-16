@@ -54,7 +54,7 @@ test('mode delivery registry mirrors every renderer template deliverable', async
   const registry = sourceBetween(
     main,
     'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
-    '\n};\n\nfunction buildModeDeliveryItems'
+    '\n};\n\nfunction selectLatestModeArtifactsByTab'
   );
 
   assert.equal(projectModeTemplates.length, 13);
@@ -78,16 +78,36 @@ test('mode delivery registry mirrors every renderer template deliverable', async
   }
 });
 
-test('mode delivery items derive ready state and source ids from matching artifact tabs', () => {
+test('mode delivery items use latest current-mode artifacts and require complete reviewed tabs', () => {
   const main = fs.readFileSync(mainSourcePath, 'utf8');
   const builder = sourceBetween(main, 'function buildModeDeliveryItems', '\nfunction buildFallbackDeliveryPackage');
 
   assert.match(builder, /modeDeliveryDefinitions\[mode\]/);
-  assert.match(builder, /const matchingArtifacts = modeArtifacts\.filter\(\(artifact\) =>\s*definition\.tabIds\.includes\(artifact\.tabId\)\s*\)/);
+  assert.match(builder, /selectLatestModeArtifactsByTab\(mode, definition\.tabIds, modeArtifacts\)/);
   assert.match(builder, /type: 'archive'/);
-  assert.match(builder, /status: matchingArtifacts\.length \? 'ready' : 'missing'/);
+  assert.match(builder, /status: buildModeDeliveryStatus\(definition, matchingArtifacts\)/);
   assert.match(builder, /sourceIds: matchingArtifacts\.map\(\(artifact\) => artifact\.id\)/);
-  assert.match(builder, /description: matchingArtifacts\.length\s*\?/);
+  assert.match(builder, /\$\{matchingArtifacts\.length\}\/\$\{definition\.tabIds\.length\}/);
+});
+
+test('mode delivery status filters cross-mode history and checks tab, content, and source quality', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const latest = sourceBetween(main, 'function selectLatestModeArtifactsByTab', '\nfunction buildModeDeliveryStatus');
+  const status = sourceBetween(main, 'function buildModeDeliveryStatus', '\nfunction buildModeDeliveryItems');
+
+  assert.match(latest, /artifact\.mode !== mode/);
+  assert.match(latest, /!tabIds\.includes\(artifact\.tabId\)/);
+  assert.match(latest, /new Date\(artifact\.updatedAt\)\.getTime\(\)/);
+  assert.match(latest, /new Date\(existing\.updatedAt\)\.getTime\(\)/);
+  assert.match(latest, /latestByTab\.set\(artifact\.tabId, artifact\)/);
+  assert.match(latest, /tabIds\.flatMap/);
+
+  assert.match(status, /if \(!artifacts\.length\) return 'missing'/);
+  assert.match(status, /artifacts\.length !== definition\.tabIds\.length/);
+  assert.match(status, /!artifact\.contentMarkdown\.trim\(\)/);
+  assert.match(status, /artifact\.source === 'fallback'/);
+  assert.match(status, /return 'needs-review'/);
+  assert.match(status, /return 'ready'/);
 });
 
 test('non-exam fallback contains project sources and mode deliverables without review-only items', () => {
@@ -120,7 +140,22 @@ test('delivery export embeds complete mode artifact Markdown and self-contained 
   assert.match(renderer, /artifact\.updatedAt/);
   assert.match(renderer, /artifact\.contentMarkdown/);
 
-  assert.match(exporter, /const modeArtifacts = await listModeArtifacts\(projectId\)/);
+  assert.match(exporter, /const allModeArtifacts = await listModeArtifacts\(projectId\)/);
+  assert.match(exporter, /const modeArtifacts = selectDeliveryModeArtifacts\(detail, deliveryPackage, allModeArtifacts\)/);
   assert.match(exporter, /renderDeliveryPackageMarkdown\(detail, deliveryPackage, modeArtifacts\)/);
-  assert.match(exporter, /writeJson\(jsonPath, \{ deliveryPackage, modeArtifacts \}\)/);
+  assert.match(
+    exporter,
+    /writeJson\(jsonPath, \{\s*\.\.\.deliveryPackage,\s*exportSchemaVersion: 2,\s*deliveryPackage,\s*modeArtifacts\s*\}\)/
+  );
+});
+
+test('delivery export selects only referenced current-mode latest artifacts', () => {
+  const main = fs.readFileSync(mainSourcePath, 'utf8');
+  const selector = sourceBetween(main, 'function selectDeliveryModeArtifacts', '\nfunction renderDeliveryPackageMarkdown');
+
+  assert.match(selector, /const mode = normalizeProjectMode\(project\.meta\.mode\)/);
+  assert.match(selector, /new Set\(deliveryPackage\.items\.flatMap\(\(item\) => item\.sourceIds\)\)/);
+  assert.match(selector, /artifact\.mode === mode/);
+  assert.match(selector, /referencedIds\.has\(artifact\.id\)/);
+  assert.match(selector, /selectLatestModeArtifactsByTab/);
 });

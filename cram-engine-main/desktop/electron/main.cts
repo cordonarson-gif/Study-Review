@@ -3237,6 +3237,40 @@ const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {
   ]
 };
 
+function selectLatestModeArtifactsByTab(
+  mode: ProjectMode,
+  tabIds: WorkspaceTabId[],
+  modeArtifacts: ModeArtifact[]
+) {
+  const latestByTab = new Map<WorkspaceTabId, ModeArtifact>();
+  for (const artifact of modeArtifacts) {
+    if (artifact.mode !== mode || !tabIds.includes(artifact.tabId)) continue;
+    const existing = latestByTab.get(artifact.tabId);
+    if (!existing || new Date(artifact.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
+      latestByTab.set(artifact.tabId, artifact);
+    }
+  }
+
+  return tabIds.flatMap((tabId) => {
+    const artifact = latestByTab.get(tabId);
+    return artifact ? [artifact] : [];
+  });
+}
+
+function buildModeDeliveryStatus(
+  definition: ModeDeliveryDefinition,
+  artifacts: ModeArtifact[]
+): DeliveryPackageItemStatus {
+  if (!artifacts.length) return 'missing';
+  if (
+    artifacts.length !== definition.tabIds.length
+    || artifacts.some((artifact) => !artifact.contentMarkdown.trim() || artifact.source === 'fallback')
+  ) {
+    return 'needs-review';
+  }
+  return 'ready';
+}
+
 function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtifact[]): DeliveryPackageItem[] {
   const mode = normalizeProjectMode(project.meta.mode);
   if (mode === 'exam-review') {
@@ -3244,17 +3278,13 @@ function buildModeDeliveryItems(project: ProjectDetail, modeArtifacts: ModeArtif
   }
 
   return modeDeliveryDefinitions[mode].map((definition, index) => {
-    const matchingArtifacts = modeArtifacts.filter((artifact) =>
-      definition.tabIds.includes(artifact.tabId)
-    );
+    const matchingArtifacts = selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts);
     return normalizeDeliveryPackageItem({
       id: definition.id,
       type: 'archive',
       title: definition.title,
-      description: matchingArtifacts.length
-        ? `${definition.description} 已关联 ${matchingArtifacts.length} 份成果正文。`
-        : `${definition.description} 尚未在 ${definition.tabIds.join('、')} 页签生成成果。`,
-      status: matchingArtifacts.length ? 'ready' : 'missing',
+      description: `${definition.description} 已完成 ${matchingArtifacts.length}/${definition.tabIds.length} 个必需页签。`,
+      status: buildModeDeliveryStatus(definition, matchingArtifacts),
       sourceIds: matchingArtifacts.map((artifact) => artifact.id),
       checklist: definition.checklist
     }, index + 1);
@@ -3277,9 +3307,14 @@ function buildFallbackDeliveryPackage(
       ...project.uploads.map((upload) => upload.storedPath),
       ...project.knowledgeBase.map((entry) => entry.id)
     ]);
-    const readyModeItems = definitions.filter((definition) =>
-      modeArtifacts.some((artifact) => definition.tabIds.includes(artifact.tabId))
-    );
+    const modeStatuses = new Map(definitions.map((definition) => [
+      definition.id,
+      buildModeDeliveryStatus(
+        definition,
+        selectLatestModeArtifactsByTab(mode, definition.tabIds, modeArtifacts)
+      )
+    ]));
+    const readyModeItems = definitions.filter((definition) => modeStatuses.get(definition.id) === 'ready');
     const deliverableNames = definitions.map((definition) => definition.title).join('、');
 
     return normalizeDeliveryPackage({
@@ -3302,9 +3337,11 @@ function buildFallbackDeliveryPackage(
       checklist: [
         projectSourceIds.length ? '项目资料与知识来源已汇总' : '项目资料与知识来源待补充',
         ...definitions.map((definition) =>
-          readyModeItems.includes(definition)
-            ? `${definition.title}正文已生成`
-            : `${definition.title}正文待生成`
+          modeStatuses.get(definition.id) === 'ready'
+            ? `${definition.title}正文已就绪`
+            : modeStatuses.get(definition.id) === 'needs-review'
+              ? `${definition.title}正文待复核`
+              : `${definition.title}正文待生成`
         )
       ],
       exportNotes: 'Markdown 包含交付清单与成果正文，JSON 保留交付结构和模式成果，导出前请核对来源与内容完整性。',
@@ -3442,6 +3479,22 @@ async function saveDeliveryPackage(projectId: string, deliveryPackage: DeliveryP
   }));
 }
 
+function selectDeliveryModeArtifacts(
+  project: ProjectDetail,
+  deliveryPackage: DeliveryPackage,
+  allModeArtifacts: ModeArtifact[]
+) {
+  const mode = normalizeProjectMode(project.meta.mode);
+  const referencedIds = new Set(deliveryPackage.items.flatMap((item) => item.sourceIds));
+  const referencedArtifacts = allModeArtifacts.filter((artifact) =>
+    artifact.mode === mode && referencedIds.has(artifact.id)
+  );
+  const referencedTabIds = uniqueStrings(
+    referencedArtifacts.map((artifact) => artifact.tabId)
+  ) as WorkspaceTabId[];
+  return selectLatestModeArtifactsByTab(mode, referencedTabIds, referencedArtifacts);
+}
+
 function renderDeliveryPackageMarkdown(
   project: ProjectDetail,
   deliveryPackage: DeliveryPackage,
@@ -3502,7 +3555,8 @@ function renderDeliveryPackageMarkdown(
 async function exportDeliveryPackage(projectId: string): Promise<ExportResult> {
   const detail = await openProject(projectId);
   const deliveryPackage = await getDeliveryPackage(projectId) ?? await generateDeliveryPackage(projectId);
-  const modeArtifacts = await listModeArtifacts(projectId);
+  const allModeArtifacts = await listModeArtifacts(projectId);
+  const modeArtifacts = selectDeliveryModeArtifacts(detail, deliveryPackage, allModeArtifacts);
   const exportDir = projectGeneratedDir(projectId);
   await mkdir(exportDir, { recursive: true });
 
@@ -3510,7 +3564,12 @@ async function exportDeliveryPackage(projectId: string): Promise<ExportResult> {
   const jsonPath = path.join(exportDir, `${slugify(detail.meta.name)}-delivery.json`);
 
   await writeFile(markdownPath, renderDeliveryPackageMarkdown(detail, deliveryPackage, modeArtifacts), 'utf8');
-  await writeJson(jsonPath, { deliveryPackage, modeArtifacts });
+  await writeJson(jsonPath, {
+    ...deliveryPackage,
+    exportSchemaVersion: 2,
+    deliveryPackage,
+    modeArtifacts
+  });
 
   return { markdownPath, jsonPath };
 }

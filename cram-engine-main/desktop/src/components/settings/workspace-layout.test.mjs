@@ -153,6 +153,23 @@ test('delivery tab renders the delivery package page instead of a placeholder', 
   assert.match(workspaceCss, /\.delivery-item-grid\b/);
 });
 
+test('delivery export saves the current draft before exporting and reloading persisted state', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+  const deliveryPage = await readFile(new URL('../delivery/DeliveryPackagePage.tsx', import.meta.url), 'utf8');
+  const exportHandler = deliveryPage.match(/async function exportPackage\(\)[\s\S]*?\n  \}/)?.[0] ?? '';
+  const appExportHandler = app.match(/async function exportDeliveryPackage\(\)[\s\S]*?\n  \}/)?.[0] ?? '';
+
+  assert.match(exportHandler, /const saved = await onSave\(draft\)/);
+  assert.match(exportHandler, /setDraft\(saved\)/);
+  assert.match(exportHandler, /onChange\(saved\)/);
+  assert.match(exportHandler, /const result = await onExport\(\)/);
+  assert.ok(exportHandler.indexOf('await onSave(draft)') < exportHandler.indexOf('await onExport()'));
+
+  assert.match(appExportHandler, /await ce\.exportDeliveryPackage\(activeProject\.meta\.id\)/);
+  assert.match(appExportHandler, /await ce\.getDeliveryPackage\(activeProject\.meta\.id\)/);
+  assert.ok(appExportHandler.indexOf('exportDeliveryPackage') < appExportHandler.indexOf('getDeliveryPackage'));
+});
+
 test('closed AI assistant does not reserve a blank right rail and removes unused avatar', async () => {
   const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
   const layoutCss = await readFile(new URL('../../styles/layout.css', import.meta.url), 'utf8');

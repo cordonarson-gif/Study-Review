@@ -93,6 +93,9 @@ export function DeliveryPackagePage({
   async function exportPackage() {
     setBusyAction('export');
     try {
+      const saved = await onSave(draft);
+      setDraft(saved);
+      onChange(saved);
       const result = await onExport();
       setLastExport(result);
       onStatus?.(`成果交付包已导出：${result.markdownPath}`);
