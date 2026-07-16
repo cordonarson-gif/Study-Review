@@ -20,7 +20,12 @@ import type {
   StageReport,
   QuestionDraft,
   ReviewQuestion,
-  ProjectSortKey
+  ProjectSortKey,
+  ProjectMode,
+  WizardField,
+  ModeArtifact,
+  GenerateModeArtifactInput,
+  WorkspaceTabId
 } from '../lib/types';
 import { defaultSettings, examOptions, stageOrder } from '../lib/types';
 import { sanitizeRichHtml } from '../lib/richContent.js';
@@ -28,6 +33,7 @@ import { createEmptyChatGreeting, formatDate, getActiveProviderProfile } from '.
 import { findConfiguredProvider, getSelectableModels } from '../lib/providerSettings.js';
 import { appendWizardFileList, appendWizardValue, resolveWizardQuestionImportText } from '../lib/wizardImports.js';
 import { buildWizardProjectPayload, canCreateWizardProject, getWizardStepError, validateWizardProject } from '../lib/wizardProject.js';
+import { getProjectModeTemplate, getWorkspaceTabsForMode, isModeTab } from '../lib/projectModes';
 import ProjectListPanel from '../components/ProjectListPanel';
 import QuestionImportPanel from '../components/QuestionImportPanel';
 import PracticePanel from '../components/PracticePanel';
@@ -37,13 +43,17 @@ import { LearningPathPage } from '../components/path/LearningPathPage';
 import { StageReportPage } from '../components/report/StageReportPage';
 import { PersonalizedResourcesPage } from '../components/resources/PersonalizedResourcesPage';
 import { DeliveryPackagePage } from '../components/delivery/DeliveryPackagePage';
+import { ModeModulePage } from '../components/modes/ModeModulePage';
+import { ProjectModeSelector } from '../components/modes/ProjectModeSelector';
 import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
 
 type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export';
-type EditorTab = 'overview' | 'profile' | 'materials' | 'agents' | 'resources' | 'path' | 'practice' | 'import' | 'report' | 'delivery' | 'config' | 'progress';
+type EditorTab = WorkspaceTabId;
 type WizardStep = 1 | 2 | 3;
 
 type WizardState = {
+  mode: ProjectMode;
+  modeConfig: Record<string, string>;
   name: string;
   courseName: string;
   linkedFolder: string;
@@ -59,6 +69,8 @@ type WizardState = {
 };
 
 const initialWizardState: WizardState = {
+  mode: 'exam-review',
+  modeConfig: {},
   name: '',
   courseName: '',
   linkedFolder: '',
@@ -266,6 +278,7 @@ export default function App() {
   const [learningPathPlan, setLearningPathPlan] = useState<LearningPathPlan | null>(null);
   const [stageReports, setStageReports] = useState<StageReport[]>([]);
   const [deliveryPackage, setDeliveryPackage] = useState<DeliveryPackage | null>(null);
+  const [modeArtifacts, setModeArtifacts] = useState<ModeArtifact[]>([]);
   const [editorTab, setEditorTab] = useState<EditorTab>('overview');
   const [configText, setConfigText] = useState('');
   const [progressText, setProgressText] = useState('');
@@ -362,6 +375,12 @@ export default function App() {
   const settingsHasApiKey = Boolean(configuredProvider);
   const apiStatusLabel = configuredProvider ? configuredProvider.label : 'API Key 未填写';
   const latexStatusLabel = useMemo(() => formatLatexStatusLabel(latexStatus), [latexStatus]);
+  const selectedWizardTemplate = useMemo(() => getProjectModeTemplate(wizard.mode), [wizard.mode]);
+  const activeProjectTemplate = useMemo(() => getProjectModeTemplate(activeProject?.meta.mode), [activeProject?.meta.mode]);
+  const activeWorkspaceTabs = useMemo(
+    () => getWorkspaceTabsForMode(activeProject?.meta.mode),
+    [activeProject?.meta.mode]
+  );
 
   const availableProjectModels = useMemo(() => {
     if (!activeProject) return selectableModels;
@@ -439,19 +458,21 @@ export default function App() {
     const pathPlan = detail.learningPathPlan ?? await ce.getLearningPathPlan(projectId);
     const reports = detail.stageReports ?? await ce.listStageReports(projectId);
     const delivery = detail.deliveryPackage ?? await ce.getDeliveryPackage(projectId);
-    setActiveProject({ ...detail, deliveryPackage: delivery });
+    const artifacts = detail.modeArtifacts ?? await ce.listModeArtifacts(projectId);
+    setActiveProject({ ...detail, deliveryPackage: delivery, modeArtifacts: artifacts });
     setLearningProfileState(profileState);
     setPersonalizedResources(generatedResources);
     setLearningPathPlan(pathPlan);
     setStageReports(reports);
     setDeliveryPackage(delivery);
+    setModeArtifacts(artifacts);
     setConfigText(detail.configYaml);
     setProgressText(detail.progressMarkdown);
     setChatMessages(toAgentMessages(detail));
     setStatus(`已进入项目：${detail.meta.name}`);
     setViewMode('workspace');
     setExportResult(null);
-    setEditorTab('overview');
+    setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
     setProjects(await ce.listProjects());
   }
 
@@ -478,6 +499,7 @@ export default function App() {
       setLearningPathPlan(null);
       setStageReports([]);
       setDeliveryPackage(null);
+      setModeArtifacts([]);
       setViewMode('home');
     }
     setStatus(`已删除项目：${project.name}`);
@@ -502,18 +524,21 @@ export default function App() {
       const nextProjects = await ce.listProjects();
       setProjects(nextProjects);
       const delivery = detail.deliveryPackage ?? await ce.getDeliveryPackage(detail.meta.id);
-      setActiveProject({ ...detail, deliveryPackage: delivery });
+      const artifacts = detail.modeArtifacts ?? await ce.listModeArtifacts(detail.meta.id);
+      setActiveProject({ ...detail, deliveryPackage: delivery, modeArtifacts: artifacts });
       setLearningProfileState(detail.learningProfile ?? await ce.getLearningProfile(detail.meta.id));
       setPersonalizedResources(detail.personalizedResources ?? await ce.listPersonalizedResources(detail.meta.id));
       setLearningPathPlan(detail.learningPathPlan ?? await ce.getLearningPathPlan(detail.meta.id));
       setStageReports(detail.stageReports ?? await ce.listStageReports(detail.meta.id));
       setDeliveryPackage(delivery);
+      setModeArtifacts(artifacts);
       setConfigText(detail.configYaml);
       setProgressText(detail.progressMarkdown);
       setChatMessages(toAgentMessages(detail));
       setWizard(initialWizardState);
       setWizardStep(1);
       setViewMode('workspace');
+      setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
       setStatus(`??????${detail.meta.name}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '??????');
@@ -682,6 +707,30 @@ export default function App() {
     return result;
   }
 
+  async function generateModeArtifact(input: GenerateModeArtifactInput) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.generateModeArtifact(activeProject.meta.id, input);
+    setModeArtifacts(next);
+    setActiveProject({ ...activeProject, modeArtifacts: next });
+    return next;
+  }
+
+  async function saveModeArtifact(artifact: ModeArtifact) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.saveModeArtifact(activeProject.meta.id, artifact);
+    setModeArtifacts(next);
+    setActiveProject({ ...activeProject, modeArtifacts: next });
+    return next;
+  }
+
+  async function deleteModeArtifact(artifactId: string) {
+    if (!activeProject) throw new Error('请先打开项目');
+    const next = await ce.deleteModeArtifact(activeProject.meta.id, artifactId);
+    setModeArtifacts(next);
+    setActiveProject({ ...activeProject, modeArtifacts: next });
+    return next;
+  }
+
   async function importFiles() {
     if (!activeProject) return;
     const selected = await ce.selectUploadFiles();
@@ -832,6 +881,58 @@ export default function App() {
 
   function updateWizard<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setWizard((current: WizardState) => ({ ...current, [key]: value }));
+  }
+
+  function selectProjectMode(mode: ProjectMode) {
+    const template = getProjectModeTemplate(mode);
+    setWizard((current: WizardState) => ({
+      ...current,
+      mode,
+      modeConfig: {},
+      examType: template.wizardFields.find((field) => field.key === 'examType')?.options?.[0] ?? current.examType
+    }));
+  }
+
+  function updateModeConfig(key: string, value: string) {
+    setWizard((current: WizardState) => ({
+      ...current,
+      modeConfig: {
+        ...current.modeConfig,
+        [key]: value
+      }
+    }));
+  }
+
+  function renderModeField(field: WizardField) {
+    if (['name', 'courseName', 'examType', 'textbook', 'requirements'].includes(field.key)) {
+      return null;
+    }
+    const value = wizard.modeConfig[field.key] ?? '';
+    if (field.type === 'select') {
+      return (
+        <label key={field.key} className="wizard-mode-field">
+          {field.label}
+          <select value={value} onChange={(event) => updateModeConfig(field.key, event.target.value)}>
+            <option value="">请选择</option>
+            {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+      );
+    }
+    if (field.type === 'textarea') {
+      return (
+        <label key={field.key} className="wizard-mode-field">
+          {field.label}
+          <textarea value={value} placeholder={field.placeholder} onChange={(event) => updateModeConfig(field.key, event.target.value)} />
+        </label>
+      );
+    }
+    return (
+      <label key={field.key} className="wizard-mode-field">
+        {field.label}
+        <input value={value} placeholder={field.placeholder} onChange={(event) => updateModeConfig(field.key, event.target.value)} />
+      </label>
+    );
   }
 
   async function selectWizardFiles() {
@@ -1356,6 +1457,7 @@ export default function App() {
                 {wizardStep === 1 && (
                   <div className="panel" style={{ width: '100%' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <ProjectModeSelector selectedMode={wizard.mode} onSelect={selectProjectMode} />
                       <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-on-surface)' }}>
                         项目名称
                         <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder="例如：计算机系统结构 101" style={{ width: '100%', padding: '14px 18px', fontSize: '16px', borderRadius: '10px' }} />
@@ -1401,6 +1503,11 @@ export default function App() {
                           <button disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()} style={{ padding: '14px 20px', whiteSpace: 'nowrap', fontSize: '14px', fontWeight: 600 }}>📁 选择目录</button>
                         </div>
                       </label>
+                      {selectedWizardTemplate.wizardFields.some((field) => !['name', 'courseName', 'examType', 'textbook', 'requirements'].includes(field.key)) && (
+                        <div className="wizard-mode-field-grid">
+                          {selectedWizardTemplate.wizardFields.map(renderModeField)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1535,6 +1642,13 @@ export default function App() {
                 </section>
 
                 <nav className="project-page-tabs segmented-control">
+                  {activeWorkspaceTabs.map((tab) => (
+                    <button key={tab.id} className={editorTab === tab.id ? 'active' : ''} onClick={() => setEditorTab(tab.id)}>
+                      {tab.label}
+                    </button>
+                  ))}
+                  {false && (
+                    <>
                   <button className={editorTab === 'profile' ? 'active' : ''} onClick={() => setEditorTab('profile')}>画像</button>
                   <button className={editorTab === 'agents' ? 'active' : ''} onClick={() => setEditorTab('agents')}>智能体</button>
                   <button className={editorTab === 'resources' ? 'active' : ''} onClick={() => setEditorTab('resources')}>资源</button>
@@ -1547,7 +1661,24 @@ export default function App() {
                   <button className={editorTab === 'import' ? 'active' : ''} onClick={() => setEditorTab('import')}>题库</button>
                   <button className={editorTab === 'config' ? 'active' : ''} onClick={() => setEditorTab('config')}>YAML</button>
                   <button className={editorTab === 'progress' ? 'active' : ''} onClick={() => setEditorTab('progress')}>进度</button>
+                    </>
+                  )}
                 </nav>
+
+                {isModeTab(editorTab) && editorTab !== 'delivery' && activeProject.meta.mode !== 'exam-review' && (
+                  <ModeModulePage
+                    tab={activeWorkspaceTabs.find((tab) => tab.id === editorTab) ?? activeWorkspaceTabs[0]}
+                    artifacts={modeArtifacts}
+                    onGenerate={generateModeArtifact}
+                    onSave={saveModeArtifact}
+                    onDelete={deleteModeArtifact}
+                    onChange={(next) => {
+                      setModeArtifacts(next);
+                      setActiveProject({ ...activeProject, modeArtifacts: next });
+                    }}
+                    onStatus={setStatus}
+                  />
+                )}
 
                 {editorTab === 'overview' && (
                   <section className="panel workspace-overview-card">

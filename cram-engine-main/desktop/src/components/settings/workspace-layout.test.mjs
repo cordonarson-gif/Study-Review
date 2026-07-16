@@ -6,7 +6,8 @@ test('workspace splits dense project content into focused project pages', async 
   const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
   const workspaceCss = await readFile(new URL('../../styles/workspace.css', import.meta.url), 'utf8');
 
-  assert.match(app, /type EditorTab = 'overview' \| 'profile' \| 'materials' \| 'agents' \| 'resources' \| 'path' \| 'practice' \| 'import' \| 'report' \| 'delivery' \| 'config' \| 'progress'/);
+  assert.match(app, /type EditorTab = WorkspaceTabId/);
+  assert.match(app, /activeWorkspaceTabs\.map/);
   assert.match(app, /editorTab === 'profile'/);
   assert.match(app, /editorTab === 'materials'/);
   assert.match(app, /setEditorTab\('materials'\)/);
@@ -191,4 +192,44 @@ test('materials page renders image upload previews from a safe Electron data URL
   assert.match(app, /<img\b/);
   assert.match(preload, /getUploadDataUrl/);
   assert.match(main, /project:getUploadDataUrl/);
+});
+
+test('new project wizard starts with a mode selector and mode-specific fields', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+  const selector = await readFile(new URL('../modes/ProjectModeSelector.tsx', import.meta.url), 'utf8');
+  const workspaceCss = await readFile(new URL('../../styles/workspace.css', import.meta.url), 'utf8');
+
+  assert.match(app, /import \{ ProjectModeSelector \} from '\.\.\/components\/modes\/ProjectModeSelector'/);
+  assert.match(app, /getProjectModeTemplate/);
+  assert.match(app, /modeConfig/);
+  assert.match(app, /renderModeField/);
+  assert.match(app, /<ProjectModeSelector\b/);
+
+  for (const text of ['期末复习', '论文助手', '科研数据分析', '教学设计', '作业出题批改']) {
+    assert.match(selector, new RegExp(text));
+  }
+
+  assert.match(workspaceCss, /\.project-mode-grid\b/);
+  assert.match(workspaceCss, /\.project-mode-card\b/);
+});
+
+test('workspace renders mode-specific module pages with persistent artifacts', async () => {
+  const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
+  const modePage = await readFile(new URL('../modes/ModeModulePage.tsx', import.meta.url), 'utf8');
+  const workspaceCss = await readFile(new URL('../../styles/workspace.css', import.meta.url), 'utf8');
+
+  assert.match(app, /getWorkspaceTabsForMode/);
+  assert.match(app, /isModeTab/);
+  assert.match(app, /<ModeModulePage\b/);
+  assert.match(app, /modeArtifacts/);
+  assert.match(app, /generateModeArtifact/);
+  assert.match(app, /saveModeArtifact/);
+  assert.match(app, /deleteModeArtifact/);
+
+  for (const text of ['生成成果', '保存成果', '删除成果', '成果库']) {
+    assert.match(modePage, new RegExp(text));
+  }
+
+  assert.match(workspaceCss, /\.mode-module-page\b/);
+  assert.match(workspaceCss, /\.mode-artifact-grid\b/);
 });
