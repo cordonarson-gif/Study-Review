@@ -189,6 +189,15 @@ test('main and preload expose AI question generation bridge', () => {
   assert.match(preloadSource, /generateQuestions: \(projectId: string, input: GenerateQuestionsInput\) => ipcRenderer\.invoke\('questions:generate', projectId, input\)/);
 });
 
+test('main and preload expose unified question import preview bridge', () => {
+  const mainSource = readMainSource();
+  const preloadSource = readPreloadSource();
+
+  assert.match(mainSource, /async function previewQuestionImport\(input: QuestionImportRequest\)/);
+  assert.match(mainSource, /ipcMain\.handle\('questions:previewImport'/);
+  assert.match(preloadSource, /previewQuestionImport: \(input: QuestionImportRequest\) => ipcRenderer\.invoke\('questions:previewImport', input\)/);
+});
+
 test('main process registers learning path IPC handlers', () => {
   const source = readMainSource();
 
@@ -381,7 +390,7 @@ test('MiKTeX bootstrap script skips existing LaTeX and contains no bundled API s
   assert.match(source, /--unattended/);
   assert.match(source, /--user-install=/);
   assert.match(source, /--auto-install=yes/);
-  assert.match(source, /Skip installation/);
+  assert.match(source, /Skipping dependency installation/);
   assert.doesNotMatch(source, /github_pat|sk-[A-Za-z0-9]|DEEPSEEK|OPENAI_API|ANTHROPIC_API|DASHSCOPE_API|apiKey\s*[:=]/i);
 });
 
@@ -389,7 +398,9 @@ test('NSIS installer hook runs MiKTeX bootstrap during install', () => {
   const source = fs.readFileSync(installerNshPath, 'utf8');
 
   assert.match(source, /!macro\s+customInstall/);
-  assert.match(source, /nsExec::ExecToLog/);
-  assert.match(source, /powershell\.exe\s+-NoProfile\s+-ExecutionPolicy\s+Bypass/);
+  assert.match(source, /nsExec::ExecToStack/);
+  assert.match(source, /MB_RETRYCANCEL/);
+  assert.match(source, /Abort/);
+  assert.match(source, /powershell\.exe["']?\s+-NoProfile\s+-ExecutionPolicy\s+Bypass/);
   assert.match(source, /miktex-bootstrap\.ps1/);
 });

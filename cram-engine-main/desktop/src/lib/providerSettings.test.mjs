@@ -50,6 +50,50 @@ test('hideOrShowModel moves selection to the first visible fallback', () => {
   assert.equal(next.selectedModelId, 'fallback');
 });
 
+test('hideOrShowModel preserves selection when toggling a different model', () => {
+  const profile = {
+    ...providers[0],
+    selectedModelId: 'gpt',
+    models: [
+      { id: 'gpt', label: 'GPT', enabled: true, source: 'preset' },
+      { id: 'fallback', label: 'Fallback', enabled: true, source: 'custom' }
+    ]
+  };
+
+  const next = hideOrShowModel(profile, 'fallback', false);
+
+  assert.equal(next.selectedModelId, 'gpt');
+});
+
+test('hideOrShowModel selects a model restored from an all-hidden state', () => {
+  const profile = {
+    ...providers[0],
+    selectedModelId: '',
+    models: [
+      { id: 'gpt', label: 'GPT', enabled: false, source: 'preset' },
+      { id: 'fallback', label: 'Fallback', enabled: false, source: 'custom' }
+    ]
+  };
+
+  const next = hideOrShowModel(profile, 'fallback', true);
+
+  assert.equal(next.selectedModelId, 'fallback');
+  assert.equal(next.models.find((model) => model.id === 'fallback').enabled, true);
+});
+
+test('hideOrShowModel does not mutate the input profile or model records', () => {
+  const profile = {
+    ...providers[0],
+    selectedModelId: 'gpt',
+    models: providers[0].models.map((model) => ({ ...model }))
+  };
+  const snapshot = structuredClone(profile);
+
+  hideOrShowModel(profile, 'gpt', false);
+
+  assert.deepEqual(profile, snapshot);
+});
+
 test('removeCustomModel refuses to remove preset and fetched models', () => {
   assert.equal(removeCustomModel(providers[0], 'gpt').models.length, 2);
   assert.equal(removeCustomModel(providers[0], 'hidden').models.length, 2);

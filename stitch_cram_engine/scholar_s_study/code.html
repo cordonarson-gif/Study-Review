@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cram Engine | 学者学习模式</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Source+Serif+4:wght@600;700&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        vertical-align: middle;
+    }
+    body { background-color: var(--ce-background); font-family: 'Inter', sans-serif; }
+    .scholar-card {
+        background: var(--ce-card-bg);
+        border: 1px solid var(--ce-card-border);
+        border-radius: 10px;
+        transition: all 0.2s ease;
+    }
+    .scholar-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: #cabeff; }
+    .focus-mode { background: #1a1c1b; color: #f1f1ee; }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--ce-scrollbar-thumb); border-radius: 10px; }
+    .dark .bg-white { background-color: var(--ce-card-bg); }
+    .dark .hover\:bg-white\/50:hover { background-color: rgba(26,27,34,0.5); }
+</style>
+<script src="../shared/theme.js"></script>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="flex justify-between items-center px-6 py-3 bg-white border-b border-outline-variant">
+<div class="flex items-center gap-3">
+<span class="text-primary text-xl font-bold" style="font-family:'Source Serif 4',serif;">Cram Engine</span>
+<span class="text-on-surface-variant text-xs tracking-wider uppercase">Scholar's Study</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-xs">学</div>
+</div>
+</header>
+<div class="flex flex-1">
+<aside class="w-60 bg-surface-container-low border-r border-outline-variant flex flex-col p-4">
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-primary bg-white font-semibold border-l-2 border-primary" href="#">
+<span class="material-symbols-outlined text-lg">auto_stories</span><span class="text-sm">学习模式</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:bg-white/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">trending_up</span><span class="text-sm">学习统计</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:bg-white/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">bookmarks</span><span class="text-sm">收藏知识点</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:bg-white/50 transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">history</span><span class="text-sm">学习记录</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 p-6 overflow-y-auto">
+<div class="max-w-4xl mx-auto space-y-6">
+<div class="scholar-card p-6 flex justify-between items-center">
+<div>
+<h1 class="text-2xl font-semibold text-on-surface" style="font-family:'Source Serif 4',serif;">下午好，准备开始学习了吗？</h1>
+<p class="text-sm text-on-surface-variant mt-1">你今天已经学习了 3 个知识点，完成 12 道练习。</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-center">
+<div class="text-3xl font-mono text-primary font-bold">25:00</div>
+<div class="text-xs text-on-surface-variant mt-1">专注计时</div>
+</div>
+<button class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">开始专注</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="scholar-card p-6">
+<h2 class="text-lg font-semibold text-on-surface mb-5" style="font-family:'Source Serif 4',serif;">知识水平分布</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-xs text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+<th class="pb-3 font-semibold">等级</th><th class="pb-3 font-semibold">知识点数</th><th class="pb-3 font-semibold">占比</th><th class="pb-3 font-semibold text-right">进度</th>
+</tr></thead>
+<tbody class="divide-y divide-outline-variant/50">
+<tr><td class="py-3"><span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed text-xs rounded font-semibold">精通</span></td><td class="py-3 text-on-surface">5</td><td class="py-3 text-on-surface-variant">33%</td><td class="py-3 text-right"><div class="inline-flex items-center gap-2"><div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full" style="width:100%"></div></div><span class="text-xs text-on-surface-variant">100%</span></div></td></tr>
+<tr><td class="py-3"><span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-xs rounded font-semibold">熟练</span></td><td class="py-3 text-on-surface">4</td><td class="py-3 text-on-surface-variant">27%</td><td class="py-3 text-right"><div class="inline-flex items-center gap-2"><div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-secondary rounded-full" style="width:75%"></div></div><span class="text-xs text-on-surface-variant">75%</span></div></td></tr>
+<tr><td class="py-3"><span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-xs rounded font-semibold">学习中</span></td><td class="py-3 text-on-surface">4</td><td class="py-3 text-on-surface-variant">27%</td><td class="py-3 text-right"><div class="inline-flex items-center gap-2"><div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-tertiary rounded-full" style="width:40%"></div></div><span class="text-xs text-on-surface-variant">40%</span></div></td></tr>
+<tr><td class="py-3"><span class="px-2 py-0.5 bg-error-container text-on-error-container text-xs rounded font-semibold">顽固点</span></td><td class="py-3 text-on-surface">2</td><td class="py-3 text-on-surface-variant">13%</td><td class="py-3 text-right"><div class="inline-flex items-center gap-2"><div class="w-24 h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-error rounded-full" style="width:10%"></div></div><span class="text-xs text-on-surface-variant">10%</span></div></td></tr>
+</tbody></table>
+</div>
+<div class="scholar-card p-6">
+<h2 class="text-lg font-semibold text-on-surface mb-5" style="font-family:'Source Serif 4',serif;">学习目标 · 阶段掌握</h2>
+<div class="space-y-4">
+<div><div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-on-surface">阶段1 · 拆解知识树</span><span class="text-xs text-primary font-semibold">已完成</span></div><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full" style="width:100%"></div></div></div>
+<div><div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-on-surface">阶段2 · 讲授知识点</span><span class="text-xs text-on-surface-variant">7 / 15</span></div><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full" style="width:47%"></div></div></div>
+<div><div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-on-surface">阶段3 · 检题练习</span><span class="text-xs text-on-surface-variant">12 / 88</span></div><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-secondary rounded-full" style="width:14%"></div></div></div>
+<div><div class="flex justify-between items-center mb-2"><span class="text-sm font-semibold text-on-surface">阶段4 · 补漏纠正</span><span class="text-xs text-on-surface-variant">3 / 5</span></div><div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div class="h-full bg-tertiary rounded-full" style="width:60%"></div></div></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="scholar-card p-4"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined text-primary text-sm">schedule</span></div><span class="text-xs text-on-surface-variant uppercase tracking-wider">本周学习</span></div><div class="text-xl font-bold text-on-surface">8.5<span class="text-sm font-normal text-on-surface-variant"> 小时</span></div></div>
+<div class="scholar-card p-4"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-lg bg-secondary-container flex items-center justify-center"><span class="material-symbols-outlined text-secondary text-sm">streak</span></div><span class="text-xs text-on-surface-variant uppercase tracking-wider">连续天数</span></div><div class="text-xl font-bold text-on-surface">12<span class="text-sm font-normal text-on-surface-variant"> 天</span></div></div>
+<div class="scholar-card p-4"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-lg bg-tertiary-fixed flex items-center justify-center"><span class="material-symbols-outlined text-tertiary text-sm">quiz</span></div><span class="text-xs text-on-surface-variant uppercase tracking-wider">总练习</span></div><div class="text-xl font-bold text-on-surface">156<span class="text-sm font-normal text-on-surface-variant"> 题</span></div></div>
+<div class="scholar-card p-4"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-lg bg-error-container flex items-center justify-center"><span class="material-symbols-outlined text-error text-sm">target</span></div><span class="text-xs text-on-surface-variant uppercase tracking-wider">正确率</span></div><div class="text-xl font-bold text-on-surface">82<span class="text-sm font-normal text-on-surface-variant">%</span></div></div>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="scholar-card p-4 text-center"><div class="text-2xl font-bold text-primary">7/15</div><div class="text-xs text-on-surface-variant mt-1">知识点掌握</div></div>
+<div class="scholar-card p-4 text-center"><div class="text-2xl font-bold text-secondary">82%</div><div class="text-xs text-on-surface-variant mt-1">正确率</div></div>
+<div class="scholar-card p-4 text-center"><div class="text-2xl font-bold text-tertiary">2</div><div class="text-xs text-on-surface-variant mt-1">顽固点待攻克</div></div>
+</div>
+<div class="scholar-card p-6">
+<h2 class="text-lg font-semibold text-on-surface mb-4" style="font-family:'Source Serif 4',serif;">当前学习队列 — 组织行为学</h2>
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 bg-background rounded-lg border border-outline-variant"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">check_circle</span><div><div class="text-sm font-semibold">期望理论 (E×I×V)</div><div class="text-xs text-on-surface-variant">已完成 · 正确率 100%</div></div></div><span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed text-xs rounded">已掌握</span></div>
+<div class="flex items-center justify-between p-3 bg-background rounded-lg border border-outline-variant"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-tertiary">schedule</span><div><div class="text-sm font-semibold">公平理论</div><div class="text-xs text-on-surface-variant">学习中 · 进度 60%</div></div></div><span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-xs rounded">进行中</span></div>
+<div class="flex items-center justify-between p-3 bg-background rounded-lg border border-outline-variant"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-error pulse-dot">error</span><div><div class="text-sm font-semibold">霍桑实验</div><div class="text-xs text-on-surface-variant">顽固点 · 建议明天再攻</div></div></div><span class="px-2 py-0.5 bg-error-container text-on-error-container text-xs rounded">顽固点</span></div>
+</div>
+</div>
+<div class="scholar-card p-6 flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-primary text-2xl">psychology</span></div>
+<div class="flex-1"><h3 class="text-sm font-semibold text-on-surface">AI 学习建议</h3><p class="text-xs text-on-surface-variant mt-1">你上一次学习"公平理论"是 2 天前。建议今天重新复习以巩固记忆，防止遗忘曲线衰减。</p></div>
+<button class="px-4 py-2 border border-primary text-primary rounded-lg text-sm font-semibold hover:bg-primary hover:text-white transition-colors shrink-0">开始复习</button>
+</div>
+</div>
+</main>
+</div>
+<footer class="h-7 border-t border-outline-variant bg-surface-container-low px-4 flex items-center justify-between text-[10px] font-semibold text-on-surface-variant">
+<div class="flex items-center gap-4"><div class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span><span>Cram Engine v1.0.4 | 学者模式</span></div></div>
+<div class="flex gap-4"><a class="hover:text-primary" href="#">帮助</a><span>今日学习时长: 1h 22m</span></div>
+</footer>
+</body></html>

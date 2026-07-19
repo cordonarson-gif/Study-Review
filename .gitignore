@@ -29,3 +29,7 @@ node_modules/
 # Isolated agent worktrees
 .worktrees/
 .superpowers/
+
+# Local Electron/E2E browser profiles and generated run logs
+.codex-*profile*/
+analysis/*.log

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '../../i18n';
 import type { GenerateLearningPathInput, LearningPathPlan, LearningPathTaskStatus, PersonalizedResource } from '../../lib/types';
 
 type LearningPathPageProps = {
@@ -8,12 +9,6 @@ type LearningPathPageProps = {
   onSave: (plan: LearningPathPlan) => Promise<LearningPathPlan>;
   onChange: (plan: LearningPathPlan) => void;
   onStatus?: (message: string) => void;
-};
-
-const statusLabels: Record<LearningPathTaskStatus, string> = {
-  todo: '待开始',
-  doing: '进行中',
-  done: '已完成'
 };
 
 function todayPlus(days: number) {
@@ -30,6 +25,13 @@ export function LearningPathPage({
   onChange,
   onStatus
 }: LearningPathPageProps) {
+  const { t } = useT();
+  const statusLabels: Record<LearningPathTaskStatus, string> = {
+    todo: t('common.todo'),
+    doing: t('common.doing'),
+    done: t('common.done'),
+  };
+
   const [targetDate, setTargetDate] = useState(todayPlus(14));
   const [dailyMinutes, setDailyMinutes] = useState(60);
   const [focus, setFocus] = useState('');
@@ -55,7 +57,7 @@ export function LearningPathPage({
       const next = await onGenerate({ targetDate, dailyMinutes, focus });
       setDraft(next);
       onChange(next);
-      onStatus?.('学习路径已生成');
+      onStatus?.(t('path.pathGenerated'));
     } finally {
       setBusy(false);
     }
@@ -68,7 +70,7 @@ export function LearningPathPage({
       const next = await onSave(draft);
       setDraft(next);
       onChange(next);
-      onStatus?.('学习路径已保存');
+      onStatus?.(t('path.pathSaved'));
     } finally {
       setBusy(false);
     }
@@ -99,27 +101,27 @@ export function LearningPathPage({
     <section className="panel learning-path-page">
       <div className="page-section-header">
         <div>
-          <div className="section-title">学习路径</div>
-          <h3>把画像、资源和题库变成可执行阶段计划</h3>
-          <p className="muted">PathAgent 会综合薄弱点、每日时间、目标日期和已生成资源，安排阶段计划与风险提醒。</p>
+          <div className="section-title">{t('path.title')}</div>
+          <h3>{t('path.subtitle')}</h3>
+          <p className="muted">{t('path.desc')}</p>
         </div>
       </div>
 
       <div className="learning-path-generation-panel">
         <label>
-          目标日期
+          {t('path.targetDate')}
           <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} />
         </label>
         <label>
-          每日学习分钟
+          {t('path.dailyMinutes')}
           <input type="number" min={15} max={480} value={dailyMinutes} onChange={(event) => setDailyMinutes(Number(event.target.value))} />
         </label>
         <label>
-          聚焦方向
-          <input value={focus} onChange={(event) => setFocus(event.target.value)} placeholder="例如：算法薄弱点、错题补漏、赛题文档" />
+          {t('path.focus')}
+          <input value={focus} onChange={(event) => setFocus(event.target.value)} placeholder={t('path.focusPlaceholder')} />
         </label>
         <button className="primary" onClick={() => void generatePath()} disabled={busy}>
-          {busy ? '生成中…' : '生成路径'}
+          {busy ? t('path.generating') : t('path.generatePath')}
         </button>
       </div>
 
@@ -127,19 +129,19 @@ export function LearningPathPage({
         <>
           <div className="learning-path-summary-grid">
             <div className="mini-section">
-              <span className="muted">路径目标</span>
+              <span className="muted">{t('path.pathGoal')}</span>
               <input value={draft.goal} onChange={(event) => patchDraft({ goal: event.target.value })} />
             </div>
             <div className="mini-section">
-              <span className="muted">目标日期</span>
-              <strong>{draft.targetDate || '未设定'}</strong>
+              <span className="muted">{t('path.targetDate')}</span>
+              <strong>{draft.targetDate || t('path.notSet')}</strong>
             </div>
             <div className="mini-section">
-              <span className="muted">每日学习</span>
-              <strong>{draft.dailyMinutes} 分钟</strong>
+              <span className="muted">{t('path.dailyStudy')}</span>
+              <strong>{draft.dailyMinutes} {t('path.minutes')}</strong>
             </div>
             <div className="mini-section">
-              <span className="muted">完成度</span>
+              <span className="muted">{t('path.completion')}</span>
               <strong>{completion}%</strong>
             </div>
           </div>
@@ -162,7 +164,7 @@ export function LearningPathPage({
                         <small>{task.detail}</small>
                         {task.resourceIds.length ? (
                           <em>
-                            关联资源：{task.resourceIds.map((id) => resourceTitleById.get(id) || id).join('、')}
+                            {t('path.relatedResources')}{task.resourceIds.map((id) => resourceTitleById.get(id) || id).join('、')}
                           </em>
                         ) : null}
                       </div>
@@ -178,13 +180,13 @@ export function LearningPathPage({
 
           <div className="learning-path-bottom-grid">
             <div className="mini-section">
-              <div className="subsection-title">复习节奏</div>
+              <div className="subsection-title">{t('path.reviewCadence')}</div>
               <ul>
                 {draft.reviewCadence.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </div>
             <div className="mini-section">
-              <div className="subsection-title">风险提醒</div>
+              <div className="subsection-title">{t('path.riskReminder')}</div>
               <ul>
                 {draft.risks.map((item) => <li key={item}>{item}</li>)}
               </ul>
@@ -192,11 +194,11 @@ export function LearningPathPage({
           </div>
 
           <div className="panel-actions horizontal">
-            <button className="primary" onClick={() => void savePath()} disabled={busy}>保存路径</button>
+            <button className="primary" onClick={() => void savePath()} disabled={busy}>{t('path.savePath')}</button>
           </div>
         </>
       ) : (
-        <div className="empty-slim">还没有路径计划。先填写目标日期和每日学习分钟，然后点击“生成路径”。</div>
+        <div className="empty-slim">{t('path.emptyHint')}</div>
       )}
     </section>
   );

@@ -1,33 +1,43 @@
 {
   "name": "cram-engine-desktop",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"tsc -p electron/tsconfig.json -w\" \"wait-on http://127.0.0.1:5173 dist-electron/main.cjs && electron .\"",
-    "build": "vite build && tsc -p electron/tsconfig.json && electron-builder",
+    "build:app": "vite build && tsc -p electron/tsconfig.json",
+    "build": "npm run build:app && electron-builder",
+    "clean:release": "node scripts/clean-release.mjs",
+    "release:win": "npm run typecheck && npm run test && npm run clean:release && npm run build:app && electron-builder --win nsis --x64 && node scripts/audit-release.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "test:electron": "tsc -p electron/tsconfig.json && node --test electron/*.test.cjs",
     "test:renderer": "node --test src/lib/*.test.mjs",
     "test:settings-ui": "node --test src/components/settings/*.test.mjs",
-    "test": "npm run test:electron && npm run test:renderer && npm run test:settings-ui"
+    "test:i18n": "node --test src/i18n/*.test.mjs",
+    "test": "npm run test:electron && npm run test:renderer && npm run test:settings-ui && npm run test:i18n"
   },
   "dependencies": {
+    "adm-zip": "^0.6.0",
     "js-yaml": "^4.1.0",
+    "katex": "^0.17.0",
+    "mammoth": "^1.12.0",
     "marked": "^16.0.0",
+    "marked-katex-extension": "^5.1.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
+    "@types/adm-zip": "^0.5.8",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.0",
     "concurrently": "^9.2.1",
-    "electron": "^36.2.0",
+    "electron": "36.9.5",
     "electron-builder": "^26.0.12",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
@@ -37,11 +47,23 @@
     "appId": "com.cramengine.desktop",
     "productName": "Cram Engine Desktop",
     "directories": {
-      "output": "release"
+      "output": "release-staging"
     },
     "files": [
       "dist/**",
-      "dist-electron/**"
+      "dist-electron/**/*.cjs",
+      "!**/*.test.*",
+      "!**/test/**",
+      "!**/tests/**",
+      "!**/__tests__/**",
+      "!**/fixtures/**",
+      "!**/mocks/**",
+      "!**/*.log",
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!**/*.d.cts",
+      "!**/.env*",
+      "!**/*.{pem,pfx,p12,key,crt}"
     ],
     "extraResources": [
       {
@@ -49,10 +71,16 @@
         "to": "miktex-bootstrap.ps1"
       }
     ],
+    "electronDownload": {
+      "checksums": {
+        "electron-v36.9.5-win32-x64.zip": "fb8b47aff266bb2483aabf1c6442d519e27c68b4bf432b8e84fd6823e2515e3c"
+      }
+    },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "Cram-Engine-Desktop-Setup-1.2.0-x64.${ext}"
     },
     "nsis": {
       "oneClick": false,

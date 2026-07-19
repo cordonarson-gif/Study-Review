@@ -2,3 +2,6 @@ node_modules/
 dist/
 dist-electron/
 release/
+
+# Tesseract language data downloaded into the working directory at runtime
+*.traineddata

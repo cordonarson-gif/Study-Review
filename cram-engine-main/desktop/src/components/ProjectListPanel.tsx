@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { getProjectModeDisplay } from '../lib/projectDisplay';
 import type { ProjectMeta, ProjectSortKey } from '../lib/types';
+import { useT } from '../i18n';
 
 type Props = {
   projects: ProjectMeta[];
@@ -17,10 +18,10 @@ type Props = {
   onDelete: (project: ProjectMeta) => void;
 };
 
-const sortLabels: Record<ProjectSortKey, string> = {
-  lastOpened: '最近打开',
-  created: '创建时间',
-  name: '名称'
+const sortLabelKeys: Record<ProjectSortKey, string> = {
+  lastOpened: 'project.sortLastOpened',
+  created: 'project.sortCreated',
+  name: 'project.sortName'
 };
 
 export default function ProjectListPanel({
@@ -31,6 +32,7 @@ export default function ProjectListPanel({
   onRename,
   onDelete
 }: Props) {
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<ProjectSortKey>('lastOpened');
 
@@ -66,22 +68,22 @@ export default function ProjectListPanel({
 
   return (
     <div className="project-panel">
-      <div className="section-title">历史项目 / 已创建项目</div>
+      <div className="section-title">{t('project.listTitle')}</div>
 
       {/* 搜索 + 排序 */}
       <div className="project-controls">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索项目..."
+          placeholder={t('project.searchPlaceholder')}
         />
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as ProjectSortKey)}
         >
-          {Object.entries(sortLabels).map(([key, label]) => (
+          {Object.entries(sortLabelKeys).map(([key, labelKey]) => (
             <option key={key} value={key}>
-              {label}
+              {t(labelKey)}
             </option>
           ))}
         </select>
@@ -92,7 +94,7 @@ export default function ProjectListPanel({
         filtered.map((project) => {
           const summary = summaries[project.id];
           const isActive = activeProjectId === project.id;
-          const display = getProjectModeDisplay(project);
+          const display = getProjectModeDisplay(project, t);
 
           return (
             <div
@@ -111,10 +113,10 @@ export default function ProjectListPanel({
                 </span>
                 {summary && (
                   <span className="project-card-stats">
-                    <span title="题目数">📝 {summary.questionCount}</span>
-                    <span title="知识库条目">📚 {summary.knowledgeBaseCount}</span>
+                    <span title={t('project.questionCount')}>📝 {summary.questionCount}</span>
+                    <span title={t('project.knowledgeBaseCount')}>📚 {summary.knowledgeBaseCount}</span>
                     {summary.progressPercent > 0 && (
-                      <span title="学习进度">
+                      <span title={t('project.progress')}>
                         {summary.progressPercent}%
                       </span>
                     )}
@@ -127,14 +129,14 @@ export default function ProjectListPanel({
               >
                 <button
                   onClick={() => onRename(project)}
-                  title="重命名"
+                  title={t('common.rename')}
                 >
                   ✏️
                 </button>
                 <button
                   className="danger"
                   onClick={() => onDelete(project)}
-                  title="删除"
+                  title={t('common.delete')}
                 >
                   🗑
                 </button>
@@ -144,7 +146,7 @@ export default function ProjectListPanel({
         })
       ) : (
         <div className="empty-project-hint muted">
-          {search.trim() ? '没有匹配的项目' : '还没有项目，先创建一个课程工作区。'}
+          {search.trim() ? t('project.noMatch') : t('project.noProjectYet')}
         </div>
       )}
     </div>

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { marked } from 'marked';
 import type {
   AgentMessage,
   AppSettings,
@@ -29,9 +28,10 @@ import type {
   WorkspaceTabId
 } from '../lib/types';
 import { defaultSettings, examOptions } from '../lib/types';
-import { sanitizeRichHtml } from '../lib/richContent.js';
+import { renderRichContent } from '../lib/richContent.js';
 import { createEmptyChatGreeting, formatDate, getActiveProviderProfile } from '../lib/utils';
 import { findConfiguredProvider, getSelectableModels } from '../lib/providerSettings.js';
+import { applyTheme, watchSystemTheme } from '../lib/themeManager';
 import { getProjectModeDisplay } from '../lib/projectDisplay';
 import { appendWizardFileList, appendWizardValue, resolveWizardQuestionImportText } from '../lib/wizardImports.js';
 import { buildWizardProjectPayload, canCreateWizardProject, getWizardStepError, validateWizardProject } from '../lib/wizardProject.js';
@@ -53,6 +53,9 @@ import { ModeModulePage } from '../components/modes/ModeModulePage';
 import { ProjectModeSelector } from '../components/modes/ProjectModeSelector';
 import { HelpCenterPage } from '../components/help/HelpCenterPage';
 import ProviderSettingsPage from '../components/settings/ProviderSettingsPage';
+import { I18nProvider, useLocale, useT } from '../i18n';
+import type { Locale } from '../i18n/types';
+import { localizeProjectModeTemplate, localizeProjectModeTemplates } from '../i18n/projectModes';
 
 type ViewMode = 'home' | 'wizard' | 'workspace' | 'settings' | 'export' | 'help';
 type EditorTab = WorkspaceTabId;
@@ -95,23 +98,23 @@ const initialWizardState: WizardState = {
   model: getActiveProviderProfile(defaultSettings).selectedModelId
 };
 
-const wizardFieldLabels: Partial<Record<keyof WizardState, string>> = {
-  textbook: '教材',
-  notes: '备注',
-  requirements: '补充要求',
-  mustKnow: '必考点',
-  keyPoints: '重点知识',
-  initialQuestionText: '初始题目'
+const wizardFieldLabelKeys: Partial<Record<keyof WizardState, string>> = {
+  textbook: 'wizard.textbook',
+  notes: 'wizard.notes',
+  requirements: 'wizard.requirementsLabel',
+  mustKnow: 'wizard.mustKnow',
+  keyPoints: 'wizard.keyPoints',
+  initialQuestionText: 'wizard.initialQuestions'
 };
 
 function isQuestionOrientedMode(mode: ProjectMode) {
   return ['exam-review', 'assignment-quiz', 'teaching-game', 'mistake-collection'].includes(mode);
 }
 
-function getWizardStepLabels(mode: ProjectMode) {
+function getWizardStepLabels(mode: ProjectMode, t: (key: string, params?: Record<string, string | number>) => string) {
   return isQuestionOrientedMode(mode)
-    ? ['项目信息', '出题要求', '题目导入']
-    : ['项目信息', '工作目标', '素材导入'];
+    ? [t('wizard.projectInfo'), t('wizard.requirements'), t('wizard.questionImport')]
+    : [t('wizard.projectInfo'), t('wizard.workGoal'), t('wizard.materialImport')];
 }
 
 type WizardStringField = 'name' | 'courseName' | 'examType' | 'textbook' | 'requirements';
@@ -129,48 +132,13 @@ const specializedModeTabs = new Set<WorkspaceTabId>([
   'mistakes-practice'
 ]);
 
-const homeModeHighlights = projectModeTemplates;
-
-const homeCapabilities = [
-  {
-    title: '学习复习',
-    detail: '期末复习、错题集、个性化资源、学习路径和阶段报告形成复习闭环。'
-  },
-  {
-    title: '论文与科研',
-    detail: '论文助手、科研数据分析、科研创新工作台覆盖选题、文献、数据、创新点和报告。'
-  },
-  {
-    title: '教学设计',
-    detail: '教学设计、互动课件、虚拟教师和学生发展规划支持备课、辅导和培养方案。'
-  },
-  {
-    title: '测评与活动',
-    detail: '作业出题批改、在线测验、教学游戏和知识图谱帮助构建可复用课堂活动。'
-  }
-];
-
-const homeWorkflow = [
-  { title: '配置服务', detail: '先配置 API、模型、MinerU 和 LaTeX 环境。' },
-  { title: '选择模式', detail: '从 16 类项目模式中选择学习、科研、教学或测评方向。' },
-  { title: '生成成果', detail: '在工作台生成资料、题库、课件、图谱、仿真或研究成果。' },
-  { title: '交付导出', detail: '检查交付清单，导出 Markdown 和 JSON 成果包。' }
-];
-
-const topnavShortcuts: Array<{ id: TopnavShortcutId; label: string; title: string }> = [
-  { id: 'modes', label: '项目模式', title: '查看 16 类项目模板并创建新项目' },
-  { id: 'materials', label: '资料识别', title: '进入当前项目的资料上传、图片预览和文档识别' },
-  { id: 'workspace', label: '智能工作台', title: '进入当前项目的核心工作台' },
-  { id: 'delivery', label: '交付中心', title: '检查成果清单并导出交付包' }
-];
-
 function isWizardStringField(key: string): key is WizardStringField {
   return wizardStringFields.has(key as WizardStringField);
 }
 
-function toAgentMessages(project: ProjectDetail | null) {
+function toAgentMessages(project: ProjectDetail | null, t: (key: string, params?: Record<string, string | number>) => string) {
   if (!project?.chatHistory?.length) {
-    return createEmptyChatGreeting(project?.meta.name);
+    return createEmptyChatGreeting(project?.meta.name, t);
   }
   return project.chatHistory.map((turn) => ({
     role: turn.role,
@@ -178,32 +146,6 @@ function toAgentMessages(project: ProjectDetail | null) {
     createdAt: turn.createdAt,
     model: turn.model
   }));
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function renderMarkdown(content: string) {
-  return marked.parse(content, { breaks: true, gfm: true }) as string;
-}
-
-function renderLatexBlocks(content: string) {
-  const withBlockLatex = content.replace(/\$\$([\s\S]+?)\$\$/g, (_match, formula: string) => {
-    return `<div class="latex-block"><code>${escapeHtml(formula.trim())}</code></div>`;
-  });
-  return withBlockLatex.replace(/\$([^$\n]+?)\$/g, (_match, formula: string) => {
-    return `<span class="latex-inline"><code>${escapeHtml(formula.trim())}</code></span>`;
-  });
-}
-
-function renderRichContent(content: string) {
-  return renderLatexBlocks(sanitizeRichHtml(renderMarkdown(content)));
 }
 
 function ChatBubble({ content }: { content: string }) {
@@ -216,6 +158,7 @@ function ChatBubble({ content }: { content: string }) {
 }
 
 function UploadImagePreview({ projectId, upload }: { projectId: string; upload: ProjectSourceFile }) {
+  const { t } = useT();
   const [dataUrl, setDataUrl] = useState('');
   const [failed, setFailed] = useState(false);
 
@@ -243,8 +186,8 @@ function UploadImagePreview({ projectId, upload }: { projectId: string; upload: 
   }, [projectId, upload.kind, upload.storedPath]);
 
   if (upload.kind !== 'image') return null;
-  if (failed) return <div className="upload-image-fallback">图片预览加载失败</div>;
-  if (!dataUrl) return <div className="upload-image-fallback">图片预览加载中...</div>;
+  if (failed) return <div className="upload-image-fallback">{t('workspace.imageLoadFailed')}</div>;
+  if (!dataUrl) return <div className="upload-image-fallback">{t('workspace.imageLoading')}</div>;
 
   return <img className="upload-image-preview" src={dataUrl} alt={upload.name} loading="lazy" />;
 }
@@ -265,14 +208,15 @@ function KnowledgeResourceList({
   resources: KnowledgeResource[];
   onOpen: (resource: KnowledgeResource) => void;
 }) {
+  const { t } = useT();
   return (
     <div className="materials-resource-panel">
       <div className="materials-resource-header">
         <div>
-          <div className="subsection-title">知识点拓展</div>
-          <span className="muted">按当前知识库标签推荐外部资源</span>
+          <div className="subsection-title">{t('workspace.knowledgeExpand')}</div>
+          <span className="muted">{t('workspace.knowledgeResourceDesc')}</span>
         </div>
-        <span className="upload-kind">{resources.length} 条</span>
+        <span className="upload-kind">{resources.length} {t('mode.countUnit')}</span>
       </div>
       <div className="materials-resource-list">
         {resources.map((resource) => (
@@ -283,7 +227,7 @@ function KnowledgeResourceList({
           >
             <div className="materials-resource-card-top">
               <span className="upload-kind">{resource.platform}</span>
-              {resource.read && <em>已读</em>}
+              {resource.read && <em>{t('mode.viewed')}</em>}
             </div>
             <strong className="materials-card-title">{resource.title}</strong>
             <small>{resource.description}</small>
@@ -303,13 +247,14 @@ function FutureModulePage({
   description: string;
   items: string[];
 }) {
+  const { t } = useT();
   return (
     <section className="panel project-single-page future-module-page">
       <div className="page-section-header">
         <div>
           <div className="section-title">{title}</div>
           <h3>{description}</h3>
-          <p className="muted">该模块已预留为独立页面，后续阶段会接入真实数据流和可执行动作。</p>
+          <p className="muted">{t('mode.futureModuleDesc')}</p>
         </div>
       </div>
       <div className="future-module-grid">
@@ -324,22 +269,34 @@ function FutureModulePage({
   );
 }
 
-function formatLatexStatusLabel(latexStatus: {
+function formatLatexStatusLabel(t: (key: string) => string, latexStatus: {
   available: boolean;
   engine: string;
   path: string | null;
   distribution?: string;
   message?: string;
 } | null) {
-  if (!latexStatus) return '检测中';
-  if (!latexStatus.available) return latexStatus.message || '未安装';
+  if (!latexStatus) return t('workspace.latexDetecting');
+  if (!latexStatus.available) return latexStatus.message || t('workspace.latexNotInstalled');
   const engineLabel = latexStatus.distribution && latexStatus.distribution !== 'LaTeX'
     ? latexStatus.distribution
     : latexStatus.engine;
-  return `${latexStatus.message || '配置成功'} · ${engineLabel}`;
+  return `${latexStatus.message || t('workspace.latexConfigured')} · ${engineLabel}`;
 }
 
 export default function App() {
+  const [locale, setLocale] = useState<Locale>(defaultSettings.locale);
+
+  return (
+    <I18nProvider locale={locale} onLocaleChange={setLocale}>
+      <AppContent />
+    </I18nProvider>
+  );
+}
+
+function AppContent() {
+  const { t } = useT();
+  const { locale, setLocale } = useLocale();
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
@@ -353,10 +310,10 @@ export default function App() {
   const [editorTab, setEditorTab] = useState<EditorTab>('overview');
   const [configText, setConfigText] = useState('');
   const [progressText, setProgressText] = useState('');
-  const [status, setStatus] = useState('模型已连接');
+  const [status, setStatus] = useState('');
   const [wizard, setWizard] = useState<WizardState>(initialWizardState);
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
-  const [chatMessages, setChatMessages] = useState<AgentMessage[]>(createEmptyChatGreeting());
+  const [chatMessages, setChatMessages] = useState<AgentMessage[]>(() => createEmptyChatGreeting(undefined, t));
   const [agentInput, setAgentInput] = useState('');
   const [latexStatus, setLatexStatus] = useState<{
     available: boolean;
@@ -374,11 +331,12 @@ export default function App() {
   const [importSource, setImportSource] = useState<'text' | 'file'>('text');
   const [isParsingQuestions, setIsParsingQuestions] = useState(false);
   const [practiceMode, setPracticeMode] = useState<'category' | 'random' | 'wrong'>('category');
-  const [selectedCategory, setSelectedCategory] = useState('全部');
+  const [selectedCategory, setSelectedCategory] = useState('ALL_CATEGORIES');
   const [practiceIndex, setPracticeIndex] = useState(0);
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [answerVisible, setAnswerVisible] = useState(false);
   const [knowledgeResources, setKnowledgeResources] = useState<KnowledgeResource[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{ type: 'upload' | 'knowledge'; id: string; label: string } | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isChoosingLinkedFolder, setIsChoosingLinkedFolder] = useState(false);
   const [wizardFileAction, setWizardFileAction] = useState<string | null>(null);
@@ -403,6 +361,15 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
   }, []);
+
+  // 主题模式初始化与系统变化监听
+  useEffect(() => {
+    applyTheme(settings.themeMode);
+    const unwatch = watchSystemTheme(() => {
+      if (settings.themeMode === 'auto') applyTheme('auto');
+    });
+    return unwatch;
+  }, [settings.themeMode]);
 
   useEffect(() => {
     document.addEventListener('mouseup', captureInternalSelection);
@@ -437,10 +404,11 @@ export default function App() {
       ce.checkLatex()
     ]);
     setSettings(loadedSettings);
+    setLocale(loadedSettings.locale);
     setProjects(loadedProjects);
     setLatexStatus(loadedLatex);
     const activeProfile = getActiveProviderProfile(loadedSettings);
-    setStatus(activeProfile.apiKey ? '模型已连接' : '请先在设置中配置 API Key');
+    setStatus(activeProfile.apiKey ? t('workspace.modelConnected') : t('workspace.configApiKey'));
   }
 
   const currentProvider = useMemo(() => getActiveProviderProfile(settings), [settings]);
@@ -452,17 +420,42 @@ export default function App() {
   const currentModelLabel = useMemo(() => {
     const provider = configuredProvider ?? currentProvider;
     const model = provider.models.find((item) => item.id === provider.selectedModelId);
-    return model?.label || provider.selectedModelId || '未选择模型';
+    return model?.label || provider.selectedModelId || t('common.none');
   }, [configuredProvider, currentProvider]);
   const settingsHasApiKey = Boolean(configuredProvider);
-  const apiStatusLabel = configuredProvider ? configuredProvider.label : 'API Key 未填写';
-  const latexStatusLabel = useMemo(() => formatLatexStatusLabel(latexStatus), [latexStatus]);
-  const selectedWizardTemplate = useMemo(() => getProjectModeTemplate(wizard.mode), [wizard.mode]);
-  const wizardStepLabels = getWizardStepLabels(wizard.mode);
-  const activeProjectTemplate = useMemo(() => getProjectModeTemplate(activeProject?.meta.mode), [activeProject?.meta.mode]);
+  const apiStatusLabel = configuredProvider ? configuredProvider.label : t('workspace.apiKeyMissing');
+  const latexStatusLabel = useMemo(() => formatLatexStatusLabel(t, latexStatus), [latexStatus, t]);
+  const localizedProjectModeTemplates = useMemo(() => localizeProjectModeTemplates(projectModeTemplates, t), [t]);
+  const homeModeHighlights = localizedProjectModeTemplates;
+  const selectedWizardTemplate = useMemo(
+    () => localizeProjectModeTemplate(getProjectModeTemplate(wizard.mode), t),
+    [wizard.mode, t]
+  );
+  const wizardStepLabels = getWizardStepLabels(wizard.mode, t);
+
+  const homeCapabilities = [
+    { title: t('home.studyReview'), detail: t('home.studyReviewDetail') },
+    { title: t('home.research'), detail: t('home.researchDetail') },
+    { title: t('home.teaching'), detail: t('home.teachingDetail') },
+    { title: t('home.assessment'), detail: t('home.assessmentDetail') }
+  ];
+
+  const homeWorkflow = [
+    { title: t('home.configServices'), detail: t('home.configServicesDetail') },
+    { title: t('home.selectMode'), detail: t('home.selectModeDetail') },
+    { title: t('home.generateResults'), detail: t('home.generateResultsDetail') },
+    { title: t('home.delivery'), detail: t('home.deliveryDetail') }
+  ];
+
+  const topnavShortcuts: Array<{ id: TopnavShortcutId; label: string; title: string }> = [
+    { id: 'modes', label: t('modes.projectModes'), title: t('modes.projectModesTitle') },
+    { id: 'materials', label: t('modes.materials'), title: t('modes.materialsTitle') },
+    { id: 'workspace', label: t('modes.smartWorkspace'), title: t('modes.smartWorkspaceTitle') },
+    { id: 'delivery', label: t('modes.deliveryCenter'), title: t('modes.deliveryCenterTitle') }
+  ];
   const activeWorkspaceTabs = useMemo(
-    () => getWorkspaceTabsForMode(activeProject?.meta.mode),
-    [activeProject?.meta.mode]
+    () => localizeProjectModeTemplate(getProjectModeTemplate(activeProject?.meta.mode), t).tabs,
+    [activeProject?.meta.mode, t]
   );
 
   const availableProjectModels = useMemo(() => {
@@ -478,7 +471,7 @@ export default function App() {
       {
         providerId: activeProject.meta.provider,
         id: activeProject.meta.model,
-        label: '当前项目模型（已隐藏）'
+        label: t('project.currentProjectModel')
       }
     ];
   }, [settings.providers, selectableModels, activeProject]);
@@ -512,15 +505,15 @@ export default function App() {
   }, [wizard, isCreatingProject]);
 
   const questionCategories = useMemo(() => {
-    if (!activeProject) return ['全部'];
-    return ['全部', ...Array.from(new Set(activeProject.questions.map((question) => question.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-CN'))];
+    if (!activeProject) return ['ALL_CATEGORIES'];
+    return ['ALL_CATEGORIES', ...Array.from(new Set(activeProject.questions.map((question) => question.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-CN'))];
   }, [activeProject]);
 
   const practiceQuestions = useMemo<ReviewQuestion[]>(() => {
     if (!activeProject) return [];
     const questions = practiceMode === 'wrong'
       ? activeProject.questions.filter((question) => question.wrong)
-      : selectedCategory === '全部'
+      : selectedCategory === 'ALL_CATEGORIES'
         ? activeProject.questions
         : activeProject.questions.filter((question) => question.category === selectedCategory);
     if (practiceMode !== 'random') return questions;
@@ -563,9 +556,9 @@ export default function App() {
     setModeArtifacts(artifacts);
     setConfigText(detail.configYaml);
     setProgressText(detail.progressMarkdown);
-    setChatMessages(toAgentMessages(detail));
+    setChatMessages(toAgentMessages(detail, t));
     setChatSearchQuery('');
-    setStatus(`已进入项目：${detail.meta.name}`);
+    setStatus(t('project.entered', { name: detail.meta.name }));
     setViewMode('workspace');
     setExportResult(null);
     setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
@@ -573,18 +566,18 @@ export default function App() {
   }
 
   async function renameProject(project: ProjectMeta) {
-    const nextName = window.prompt('请输入新的项目名称', project.name);
+    const nextName = window.prompt(t('project.renamePrompt'), project.name);
     if (!nextName?.trim()) return;
     const updatedMeta = await ce.renameProject(project.id, nextName.trim());
     setProjects(await ce.listProjects());
     if (activeProject?.meta.id === project.id) {
       setActiveProject({ ...activeProject, meta: updatedMeta });
     }
-    setStatus(`项目已重命名为：${updatedMeta.name}`);
+    setStatus(t('project.renamed', { name: updatedMeta.name }));
   }
 
   async function deleteProject(project: ProjectMeta) {
-    const confirmed = window.confirm(`确定删除项目「${project.name}」吗？项目内题目、分类、进度和知识库都会移除。`);
+    const confirmed = window.confirm(t('project.confirmDelete', { name: project.name }));
     if (!confirmed) return;
     await ce.deleteProject(project.id);
     setProjects(await ce.listProjects());
@@ -596,11 +589,11 @@ export default function App() {
       setStageReports([]);
       setDeliveryPackage(null);
       setModeArtifacts([]);
-      setChatMessages(createEmptyChatGreeting());
+      setChatMessages(createEmptyChatGreeting(undefined, t));
       setChatSearchQuery('');
       setViewMode('home');
     }
-    setStatus(`已删除项目：${project.name}`);
+    setStatus(t('project.deleted', { name: project.name }));
   }
 
   async function createProject() {
@@ -632,15 +625,15 @@ export default function App() {
       setModeArtifacts(artifacts);
       setConfigText(detail.configYaml);
       setProgressText(detail.progressMarkdown);
-      setChatMessages(toAgentMessages(detail));
+      setChatMessages(toAgentMessages(detail, t));
       setChatSearchQuery('');
       setWizard(initialWizardState);
       setWizardStep(1);
       setViewMode('workspace');
       setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
-      setStatus(`??????${detail.meta.name}`);
+      setStatus(t('project.created', { name: detail.meta.name }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '??????');
+      setStatus(error instanceof Error ? error.message : t('project.createFailed'));
     } finally {
       setIsCreatingProject(false);
     }
@@ -651,7 +644,7 @@ export default function App() {
     try {
       const folder = await ce.selectProjectFolder();
       if (!folder) {
-        setStatus('???????');
+        setStatus(t('workspace.folderNotSelected'));
         return;
       }
       setWizard((current: WizardState) => ({
@@ -659,9 +652,9 @@ export default function App() {
         linkedFolder: folder,
         courseName: current.courseName || folder.split(/[\/]/).filter(Boolean).at(-1) || ''
       }));
-      setStatus(`??????${folder}`);
+      setStatus(t('workspace.folderSelected', { folder }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '??????');
+      setStatus(error instanceof Error ? error.message : t('project.createFailed'));
     } finally {
       setIsChoosingLinkedFolder(false);
     }
@@ -676,14 +669,14 @@ export default function App() {
       provider: activeProfile.id,
       model: activeProfile.selectedModelId || current.model
     }));
-    setStatus('???????');
+    setStatus(t('workspace.settingsSaved'));
     return saved;
   }
 
   async function discardSettings() {
     const loaded = await ce.getSettings();
     setSettings(loaded);
-    setStatus('??????????');
+    setStatus(t('workspace.changesDiscarded'));
     return loaded;
   }
 
@@ -692,23 +685,23 @@ export default function App() {
     const updatedMeta = await ce.updateProjectModel(activeProject.meta.id, model);
     setActiveProject({ ...activeProject, meta: updatedMeta });
     setProjects((current: ProjectMeta[]) => current.map((project) => project.id === updatedMeta.id ? updatedMeta : project));
-    setStatus(`已切换项目聊天模型：${model}`);
+    setStatus(t('project.switchedModel', { model }));
   }
 
   async function saveProjectConfig() {
     if (!activeProject) return;
     await ce.saveProjectConfig(activeProject.meta.id, configText);
-    setStatus(`已保存 ${activeProject.meta.name} 的课程配置`);
+    setStatus(t('project.configSaved', { name: activeProject.meta.name }));
   }
 
   async function saveProjectProgress() {
     if (!activeProject) return;
     await ce.saveProjectProgress(activeProject.meta.id, progressText);
-    setStatus(`已保存 ${activeProject.meta.name} 的学习进度`);
+    setStatus(t('project.progressSaved', { name: activeProject.meta.name }));
   }
 
   async function saveLearningProfile(profile: LearningProfile) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.saveLearningProfile(activeProject.meta.id, profile);
     setLearningProfileState(next);
     setActiveProject({ ...activeProject, learningProfile: next });
@@ -716,7 +709,7 @@ export default function App() {
   }
 
   async function analyzeLearningProfile(input: string) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.analyzeLearningProfile(activeProject.meta.id, input);
     setLearningProfileState(next);
     setActiveProject({ ...activeProject, learningProfile: next });
@@ -724,7 +717,7 @@ export default function App() {
   }
 
   async function generatePersonalizedResources(input: GeneratePersonalizedResourcesInput) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.generatePersonalizedResources(activeProject.meta.id, input);
     setPersonalizedResources(next);
     setActiveProject({ ...activeProject, personalizedResources: next });
@@ -732,7 +725,7 @@ export default function App() {
   }
 
   async function savePersonalizedResource(resource: PersonalizedResource) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.savePersonalizedResource(activeProject.meta.id, resource);
     setPersonalizedResources(next);
     setActiveProject({ ...activeProject, personalizedResources: next });
@@ -740,7 +733,7 @@ export default function App() {
   }
 
   async function deletePersonalizedResource(resourceId: string) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.deletePersonalizedResource(activeProject.meta.id, resourceId);
     setPersonalizedResources(next);
     setActiveProject({ ...activeProject, personalizedResources: next });
@@ -748,7 +741,7 @@ export default function App() {
   }
 
   async function generateLearningPathPlan(input: GenerateLearningPathInput) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.generateLearningPathPlan(activeProject.meta.id, input);
     setLearningPathPlan(next);
     setActiveProject({ ...activeProject, learningPathPlan: next });
@@ -756,7 +749,7 @@ export default function App() {
   }
 
   async function saveLearningPathPlan(plan: LearningPathPlan) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.saveLearningPathPlan(activeProject.meta.id, plan);
     setLearningPathPlan(next);
     setActiveProject({ ...activeProject, learningPathPlan: next });
@@ -764,7 +757,7 @@ export default function App() {
   }
 
   async function generateStageReport() {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.generateStageReport(activeProject.meta.id);
     setStageReports(next);
     setActiveProject({ ...activeProject, stageReports: next });
@@ -772,7 +765,7 @@ export default function App() {
   }
 
   async function saveStageReport(report: StageReport) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.saveStageReport(activeProject.meta.id, report);
     setStageReports(next);
     setActiveProject({ ...activeProject, stageReports: next });
@@ -780,7 +773,7 @@ export default function App() {
   }
 
   async function generateDeliveryPackage() {
-    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.generateDeliveryPackage(activeProject.meta.id);
     setDeliveryPackage(next);
     setActiveProject({ ...activeProject, deliveryPackage: next });
@@ -788,7 +781,7 @@ export default function App() {
   }
 
   async function saveDeliveryPackage(deliveryPackage: DeliveryPackage) {
-    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.saveDeliveryPackage(activeProject.meta.id, deliveryPackage);
     setDeliveryPackage(next);
     setActiveProject({ ...activeProject, deliveryPackage: next });
@@ -796,18 +789,18 @@ export default function App() {
   }
 
   async function exportDeliveryPackage() {
-    if (!activeProject) throw new Error('璇峰厛鎵撳紑椤圭洰');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const result = await ce.exportDeliveryPackage(activeProject.meta.id);
     const next = await ce.getDeliveryPackage(activeProject.meta.id);
     setDeliveryPackage(next);
     setActiveProject({ ...activeProject, deliveryPackage: next });
     setExportResult(result);
-    setStatus(`成果交付包已导出：${result.markdownPath}`);
+    setStatus(t('project.deliveryExported', { path: result.markdownPath }));
     return result;
   }
 
   async function generateModeArtifact(input: GenerateModeArtifactInput) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.generateModeArtifact(activeProject.meta.id, input);
     setModeArtifacts(next);
     setActiveProject({ ...activeProject, modeArtifacts: next });
@@ -815,7 +808,7 @@ export default function App() {
   }
 
   async function saveModeArtifact(artifact: ModeArtifact) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.saveModeArtifact(activeProject.meta.id, artifact);
     setModeArtifacts(next);
     setActiveProject({ ...activeProject, modeArtifacts: next });
@@ -823,7 +816,7 @@ export default function App() {
   }
 
   async function deleteModeArtifact(artifactId: string) {
-    if (!activeProject) throw new Error('请先打开项目');
+    if (!activeProject) throw new Error(t('common.openProjectFirst'));
     const next = await ce.deleteModeArtifact(activeProject.meta.id, artifactId);
     setModeArtifacts(next);
     setActiveProject({ ...activeProject, modeArtifacts: next });
@@ -837,17 +830,17 @@ export default function App() {
     const uploads = await ce.importProjectFiles(activeProject.meta.id, selected);
     setActiveProject({ ...activeProject, uploads });
     const imageCount = uploads.filter((upload: ProjectSourceFile) => upload.kind === 'image').length;
-    setStatus(`已导入 ${selected.length} 个素材；当前共 ${uploads.length} 条，其中图片 ${imageCount} 条。`);
+    setStatus(t('project.filesImported', { selected: String(selected.length), total: String(uploads.length), images: String(imageCount) }));
   }
 
   async function previewTextQuestions() {
     if (!questionText.trim()) return;
     setIsParsingQuestions(true);
     try {
-      const drafts = await ce.previewQuestionsFromText(questionText, 'text', '文本粘贴');
+      const drafts = await ce.previewQuestionsFromText(questionText, 'text', t('project.textPasteSource'));
       setQuestionDrafts(drafts);
       setImportSource('text');
-      setStatus(`已识别 ${drafts.length} 道题目，可在预览区修正后入库。`);
+      setStatus(t('project.textQuestionsParsed', { count: String(drafts.length) }));
     } finally {
       setIsParsingQuestions(false);
     }
@@ -861,7 +854,7 @@ export default function App() {
       const drafts = await ce.previewQuestionsFromFiles(selected);
       setQuestionDrafts(drafts);
       setImportSource('file');
-      setStatus(`已从 ${selected.length} 个文件/图片中识别 ${drafts.length} 道题目，可修正后入库。`);
+      setStatus(t('project.fileQuestionsParsed', { files: String(selected.length), count: String(drafts.length) }));
     } finally {
       setIsParsingQuestions(false);
     }
@@ -874,7 +867,7 @@ export default function App() {
     setQuestionDrafts([]);
     setQuestionText('');
     setEditorTab('practice');
-    setStatus(`已写入 ${questions.length} 道题目，题库按知识点和题型自动归档。`);
+    setStatus(t('project.questionsWritten', { count: String(questions.length) }));
   }
 
   function updateQuestionDraft(index: number, patch: Partial<QuestionDraft>) {
@@ -898,6 +891,19 @@ export default function App() {
     const resources = await ce.openKnowledgeResource(activeProject.meta.id, resource);
     setActiveProject({ ...activeProject, resources });
     setKnowledgeResources((current) => current.map((item) => item.id === resource.id ? { ...item, read: true } : item));
+  }
+
+  async function confirmDelete() {
+    if (!activeProject || !pendingDelete) return;
+    if (pendingDelete.type === 'upload') {
+      const uploads = await ce.deleteUpload(activeProject.meta.id, pendingDelete.id);
+      setActiveProject({ ...activeProject, uploads });
+    } else {
+      const knowledgeBase = await ce.deleteKnowledgeBaseEntry(activeProject.meta.id, pendingDelete.id);
+      setActiveProject({ ...activeProject, knowledgeBase });
+    }
+    setStatus(t('project.deletedItem', { label: pendingDelete.label }));
+    setPendingDelete(null);
   }
 
   function clearSelectionAsk() {
@@ -948,11 +954,11 @@ export default function App() {
 
   function askAiAboutSelection() {
     if (!activeProject || !selectionAsk?.text) {
-      showToast('请先打开项目，再框选内容提问');
+      showToast(t('project.openProjectFirstAsk'));
       clearSelectionAsk();
       return;
     }
-    setAgentInput(`请结合当前项目解释这段内容，并给出可以继续追问的方向：\n\n${selectionAsk.text}`);
+    setAgentInput(t('project.selectionAskPrompt', { text: selectionAsk.text }));
     setAiDrawerOpen(true);
     setAiTab('chat');
     clearSelectionAsk();
@@ -960,10 +966,10 @@ export default function App() {
   }
 
   function continueFromHistory(turn: AgentMessage | ChatTurn) {
-    setAgentInput(`继续基于这条历史对话追问：\n\n${turn.content}\n\n我的新问题是：`);
+    setAgentInput(t('project.continueFromHistory', { content: turn.content }));
     setAiDrawerOpen(true);
     setAiTab('chat');
-    showToast('已载入历史内容，可继续追问');
+    showToast(t('project.historyLoaded'));
   }
 
   async function exportProject() {
@@ -971,13 +977,13 @@ export default function App() {
     const result = await ce.exportProject(activeProject.meta.id);
     setExportResult(result);
     setViewMode('export');
-    setStatus(`已导出 ${activeProject.meta.name}`);
+    setStatus(t('project.exported', { name: activeProject.meta.name }));
   }
 
   async function importProjectArchive() {
     const detail = await ce.importProjectArchive();
     if (!detail) {
-      showToast('已取消导入项目');
+      showToast(t('project.importCancelled'));
       return;
     }
     const profileState = detail.learningProfile ?? await ce.getLearningProfile(detail.meta.id);
@@ -997,14 +1003,14 @@ export default function App() {
     setModeArtifacts(artifacts);
     setConfigText(detail.configYaml);
     setProgressText(detail.progressMarkdown);
-    setChatMessages(toAgentMessages(detail));
+    setChatMessages(toAgentMessages(detail, t));
     setChatSearchQuery('');
     setProjects(nextProjects);
     setExportResult(null);
     setEditorTab(getWorkspaceTabsForMode(detail.meta.mode)[0]?.id ?? 'overview');
     setViewMode('workspace');
-    setStatus(`已导入项目：${detail.meta.name}`);
-    showToast('项目导入完成，已恢复到本机项目列表');
+    setStatus(t('project.imported', { name: detail.meta.name }));
+    showToast(t('project.importComplete'));
   }
 
   async function runProjectChat() {
@@ -1022,9 +1028,9 @@ export default function App() {
       setActiveProject({ ...activeProject, chatHistory: result.history });
       setAgentInput('');
       if (!aiDrawerOpen) setAiDrawerOpen(true);
-      setStatus(`已使用 ${activeProject.meta.model} 完成一轮项目对话`);
+      setStatus(t('project.chatCompleted', { model: activeProject.meta.model }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '项目对话失败');
+      setStatus(error instanceof Error ? error.message : t('project.chatFailed'));
     } finally {
       setIsChatSending(false);
     }
@@ -1038,7 +1044,7 @@ export default function App() {
     const draft = await ce.draftKnowledgeBaseEntry(activeProject.meta.id, 'chat', {
       title: agentInput.trim().slice(0, 24) || latestAssistant?.content.slice(0, 24),
       content: sourceContent,
-      fallbackTags: ['聊天沉淀']
+      fallbackTags: [t('project.chatArchiveTag')]
     });
     const entry = await ce.addKnowledgeBaseEntry(activeProject.meta.id, {
       title: draft.title,
@@ -1052,7 +1058,7 @@ export default function App() {
       knowledgeBase: [entry, ...activeProject.knowledgeBase]
     });
     setKnowledgeQuery('');
-    setStatus(`已将聊天结论整理后写入当前项目独立知识库；当前共 ${activeProject.knowledgeBase.length + 1} 条。`);
+    setStatus(t('project.chatSavedToKb', { count: String(activeProject.knowledgeBase.length + 1) }));
   }
 
   async function saveUploadToKnowledgeBase(upload: ProjectSourceFile) {
@@ -1060,7 +1066,7 @@ export default function App() {
     const draft = await ce.draftKnowledgeBaseEntry(activeProject.meta.id, 'upload', {
       title: upload.parsed.title,
       content: upload.parsed.extractedText,
-      fallbackTags: [upload.kind === 'image' ? '图片解析' : '文件解析', '上传沉淀']
+      fallbackTags: [upload.kind === 'image' ? t('project.imageParseTag') : t('project.fileParseTag'), t('project.uploadArchiveTag')]
     });
     const entry = await ce.addKnowledgeBaseEntry(activeProject.meta.id, {
       title: draft.title,
@@ -1074,7 +1080,7 @@ export default function App() {
       knowledgeBase: [entry, ...activeProject.knowledgeBase]
     });
     setKnowledgeQuery('');
-    setStatus(`已将 ${upload.name} 的解析内容整理后写入项目知识库；当前共 ${activeProject.knowledgeBase.length + 1} 条。`);
+    setStatus(t('project.uploadSavedToKb', { name: upload.name, count: String(activeProject.knowledgeBase.length + 1) }));
   }
 
   function updateWizard<K extends keyof WizardState>(key: K, value: WizardState[K]) {
@@ -1117,8 +1123,10 @@ export default function App() {
         <label key={field.key} className="wizard-mode-field">
           {field.label}
           <select value={value} onChange={(event) => setFieldValue(event.target.value)}>
-            <option value="">请选择</option>
-            {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+            <option value="">{t('wizard.selectPlaceholder')}</option>
+            {(field.options ?? []).map((option, index) => (
+              <option key={option} value={option}>{field.optionLabels?.[index] ?? option}</option>
+            ))}
           </select>
         </label>
       );
@@ -1149,48 +1157,48 @@ export default function App() {
   }
 
   async function appendWizardFiles<K extends keyof WizardState>(key: K, separator = '\n') {
-    const actionLabel = wizardFieldLabels[key] || '文件';
+    const actionLabel = t(wizardFieldLabelKeys[key] || 'wizard.textbook') || t('wizard.defaultFile');
     setWizardFileAction(String(key));
     try {
       const files = await selectWizardFiles();
       if (!files.length) {
-        setStatus(`已取消上传${actionLabel}`);
+        setStatus(t('wizard.cancelUploadFile', { label: actionLabel }));
         return;
       }
       setWizard((current: WizardState) => ({
         ...current,
         [key]: appendWizardFileList(String(current[key] ?? ''), files, separator)
       }));
-      setStatus(`已为${actionLabel}添加 ${files.length} 个文件`);
+      setStatus(t('wizard.filesAdded', { label: actionLabel, count: String(files.length) }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : `上传${actionLabel}失败`);
+      setStatus(error instanceof Error ? error.message : t('wizard.uploadFailed', { label: actionLabel }));
     } finally {
       setWizardFileAction(null);
     }
   }
 
   async function appendWizardTextFiles<K extends keyof WizardState>(key: K, separator = '\n') {
-    const actionLabel = wizardFieldLabels[key] || '文本';
+    const actionLabel = t(wizardFieldLabelKeys[key] || 'wizard.notes') || t('wizard.defaultText');
     setWizardFileAction(String(key));
     try {
       const files = await selectWizardFiles();
       if (!files.length) {
-        setStatus(`已取消导入${actionLabel}`);
+        setStatus(t('wizard.cancelImportText', { label: actionLabel }));
         return;
       }
       const texts = await Promise.all(files.map((filePath: string) => ce.extractFileText(filePath)));
       const importedText = texts.filter(Boolean).join(separator);
       if (!importedText.trim()) {
-        setStatus(`${actionLabel}文件内容为空`);
+        setStatus(t('wizard.textFileEmpty', { label: actionLabel }));
         return;
       }
       setWizard((current: WizardState) => ({
         ...current,
         [key]: appendWizardValue(String(current[key] ?? ''), importedText, separator)
       }));
-      setStatus(`已为${actionLabel}导入 ${files.length} 个文件`);
+      setStatus(t('wizard.textFilesImported', { label: actionLabel, count: String(files.length) }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : `导入${actionLabel}失败`);
+      setStatus(error instanceof Error ? error.message : t('wizard.importTextFailed', { label: actionLabel }));
     } finally {
       setWizardFileAction(null);
     }
@@ -1201,7 +1209,7 @@ export default function App() {
     try {
       const files = await selectWizardFiles();
       if (!files.length) {
-        setStatus('已取消导入题目文件');
+        setStatus(t('wizard.cancelImportQuestions'));
         return;
       }
 
@@ -1216,16 +1224,16 @@ export default function App() {
       }
 
       if (!importedText.trim()) {
-        setStatus('题目文件为空或暂时无法读取');
+        setStatus(t('wizard.questionFileEmpty'));
         return;
       }
       setWizard((current: WizardState) => ({
         ...current,
         initialQuestionText: appendWizardValue(current.initialQuestionText, importedText, '\n\n')
       }));
-      setStatus(`已导入 ${files.length} 个题目文件`);
+      setStatus(t('wizard.questionFilesImported', { count: String(files.length) }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : '导入题目文件失败');
+      setStatus(error instanceof Error ? error.message : t('wizard.importQuestionFailed'));
     } finally {
       setWizardFileAction(null);
     }
@@ -1235,21 +1243,21 @@ export default function App() {
     if (!activeProject) return;
     const latestAssistant = [...chatMessages].reverse().find(m => m.role === 'assistant');
     if (!latestAssistant?.content?.trim()) {
-      showToast('没有可用的 AI 回复来提取题目');
+      showToast(t('project.noAiReply'));
       return;
     }
     void (async () => {
       try {
-        const drafts = await ce.previewQuestionsFromText(latestAssistant.content, 'text', 'AI 对话提取');
+        const drafts = await ce.previewQuestionsFromText(latestAssistant.content, 'text', t('project.aiChatExtract'));
         if (!drafts.length) {
-          showToast('未能从对话中识别出题目格式');
+          showToast(t('project.noQuestionsFound'));
           return;
         }
         const questions = await ce.addQuestions(activeProject.meta.id, drafts);
         setActiveProject({ ...activeProject, questions });
-        showToast(`已从对话中提取 ${questions.length} 道题目到题库`);
+        showToast(t('project.questionsExtracted', { count: String(questions.length) }));
       } catch (e) {
-        showToast(e instanceof Error ? e.message : '提取题目失败');
+        showToast(e instanceof Error ? e.message : t('project.extractFailed'));
       }
     })();
   }
@@ -1259,31 +1267,31 @@ export default function App() {
       const latex = await ce.checkLatex();
       const settingsData = await ce.getSettings();
       const msg = [
-        `LaTeX: ${formatLatexStatusLabel(latex)}`,
-        `API 配置: ${findConfiguredProvider(settingsData.providers, settingsData.activeProviderId) ? '已配置' : 'API Key 未填写'}`,
-        `模型: ${settingsData.model}`,
-        `可用模型数: ${settingsData.availableModels.length}`,
-        `项目数: ${projects.length}`,
+        `LaTeX: ${formatLatexStatusLabel(t, latex)}`,
+        `API: ${findConfiguredProvider(settingsData.providers, settingsData.activeProviderId) ? t('settings.enabled') : t('workspace.apiKeyMissing')}`,
+        `${t('workspace.model')}: ${settingsData.model}`,
+        `${t('project.modelCount')}: ${settingsData.availableModels.length}`,
+        `${t('project.projectCount')}: ${projects.length}`,
       ].join('\n');
-      window.alert('系统状态\n' + msg);
+      window.alert(t('workspace.systemStatus') + '\n' + msg);
     } catch {
-      window.alert('系统状态\n无法获取完整状态信息');
+      window.alert(t('project.statusUnavailable'));
     }
   }
 
   function openApiReference() {
-    window.alert('API 接口\n\nCram Engine 使用本地 Electron IPC 通信，不暴露外部 HTTP API。\n\n所有数据存储在应用本地数据目录。\n\n如需集成外部模型服务，请在设置中配置 Provider。');
+    window.alert(t('project.apiRefTitle') + '\n\n' + t('project.apiRefBody'));
   }
 
   function openDocumentation() {
     setViewMode('help');
-    showToast('已打开帮助中心');
+    showToast(t('project.helpCenterOpened'));
   }
 
   function openAgentTarget(tab: 'profile' | 'resources' | 'path' | 'report' | 'delivery') {
     if (tab === 'profile') {
       setViewMode('settings');
-      showToast('用户画像已迁移到 设置 → 全局能力');
+      showToast(t('project.profileMovedToSettings'));
       return;
     }
     setViewMode('workspace');
@@ -1294,40 +1302,40 @@ export default function App() {
     switch (shortcutId) {
       case 'modes':
         setViewMode('home');
-        showToast('已打开 16 类项目模式');
+        showToast(t('project.modesOpened'));
         return;
       case 'materials':
         if (!activeProject) {
           setViewMode('wizard');
           setWizardStep(1);
-          showToast('请先创建项目，再上传和识别资料');
+          showToast(t('project.createProjectFirst'));
           return;
         }
         setViewMode('workspace');
         setEditorTab('materials');
-        showToast('已打开资料识别与素材页');
+        showToast(t('project.materialsOpened'));
         return;
       case 'workspace':
         if (!activeProject) {
           setViewMode('wizard');
           setWizardStep(1);
-          showToast('请先创建项目，再进入智能工作台');
+          showToast(t('project.createProjectFirstWorkspace'));
           return;
         }
         setViewMode('workspace');
         setEditorTab('overview');
-        showToast('已打开智能工作台');
+        showToast(t('project.workspaceOpened'));
         return;
       case 'delivery':
         if (!activeProject) {
           setViewMode('wizard');
           setWizardStep(1);
-          showToast('请先创建项目，再进入交付中心');
+          showToast(t('project.createProjectFirstDelivery'));
           return;
         }
         setViewMode('workspace');
         setEditorTab('delivery');
-        showToast('已打开交付中心');
+        showToast(t('project.deliveryOpened'));
         return;
       default:
         setViewMode('home');
@@ -1337,6 +1345,22 @@ export default function App() {
   /* ================================================================
      RENDER — Scholar's Study 布局
      ================================================================ */
+
+  function handleLocaleChange(newLocale: Locale) {
+    setLocale(newLocale);
+    setSettings((current) => {
+      const nextSettings = { ...current, locale: newLocale };
+      void ce.saveSettings(nextSettings)
+        .then((saved: AppSettings) => {
+          setSettings((latest) => latest.locale === newLocale ? saved : latest);
+        })
+        .catch(() => {
+          setStatus(t('settings.saveFailed'));
+        });
+      return nextSettings;
+    });
+  }
+
   return (
     <div className="shell">
       {/* ---- 顶部导航栏 ---- */}
@@ -1351,10 +1375,10 @@ export default function App() {
             <input
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="搜索资源、笔记、题目..."
+              placeholder={t('project.globalSearchPlaceholder')}
             />
           </div>
-          <nav className="topnav-shortcuts" aria-label="全局快捷入口">
+          <nav className="topnav-shortcuts" aria-label={t('project.globalNavAria')}>
             {topnavShortcuts.map((shortcut) => {
               const active =
                 (shortcut.id === 'modes' && viewMode === 'home') ||
@@ -1376,10 +1400,10 @@ export default function App() {
           </nav>
         </div>
         <div className="topnav-right">
-          <button onClick={() => setAiDrawerOpen((v) => !v)} title="AI 助手">
+          <button onClick={() => setAiDrawerOpen((v) => !v)} title={t('project.aiAssistant')}>
             {aiDrawerOpen ? '▶' : '◀'}
           </button>
-          <button onClick={() => { setNotificationCount(0); showToast(`已清空通知 | 共 ${projects.length} 个项目，${activeProject ? activeProject.questions.length : 0} 道活跃题目`); }} title="通知" style={{ position: 'relative' }}>
+          <button onClick={() => { setNotificationCount(0); showToast(t('project.notificationsCleared', { projects: String(projects.length), questions: String(activeProject ? activeProject.questions.length : 0) })); }} title={t('project.notifications')} style={{ position: 'relative' }}>
             &#x1F514;
             {notificationCount > 0 && (
               <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', background: '#ba1a1a' }} />
@@ -1398,25 +1422,25 @@ export default function App() {
               onClick={() => { setViewMode('wizard'); setWizardStep(1); }}
               style={{ width: '100%', padding: '10px', fontSize: '14px' }}
             >
-              + 新建项目
+              {t('nav.newProject')}
             </button>
             <button
               className="sidebar-secondary-action"
               onClick={() => void importProjectArchive()}
             >
-              导入项目
+              {t('nav.importProject')}
             </button>
           </div>
 
           <nav className="sidebar-nav">
             <a className={viewMode === 'home' ? 'active' : ''} onClick={() => setViewMode('home')}>
-              <span className="nav-icon">&#x2302;</span> 首页
+              <span className="nav-icon">&#x2302;</span> {t('nav.home')}
             </a>
             <a className={viewMode === 'workspace' ? 'active' : ''} onClick={() => activeProject && setViewMode('workspace')}>
-              <span className="nav-icon">&#x270E;</span> 工作台
+              <span className="nav-icon">&#x270E;</span> {t('nav.workspace')}
             </a>
             <a className={viewMode === 'export' ? 'active' : ''} onClick={() => activeProject && setViewMode('export')}>
-              <span className="nav-icon">&#x21AA;</span> 导出
+              <span className="nav-icon">&#x21AA;</span> {t('nav.export')}
             </a>
           </nav>
 
@@ -1434,10 +1458,10 @@ export default function App() {
           <div className="sidebar-section" style={{ marginTop: 'auto' }}>
             <nav className="sidebar-nav">
               <a className={viewMode === 'settings' ? 'active' : ''} onClick={() => setViewMode('settings')}>
-                <span className="nav-icon">&#x2699;</span> 设置
+                <span className="nav-icon">&#x2699;</span> {t('nav.settings')}
               </a>
               <a className={viewMode === 'help' ? 'active' : ''} onClick={() => setViewMode('help')}>
-                <span className="nav-icon">?</span> 帮助与支持
+                <span className="nav-icon">?</span> {t('nav.helpSupport')}
               </a>
             </nav>
             <div className="status-card" style={{ padding: '10px', fontSize: '11px', marginTop: '8px' }}>
@@ -1463,34 +1487,33 @@ export default function App() {
                 <section className="home-hero">
                   <div className="home-hero-copy">
                     <span className="upload-kind">Cram Engine Desktop</span>
-                    <h1>学习、科研、教学与测评的一体化工作台</h1>
+                    <h1>{t('home.heroTitle')}</h1>
                     <p>
-                      从 API 配置、资料识别和项目创建开始，到论文助手、实验仿真、教学设计、在线测验、
-                      知识图谱、错题整理和成果交付，所有功能都围绕真实项目流转。
+                      {t('home.heroDesc')}
                     </p>
                     <div className="home-hero-actions">
                       <button className="primary" onClick={() => { setViewMode('wizard'); setWizardStep(1); }}>
-                        新建项目
+                        {t('home.newProjectCta')}
                       </button>
                       <button onClick={() => setViewMode('help')}>
-                        查看完整指南
+                        {t('home.viewGuide')}
                       </button>
                     </div>
                   </div>
-                  <div className="home-hero-panel" aria-label="平台能力摘要">
-                    <strong>16 类项目模式</strong>
-                    <span>学习复习 / 论文科研 / 教学设计 / 测评活动 / 成果交付</span>
+                  <div className="home-hero-panel" aria-label={t('home.platformAria')}>
+                    <strong>{t('home.modeHighlights')}</strong>
+                    <span>{t('home.modeCategories')}</span>
                     <div className="home-hero-metrics">
-                      <div><b>{projectModeTemplates.length}</b><small>项目模式</small></div>
-                      <div><b>39</b><small>交付定义</small></div>
-                      <div><b>{projects.length}</b><small>本地项目</small></div>
+                      <div><b>{projectModeTemplates.length}</b><small>{t('home.modeCount')}</small></div>
+                      <div><b>39</b><small>{t('home.deliveryCount')}</small></div>
+                      <div><b>{projects.length}</b><small>{t('home.localProjectCount')}</small></div>
                     </div>
                   </div>
                 </section>
 
                 <section>
                   <div className="section-header">
-                    <h3>从配置到交付</h3>
+                    <h3>{t('home.fromConfigToDelivery')}</h3>
                     <span className="view-all">WORKFLOW</span>
                   </div>
                   <div className="home-workflow-grid">
@@ -1506,7 +1529,7 @@ export default function App() {
 
                 <section>
                   <div className="section-header">
-                    <h3>核心能力</h3>
+                    <h3>{t('home.coreCapabilities')}</h3>
                     <span className="view-all">CAPABILITIES</span>
                   </div>
                   <div className="home-capability-grid">
@@ -1521,8 +1544,8 @@ export default function App() {
 
                 <section>
                   <div className="section-header">
-                    <h3>选择项目模式</h3>
-                    <span className="view-all">点击即可预选模式</span>
+                    <h3>{t('home.selectProjectMode')}</h3>
+                    <span className="view-all">{t('home.clickToPreselect')}</span>
                   </div>
                   <div className="home-mode-grid">
                     {homeModeHighlights.map((template) => (
@@ -1545,15 +1568,15 @@ export default function App() {
 
                 <section>
                   <div className="section-header">
-                    <h3>最近项目</h3>
-                    <span className="view-all" onClick={() => { setShowAllProjects(!showAllProjects); showToast(showAllProjects ? '收起项目列表' : '展开全部项目'); }} style={{ cursor: 'pointer' }}>
-                      {showAllProjects ? '收起列表 &uarr;' : '查看全部存档 &rarr;'}
+                    <h3>{t('home.recentProjects')}</h3>
+                    <span className="view-all" onClick={() => { setShowAllProjects(!showAllProjects); showToast(showAllProjects ? t('home.collapseProjectList') : t('home.expandProjectList')); }} style={{ cursor: 'pointer' }}>
+                      {showAllProjects ? t('home.collapseList') : t('home.viewAllArchives')}
                     </span>
                   </div>
                   <div className="home-recent-grid">
                     {projects.slice(0, showAllProjects ? projects.length : 3).map((project) => {
                       const summary = projectSummaries[project.id];
-                      const display = getProjectModeDisplay(project);
+                      const display = getProjectModeDisplay(project, t);
                       return (
                         <div
                           key={project.id}
@@ -1581,7 +1604,7 @@ export default function App() {
                             {summary && summary.questionCount > 0 && (
                               <>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, color: 'var(--color-on-surface-variant)', marginBottom: '4px' }}>
-                                  <span>掌握度</span>
+                                  <span>{t('app.mastery')}</span>
                                   <span>{summary.progressPercent}%</span>
                                 </div>
                                 <div className="progress-bar-fill" style={{ height: '4px' }}>
@@ -1591,7 +1614,7 @@ export default function App() {
                             )}
                             {summary && summary.questionCount === 0 && (
                               <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>
-                                暂未导入题目
+                                {t('app.noQuestionsImported')}
                               </p>
                             )}
                           </div>
@@ -1624,10 +1647,10 @@ export default function App() {
                         </div>
                         <div style={{ padding: '14px', textAlign: 'center' }}>
                           <h5 style={{ fontWeight: 700, fontSize: '14px', color: 'var(--color-on-surface-variant)' }}>
-                            开始新课题
+                            {t('app.startNewTopic')}
                           </h5>
                           <p style={{ fontSize: '10px', color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>
-                            上传资料或从知识库选择
+                            {t('app.startNewTopicDesc')}
                           </p>
                         </div>
                       </div>
@@ -1641,8 +1664,8 @@ export default function App() {
             {viewMode === 'settings' && (
               <div className="page-stack">
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>设置</h2>
-                  <p className="muted">配置模型服务、默认模型和生成偏好。</p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>{t('settings.title')}</h2>
+                  <p className="muted">{t('app.settingsDesc')}</p>
                 </div>
                 <ProviderSettingsPage
                   initialSettings={settings}
@@ -1651,16 +1674,16 @@ export default function App() {
                   workspaceOverview={activeProject ? (
                     <div className="settings-governance-content">
                       <div className="settings-governance-note">
-                        <strong>当前项目：{activeProject.meta.name}</strong>
-                        <span>这里仅展示全局能力与当前项目的联动摘要；详细编辑请切换到“学习画像”或“智能体中心”。</span>
+                        <strong>{t('app.currentProjectNamed', { name: activeProject.meta.name })}</strong>
+                        <span>{t('app.workspaceSummary')}</span>
                       </div>
                       <div className="workspace-governance-summary">
-                        <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
-                        <div><span>题库</span><strong>{activeProject.questions.length}</strong></div>
-                        <div><span>个性化资源</span><strong>{personalizedResources.length}</strong></div>
-                        <div><span>阶段报告</span><strong>{stageReports.length}</strong></div>
-                        <div><span>学习路径</span><strong>{learningPathPlan ? '已生成' : '未生成'}</strong></div>
-                        <div><span>画像状态</span><strong>{learningProfileState?.profile.updatedAt ? '已更新' : '待完善'}</strong></div>
+                        <div><span>{t('app.uploads')}</span><strong>{activeProject.uploads.length}</strong></div>
+                        <div><span>{t('app.questionBank')}</span><strong>{activeProject.questions.length}</strong></div>
+                        <div><span>{t('app.personalizedResources')}</span><strong>{personalizedResources.length}</strong></div>
+                        <div><span>{t('app.stageReports')}</span><strong>{stageReports.length}</strong></div>
+                        <div><span>{t('app.learningPath')}</span><strong>{learningPathPlan ? t('app.generated') : t('app.notGenerated')}</strong></div>
+                        <div><span>{t('app.profileStatus')}</span><strong>{learningProfileState?.profile.updatedAt ? t('app.updated') : t('app.incomplete')}</strong></div>
                       </div>
                     </div>
                   ) : undefined}
@@ -1703,7 +1726,7 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
                 <div style={{ textAlign: 'center' }}>
                   <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '16px' }}>
-                    新建项目向导
+                    {t('app.newProjectWizard')}
                   </h2>
                   {/* Step 指示器 */}
                   <div className="wizard-stepper">
@@ -1726,12 +1749,12 @@ export default function App() {
                     <div className="wizard-form-stack">
                       <ProjectModeSelector selectedMode={wizard.mode} onSelect={selectProjectMode} />
                       <label className="wizard-mode-field wide">
-                        项目名称
-                        <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder="例如：计算机系统结构 101" />
+                        {t('app.projectName')}
+                        <input value={wizard.name} onChange={(e) => updateWizard('name', e.target.value)} placeholder={t('app.projectNamePlaceholder')} />
                       </label>
                       <div className="wizard-common-field-grid">
                         <label className="wizard-mode-field wide">
-                          AI Provider / 模型
+                          {t('app.providerModel')}
                           <select
                             value={`${wizard.provider}:${wizard.model}`}
                             onChange={(e) => {
@@ -1750,23 +1773,23 @@ export default function App() {
                       </div>
                       {wizard.mode === 'exam-review' && (
                         <label className="wizard-mode-field wide">
-                          教材 / 范围
+                          {t('app.textbookRange')}
                           <div className="wizard-input-row align-start">
                             <textarea
                               rows={4}
                               value={wizard.textbook}
                               onChange={(e) => updateWizard('textbook', e.target.value)}
-                              placeholder="填写教材、章节或考试范围"
+                              placeholder={t('app.textbookRangePlaceholder')}
                             />
-                            <button disabled={wizardFileAction === 'textbook'} onClick={() => void appendWizardFiles('textbook', '; ')} title="上传教材或范围文件">📎 上传文件</button>
+                            <button disabled={wizardFileAction === 'textbook'} onClick={() => void appendWizardFiles('textbook', '; ')} title={t('app.uploadTextbook')}>📎 {t('app.uploadFile')}</button>
                           </div>
                         </label>
                       )}
                       <label className="wizard-mode-field wide">
-                        链接现有项目目录（可选）
+                        {t('app.linkedFolder')}
                         <div className="wizard-input-row">
-                          <input value={wizard.linkedFolder} onChange={(e) => updateWizard('linkedFolder', e.target.value)} placeholder="已有 stages/configs/progress 资料" />
-                          <button className="wizard-secondary-action" disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()}>📁 选择目录</button>
+                          <input value={wizard.linkedFolder} onChange={(e) => updateWizard('linkedFolder', e.target.value)} placeholder={t('app.linkedFolderPlaceholder')} />
+                          <button className="wizard-secondary-action" disabled={isChoosingLinkedFolder} onClick={() => void chooseLinkedFolder()}>📁 {t('app.selectFolder')}</button>
                         </div>
                       </label>
                     </div>
@@ -1778,35 +1801,35 @@ export default function App() {
                   <div className="panel" style={{ width: '100%' }}>
                     <div className="wizard-form-stack">
                       <label className="wizard-mode-field wide">
-                        {wizard.mode === 'exam-review' ? '补充要求' : '项目目标 / 补充要求'}
+                        {wizard.mode === 'exam-review' ? t('app.additionalRequirements') : t('app.projectGoalsRequirements')}
                         <div className="wizard-input-row align-start">
-                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? '例如：多用中文例子；重点讲简答题套路' : '说明项目目标、期望成果和其他约束'} />
-                          <button className="wizard-icon-action" disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} title="从文本文件导入">📎</button>
+                          <textarea rows={5} value={wizard.requirements} onChange={(e) => updateWizard('requirements', e.target.value)} placeholder={wizard.mode === 'exam-review' ? t('app.examRequirementsPlaceholder') : t('app.projectGoalsPlaceholder')} />
+                          <button className="wizard-icon-action" disabled={wizardFileAction === 'requirements'} onClick={() => void appendWizardTextFiles('requirements')} title={t('app.importTextFile')}>📎</button>
                         </div>
                       </label>
                       {isQuestionOrientedMode(wizard.mode) && (
                         <label className="wizard-mode-field wide">
-                          课堂材料 / 参考资料
+                          {t('app.classMaterials')}
                           <div className="wizard-input-row align-start">
-                            <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder="说明已有讲义、题库、参考文件和资料来源" />
-                            <button className="wizard-icon-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} title="上传课堂材料或参考资料">📎</button>
+                            <textarea rows={5} value={wizard.notes} onChange={(e) => updateWizard('notes', e.target.value)} placeholder={t('app.classMaterialsPlaceholder')} />
+                            <button className="wizard-icon-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')} title={t('app.uploadClassMaterials')}>📎</button>
                           </div>
                         </label>
                       )}
                       {wizard.mode === 'exam-review' && (
                         <>
                           <label className="wizard-mode-field wide">
-                            必考点（每行一个）
+                            {t('app.mustKnowLines')}
                             <div className="wizard-input-row align-start">
-                              <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder="老师明确强调的必考点" />
-                              <button className="wizard-icon-action" disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} title="从文本文件导入必考点">📎</button>
+                              <textarea rows={4} value={wizard.mustKnow} onChange={(e) => updateWizard('mustKnow', e.target.value)} placeholder={t('app.mustKnowPlaceholder')} />
+                              <button className="wizard-icon-action" disabled={wizardFileAction === 'mustKnow'} onClick={() => void appendWizardTextFiles('mustKnow')} title={t('app.importMustKnow')}>📎</button>
                             </div>
                           </label>
                           <label className="wizard-mode-field wide">
-                            重点知识（每行一个）
+                            {t('app.keyKnowledgeLines')}
                             <div className="wizard-input-row align-start">
-                              <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder="需要逐步拆解讲透的重点内容" />
-                              <button className="wizard-icon-action" disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} title="从文本文件导入重点知识">📎</button>
+                              <textarea rows={4} value={wizard.keyPoints} onChange={(e) => updateWizard('keyPoints', e.target.value)} placeholder={t('app.keyKnowledgePlaceholder')} />
+                              <button className="wizard-icon-action" disabled={wizardFileAction === 'keyPoints'} onClick={() => void appendWizardTextFiles('keyPoints')} title={t('app.importKeyKnowledge')}>📎</button>
                             </div>
                           </label>
                         </>
@@ -1822,39 +1845,39 @@ export default function App() {
                       {isQuestionOrientedMode(wizard.mode) ? (
                         <>
                           <label className="wizard-mode-field wide">
-                            初始题目批量粘贴（可选）
+                            {t('app.initialQuestionsPaste')}
                             <textarea
                               rows={10}
                               value={wizard.initialQuestionText}
                               onChange={(e) => updateWizard('initialQuestionText', e.target.value)}
-                              placeholder="可粘贴多道题，系统会自动拆分题干、选项、答案并归类"
+                              placeholder={t('app.initialQuestionsPlaceholder')}
                             />
                           </label>
                           <div className="wizard-action-row">
-                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()}>📁 从文件导入题目</button>
+                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'initialQuestionText'} onClick={() => void appendWizardQuestionFiles()}>📁 {t('app.importQuestionsFile')}</button>
                             <span className="muted wizard-helper-text">
-                              支持 txt / md / json / csv，自动识别拆分
+                              {t('app.supportedQuestionFiles')}
                             </span>
                           </div>
                           <p className="muted wizard-helper-text center">
-                            也可以在项目创建后通过工作台的题目功能导入更多内容
+                            {t('app.importMoreLater')}
                           </p>
                         </>
                       ) : (
                         <>
                           <label className="wizard-mode-field wide">
-                            素材 / 参考文件说明（可选）
+                            {t('app.materialNotes')}
                             <textarea
                               rows={8}
                               value={wizard.notes}
                               onChange={(e) => updateWizard('notes', e.target.value)}
-                              placeholder={`说明要用于${selectedWizardTemplate.title}的素材、数据或参考文件`}
+                              placeholder={t('app.materialNotesPlaceholder', { name: selectedWizardTemplate.title })}
                             />
                           </label>
                           <div className="wizard-action-row">
-                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')}>📁 导入素材 / 参考文件</button>
+                            <button className="wizard-secondary-action" disabled={wizardFileAction === 'notes'} onClick={() => void appendWizardFiles('notes')}>📁 {t('app.importMaterials')}</button>
                             <span className="muted wizard-helper-text">
-                              文件路径会写入资料说明，创建项目后仍可继续补充
+                              {t('app.materialPathHint')}
                             </span>
                           </div>
                         </>
@@ -1870,7 +1893,7 @@ export default function App() {
                     disabled={wizardStep === 1}
                     style={{ visibility: wizardStep === 1 ? 'hidden' : 'visible' }}
                   >
-                    &larr; 上一步
+                    &larr; {t('app.previousStep')}
                   </button>
                   <div>
                     {wizardStep < 3 ? (
@@ -1886,11 +1909,11 @@ export default function App() {
                           setWizardStep((s) => (s + 1) as WizardStep);
                         }}
                       >
-                        下一步 &rarr;
+                        {t('app.nextStep')} &rarr;
                       </button>
                     ) : (
                       <button className="primary" onClick={() => void createProject()} disabled={!canSubmitWizardProject}>
-                        {isCreatingProject ? '创建中…' : '🚀 创建项目'}
+                        {isCreatingProject ? t('app.creating') : `🚀 ${t('app.createProject')}`}
                       </button>
                     )}
                   </div>
@@ -1909,7 +1932,7 @@ export default function App() {
               <div className="project-page-shell">
                 <section className="panel project-hero">
                   <div className="project-hero-main">
-                    <span className="upload-kind">当前项目</span>
+                    <span className="upload-kind">{t('app.currentProject')}</span>
                     <h2>{activeProject.meta.name}</h2>
                     <p className="muted">
                       {activeProject.meta.courseName} &middot; {activeProject.meta.examType} &middot; {activeProject.meta.model}
@@ -1917,15 +1940,15 @@ export default function App() {
                   </div>
                   <div className="project-hero-actions">
                     <label>
-                      项目模型
+                      {t('app.projectModel')}
                       <select value={activeProject.meta.model} onChange={(e) => void updateActiveProjectModel(e.target.value)}>
                         {availableProjectModels.map((m) => (
                           <option key={`${m.providerId}:${m.id}`} value={m.id}>{m.label}</option>
                         ))}
                       </select>
                     </label>
-                    <button onClick={() => { setAiTab('chat'); setAiDrawerOpen(true); }}>打开 AI 助教</button>
-                    <button onClick={() => setViewMode('export')}>导出成果</button>
+                    <button onClick={() => { setAiTab('chat'); setAiDrawerOpen(true); }}>{t('app.openTutor')}</button>
+                    <button onClick={() => setViewMode('export')}>{t('app.exportResults')}</button>
                   </div>
                 </section>
 
@@ -1978,6 +2001,7 @@ export default function App() {
                         setEditorTab('game-preview');
                       }}
                       onStatus={setStatus}
+                      onOpenProviderSettings={() => setViewMode('settings')}
                     />
                   </section>
                 )}
@@ -1995,6 +2019,7 @@ export default function App() {
                         setEditorTab('mistakes-review');
                       }}
                       onStatus={setStatus}
+                      onOpenProviderSettings={() => setViewMode('settings')}
                     />
                   </section>
                 )}
@@ -2038,40 +2063,40 @@ export default function App() {
 
                 {editorTab === 'overview' && (
                   <section className="panel workspace-overview-card">
-                    <div className="section-title">项目概览</div>
+                    <div className="section-title">{t('app.projectOverview')}</div>
                     <div className="summary-grid workspace-summary-grid">
-                      <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
-                      <div><span>知识库</span><strong>{activeProject.knowledgeBase.length}</strong></div>
-                      <div><span>题库</span><strong>{activeProject.questions.length}</strong></div>
-                      <div><span>对话</span><strong>{activeProject.chatHistory.length}</strong></div>
+                      <div><span>{t('app.uploads')}</span><strong>{activeProject.uploads.length}</strong></div>
+                      <div><span>{t('app.knowledgeBase')}</span><strong>{activeProject.knowledgeBase.length}</strong></div>
+                      <div><span>{t('app.questionBank')}</span><strong>{activeProject.questions.length}</strong></div>
+                      <div><span>{t('app.conversation')}</span><strong>{activeProject.chatHistory.length}</strong></div>
                     </div>
 
                     <div className="workspace-jump-grid">
                       <button className="workspace-jump-card" onClick={() => setEditorTab('materials')}>
                         <span>01</span>
-                        <strong>整理素材</strong>
-                        <small>上传课件、提炼知识库、查看拓展资源</small>
+                        <strong>{t('app.organizeMaterials')}</strong>
+                        <small>{t('app.organizeMaterialsDesc')}</small>
                       </button>
                       <button className="workspace-jump-card" onClick={() => setAiDrawerOpen(true)}>
                         <span>02</span>
-                        <strong>让 AI 讲授</strong>
-                        <small>打开右侧助教，围绕当前项目追问</small>
+                        <strong>{t('app.letAiTeach')}</strong>
+                        <small>{t('app.letAiTeachDesc')}</small>
                       </button>
                       <button className="workspace-jump-card" onClick={() => setEditorTab('practice')}>
                         <span>03</span>
-                        <strong>开始检题</strong>
-                        <small>进入练习页刷题、标错和复盘</small>
+                        <strong>{t('app.startPractice')}</strong>
+                        <small>{t('app.startPracticeDesc')}</small>
                       </button>
                       <button className="workspace-jump-card" onClick={() => setEditorTab('report')}>
                         <span>04</span>
-                        <strong>复盘补漏</strong>
-                        <small>进入报告页汇总薄弱点、风险和下一步建议</small>
+                        <strong>{t('app.reviewGaps')}</strong>
+                        <small>{t('app.reviewGapsDesc')}</small>
                       </button>
                     </div>
 
                     <div className="document-view compact-context">
-                      <h3>当前上下文</h3>
-                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(activeProject.meta.requirements || activeProject.meta.textbook || '暂无项目说明，建议先进入素材页上传资料。') }} />
+                      <h3>{t('app.currentContext')}</h3>
+                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(activeProject.meta.requirements || activeProject.meta.textbook || t('app.noProjectDescription')) }} />
                     </div>
                   </section>
                 )}
@@ -2119,6 +2144,7 @@ export default function App() {
 
                 {editorTab === 'delivery' && (
                   <DeliveryPackagePage
+                    mode={activeProject.meta.mode}
                     deliveryPackage={deliveryPackage ?? activeProject.deliveryPackage ?? null}
                     onGenerate={generateDeliveryPackage}
                     onSave={saveDeliveryPackage}
@@ -2135,46 +2161,55 @@ export default function App() {
                   <section className="panel workspace-materials-page">
                     <div className="page-section-header">
                       <div>
-                        <div className="section-title">素材与知识库</div>
-                        <h3>先把资料放清楚，再让 AI 讲清楚</h3>
-                        <p className="muted">这一页只处理上传素材、项目知识库和外部拓展资源。</p>
+                        <div className="section-title">{t('app.materialsKnowledge')}</div>
+                        <h3>{t('app.materialsKnowledgeTitle')}</h3>
+                        <p className="muted">{t('app.materialsKnowledgeDesc')}</p>
                       </div>
                       <button className="primary" onClick={() => void importFiles()}>
-                        + 上传素材（文件 / 图片）
+                        + {t('app.uploadMaterials')}
                       </button>
                     </div>
 
                     <div className="materials-page-grid materials-library-grid">
                       <div className="mini-section materials-section-card">
-                        <div className="subsection-title">已导入素材</div>
+                        <div className="subsection-title">{t('app.importedMaterials')}</div>
                         <div className="stack-list">
                           {activeProject.uploads.length ? activeProject.uploads.map((upload) => (
                             <div key={upload.storedPath} className="upload-card material-card">
-                              <div className="upload-kind">{upload.kind === 'image' ? '图片' : '文件'}</div>
+                              <div className="upload-kind">{upload.kind === 'image' ? t('app.image') : t('app.file')}</div>
                               <UploadImagePreview projectId={activeProject.meta.id} upload={upload} />
                               <div className="materials-card-title">{upload.name}</div>
-                              <div className="muted">{upload.parsed?.summary || '已导入，等待解析'}</div>
+                              <div className="muted">{upload.parsed?.summary || t('app.importedAwaitingParse')}</div>
                               {upload.parsed?.extractedText && (
                                 <div className="parsed-preview">{upload.parsed.extractedText}</div>
                               )}
                               {upload.parsed && (
                                 <button className="materials-card-action" onClick={() => void saveUploadToKnowledgeBase(upload)}>
-                                  提炼到知识库
+                                  {t('app.distillToKnowledge')}
                                 </button>
                               )}
+                              <button
+                                className="card-delete-btn"
+                                title={t('app.deleteMaterial')}
+                                onClick={() => setPendingDelete({ type: 'upload', id: upload.storedPath, label: upload.name })}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+                                </svg>
+                              </button>
                             </div>
-                          )) : <div className="empty-slim">还没有上传资料，先点右上角上传。</div>}
+                          )) : <div className="empty-slim">{t('app.noUploads')}</div>}
                         </div>
                       </div>
 
                       <div className="mini-section materials-section-card">
-                        <div className="subsection-title">项目知识库</div>
+                        <div className="subsection-title">{t('app.projectKnowledgeBase')}</div>
                         <input
                           value={knowledgeQuery}
                           onChange={(e) => setKnowledgeQuery(e.target.value)}
-                          placeholder="按标题 / 摘要 / 标签筛选..."
+                          placeholder={t('app.knowledgeFilterPlaceholder')}
                         />
-                        <div className="muted">共 {activeProject.knowledgeBase.length} 条 &middot; 显示 {filteredKnowledgeBase.length} 条</div>
+                        <div className="muted">{t('app.knowledgeCount', { total: activeProject.knowledgeBase.length, shown: filteredKnowledgeBase.length })}</div>
                         <div className="stack-list">
                           {filteredKnowledgeBase.length ? filteredKnowledgeBase.map((entry) => (
                             <div key={entry.id} className="stack-item knowledge-entry material-card">
@@ -2185,11 +2220,20 @@ export default function App() {
                               <div className="knowledge-tags">
                                 {entry.tags.map((tag) => <span key={`${entry.id}-${tag}`} className="upload-kind">{tag}</span>)}
                               </div>
-                              <button className="materials-card-action" onClick={() => void loadKnowledgeResources(entry.tags[0] || entry.title)}>
-                                知识点拓展
+                              <button className="materials-card-action" onClick={() => void loadKnowledgeResources(entry.title)}>
+                                {t('app.knowledgeExpansion')}
+                              </button>
+                              <button
+                                className="card-delete-btn"
+                                title={t('app.deleteEntry')}
+                                onClick={() => setPendingDelete({ type: 'knowledge', id: entry.id, label: entry.title })}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+                                </svg>
                               </button>
                             </div>
-                          )) : <div className="empty-slim">暂无知识库条目，可先把素材提炼进来。</div>}
+                          )) : <div className="empty-slim">{t('app.noKnowledge')}</div>}
                         </div>
                       </div>
                     </div>
@@ -2209,6 +2253,7 @@ export default function App() {
                         setEditorTab('practice');
                       }}
                       onStatus={setStatus}
+                      onOpenProviderSettings={() => setViewMode('settings')}
                     />
                   </section>
                 )}
@@ -2226,24 +2271,24 @@ export default function App() {
 
                 {editorTab === 'config' && (
                   <section className="panel project-single-page">
-                    <div className="section-title">课程配置</div>
+                    <div className="section-title">{t('app.courseConfig')}</div>
                     <textarea value={configText} onChange={(e) => setConfigText(e.target.value)} />
                     <div className="panel-actions horizontal">
-                      <button className="primary" onClick={() => void saveProjectConfig()}>保存 YAML</button>
+                      <button className="primary" onClick={() => void saveProjectConfig()}>{t('app.saveYaml')}</button>
                     </div>
                   </section>
                 )}
 
                 {editorTab === 'progress' && (
                   <section className="panel project-single-page">
-                    <div className="section-title">项目进度</div>
+                    <div className="section-title">{t('app.projectProgress')}</div>
                     <textarea value={progressText} onChange={(e) => setProgressText(e.target.value)} />
                     <div className="document-view markdown-preview">
-                      <div className="section-title">Markdown 预览</div>
-                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(progressText || '暂无进度内容。') }} />
+                      <div className="section-title">{t('app.markdownPreview')}</div>
+                      <div className="rich-content" dangerouslySetInnerHTML={{ __html: renderRichContent(progressText || t('app.noProgress')) }} />
                     </div>
                     <div className="panel-actions horizontal">
-                      <button className="primary" onClick={() => void saveProjectProgress()}>保存进度</button>
+                      <button className="primary" onClick={() => void saveProjectProgress()}>{t('app.saveProgress')}</button>
                     </div>
                   </section>
                 )}
@@ -2254,62 +2299,62 @@ export default function App() {
             {viewMode === 'export' && activeProject && (
               <div className="page-stack">
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>导出</h2>
-                  <p className="muted">完成并打包您的知识拆解成果。</p>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', marginBottom: '4px' }}>{t('app.export')}</h2>
+                  <p className="muted">{t('app.exportDesc')}</p>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                   {/* 左：摘要 + 格式 */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div className="panel">
                       <div style={{ marginBottom: '16px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-on-surface-variant)' }}>当前项目</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-on-surface-variant)' }}>{t('app.currentProject')}</span>
                         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--color-primary)', marginTop: '4px' }}>
                           {activeProject.meta.name}
                         </h2>
                       </div>
                       <div className="summary-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-                        <div><span>知识点</span><strong>{activeProject.knowledgeBase.length}</strong></div>
-                        <div><span>练习题</span><strong>{activeProject.questions.length}</strong></div>
-                        <div><span>上传素材</span><strong>{activeProject.uploads.length}</strong></div>
-                        <div><span>聊天轮次</span><strong>{activeProject.chatHistory.length}</strong></div>
+                        <div><span>{t('app.knowledgePoints')}</span><strong>{activeProject.knowledgeBase.length}</strong></div>
+                        <div><span>{t('app.practiceQuestions')}</span><strong>{activeProject.questions.length}</strong></div>
+                        <div><span>{t('app.uploads')}</span><strong>{activeProject.uploads.length}</strong></div>
+                        <div><span>{t('app.chatRounds')}</span><strong>{activeProject.chatHistory.length}</strong></div>
                       </div>
                     </div>
 
                     <div className="panel">
-                      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>导出格式</h3>
+                      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>{t('app.exportFormat')}</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
                         <label className="checkbox-row" style={{ padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: '8px' }}>
                           <input type="checkbox" defaultChecked />
                           <div>
                             <span style={{ display: 'block', fontWeight: 600 }}>Markdown (.md)</span>
-                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>为 Obsidian 优化</span>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>{t('app.obsidianOptimized')}</span>
                           </div>
                         </label>
                         <label className="checkbox-row" style={{ padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: '8px' }}>
                           <input type="checkbox" defaultChecked />
                           <div>
                             <span style={{ display: 'block', fontWeight: 600 }}>JSON (.json)</span>
-                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>结构化原始数据</span>
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>{t('app.structuredData')}</span>
                           </div>
                         </label>
                       </div>
                       <button className="primary" onClick={() => void exportProject()} style={{ width: '100%', marginTop: '16px', padding: '12px' }}>
-                        &#x1F4E5; 生成导出包
+                        &#x1F4E5; {t('app.generateExport')}
                       </button>
                     </div>
                   </div>
 
                   {/* 右：最近导出 */}
                   <div className="panel" style={{ height: 'fit-content' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>最近导出</h3>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>{t('app.recentExports')}</h3>
                     {exportResult ? (
                       <div className="upload-card">
-                        <p style={{ fontWeight: 600, fontSize: '13px' }}>导出完成</p>
+                        <p style={{ fontWeight: 600, fontSize: '13px' }}>{t('app.exportComplete')}</p>
                         <p className="muted">Markdown：{exportResult.markdownPath}</p>
                         <p className="muted">JSON：{exportResult.jsonPath}</p>
                       </div>
                     ) : (
-                      <p className="muted">暂无导出记录</p>
+                      <p className="muted">{t('app.noExports')}</p>
                     )}
                   </div>
                 </div>
@@ -2323,8 +2368,8 @@ export default function App() {
         <aside className="ai-drawer">
           <div className="ai-drawer-header">
             <div>
-              <h2>AI 助教</h2>
-              <p>实时学习咨询中</p>
+              <h2>{t('app.aiTutor')}</h2>
+              <p>{t('app.liveConsulting')}</p>
               <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 700, color: 'var(--color-primary)', cursor: 'pointer' }}>
                 {currentProvider.label} &bull; {currentModelLabel}
               </div>
@@ -2333,13 +2378,13 @@ export default function App() {
           </div>
           <div className="ai-drawer-tabs">
             <button className={aiTab === 'chat' ? 'active' : ''} onClick={() => setAiTab('chat')}>
-              &#x1F4AC; 对话
+              &#x1F4AC; {t('app.chat')}
             </button>
             <button className={aiTab === 'history' ? 'active' : ''} onClick={() => setAiTab('history')}>
-              &#x23F1; 历史
+              &#x23F1; {t('app.history')}
             </button>
             <button className={aiTab === 'reference' ? 'active' : ''} onClick={() => setAiTab('reference')}>
-              &#x1F4DA; 参考资料
+              &#x1F4DA; {t('app.references')}
             </button>
           </div>
           <div className="ai-drawer-body">
@@ -2358,7 +2403,7 @@ export default function App() {
                       </div>
                     )}
                     <ChatBubble content={msg.content} />
-                    <div className="chat-time">{formatDate(msg.createdAt)}</div>
+                    <div className="chat-time">{formatDate(msg.createdAt, locale)}</div>
                   </div>
                 ))}
               </>
@@ -2366,14 +2411,14 @@ export default function App() {
             {aiTab === 'history' && (
               <div className="ai-history-panel">
                 <div className="ai-history-summary">
-                  <strong>{activeProject?.meta.name ?? '未选择项目'}</strong>
-                  <span>{activeProject?.chatHistory.length ?? 0} 条项目独立历史记录</span>
+                  <strong>{activeProject?.meta.name ?? t('app.noProjectSelected')}</strong>
+                  <span>{t('app.projectHistoryCount', { count: activeProject?.chatHistory.length ?? 0 })}</span>
                 </div>
                 <input
                   className="ai-history-search"
                   value={chatSearchQuery}
                   onChange={(event) => setChatSearchQuery(event.target.value)}
-                  placeholder="搜索当前项目历史对话"
+                  placeholder={t('app.searchProjectHistory')}
                 />
                 <div className="ai-history-list">
                   {filteredChatHistory.length ? filteredChatHistory.map((turn, index) => (
@@ -2382,37 +2427,37 @@ export default function App() {
                       className={turn.role === 'assistant' ? 'ai-history-card assistant' : 'ai-history-card user'}
                       onClick={() => continueFromHistory(turn)}
                     >
-                      <span>{turn.role === 'assistant' ? 'AI 助教' : '我'} · {formatDate(turn.createdAt)}</span>
-                      <strong>{turn.content.slice(0, 64) || '空内容'}</strong>
+                      <span>{turn.role === 'assistant' ? t('app.aiTutor') : t('app.me')} · {formatDate(turn.createdAt, locale)}</span>
+                      <strong>{turn.content.slice(0, 64) || t('app.emptyContent')}</strong>
                       <small>{turn.content.slice(64, 180)}</small>
-                      <em>继续追问</em>
+                      <em>{t('app.continueAsking')}</em>
                     </button>
                   )) : (
-                    <div className="empty-slim">没有匹配的项目历史对话。清空搜索词后可查看全部记录。</div>
+                    <div className="empty-slim">{t('app.noMatchingHistory')}</div>
                   )}
                 </div>
               </div>
             )}
             {aiTab === 'reference' && (
               <div style={{ fontSize: '13px', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>
-                选择一个活跃知识点来查看外部学习资源。
+                {t('app.selectKnowledgeForResources')}
               </div>
             )}
           </div>
           <div className="ai-drawer-footer">
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => void saveChatToKnowledgeBase()} style={{ flex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                &#x1F4DA; 同步到知识
+                &#x1F4DA; {t('app.syncToKnowledge')}
               </button>
               <button onClick={syncChatToQuestions} style={{ flex: 1, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }} disabled={!activeProject}>
-                &#x270E; 同步到题库
+                &#x270E; {t('app.syncToQuestions')}
               </button>
             </div>
             <div style={{ position: 'relative' }}>
               <textarea
                 value={agentInput}
                 onChange={(e) => setAgentInput(e.target.value)}
-                placeholder="向 AI 导师提问..."
+                placeholder={t('app.askTutorPlaceholder')}
                 rows={2}
                 style={{ width: '100%', borderRadius: '12px', padding: '12px 40px 12px 12px', fontSize: '13px', minHeight: '60px', resize: 'none' }}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void runProjectChat(); } }}
@@ -2435,18 +2480,18 @@ export default function App() {
         <div className="statusbar-left">
           <span>Cram Engine v1.0</span>
           <div className="statusbar-dot" style={{ background: settingsHasApiKey ? '#28c840' : '#ff5f57' }} />
-          <span>{settingsHasApiKey ? `模型: ${currentModelLabel} | 已连接` : 'API Key 未填写'}</span>
+          <span>{settingsHasApiKey ? `${t('workspace.model')}: ${currentModelLabel} | ${t('workspace.connected')}` : t('workspace.apiKeyMissing')}</span>
         </div>
         <div className="statusbar-right">
-          <a onClick={openSystemStatus} style={{ cursor: 'pointer' }}>系统状态</a>
-          <a onClick={openApiReference} style={{ cursor: 'pointer' }}>API 接口</a>
-          <a onClick={openDocumentation} style={{ cursor: 'pointer' }}>文档</a>
+          <a onClick={openSystemStatus} style={{ cursor: 'pointer' }}>{t('workspace.systemStatus')}</a>
+          <a onClick={openApiReference} style={{ cursor: 'pointer' }}>API</a>
+          <a onClick={openDocumentation} style={{ cursor: 'pointer' }}>{t('workspace.docs')}</a>
         </div>
       </footer>
 
       {/* ---- 浮动 AI 按钮（抽屉关闭时显示） ---- */}
       {!aiDrawerOpen && (
-        <button className="ai-fab" onClick={() => setAiDrawerOpen(true)} title="打开 AI 助手">
+        <button className="ai-fab" onClick={() => setAiDrawerOpen(true)} title={t('project.aiAssistant')}>
           &#x1F4AC;
         </button>
       )}
@@ -2457,8 +2502,22 @@ export default function App() {
           style={{ left: selectionAsk.x, top: selectionAsk.y }}
         >
           <button onClick={askAiAboutSelection}>
-            问一问 AI
+            {t('app.askAiSelection')}
           </button>
+        </div>
+      )}
+
+      {/* ---- 删除确认模态框 ---- */}
+      {pendingDelete && (
+        <div className="modal-overlay" onClick={() => setPendingDelete(null)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('app.confirmDelete')}</h3>
+            <p>{t('app.confirmDeleteNamed', { name: pendingDelete.label })}</p>
+            <div className="modal-actions">
+              <button onClick={() => setPendingDelete(null)}>{t('common.cancel')}</button>
+              <button className="danger" onClick={() => void confirmDelete()}>{t('app.confirmDelete')}</button>
+            </div>
+          </div>
         </div>
       )}
 

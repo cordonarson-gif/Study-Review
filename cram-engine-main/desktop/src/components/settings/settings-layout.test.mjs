@@ -23,11 +23,23 @@ test('settings page exposes MinerU document recognition controls', async () => {
   const nav = await readComponent('SettingsCategoryNav');
 
   assert.match(nav, /document/);
-  assert.match(nav, /MinerU/);
+  assert.match(nav, /settings\.categoryDocument/);
   assert.match(page, /category === 'document'/);
   assert.match(page, /draft\.mineru/);
   assert.match(page, /preferForUploads/);
   assert.match(page, /apiKey/);
+  assert.match(page, /settings\.mineruHelp/);
+});
+
+test('settings navigation declares each category once and includes language', async () => {
+  const nav = await readComponent('SettingsCategoryNav');
+
+  assert.equal((nav.match(/export type SettingsCategory =/g) ?? []).length, 1);
+  assert.equal((nav.match(/export default function SettingsCategoryNav/g) ?? []).length, 1);
+  assert.deepEqual(
+    [...nav.matchAll(/id: '(services|workspace|document|default|generation|display|language)'/g)].map((match) => match[1]),
+    ['services', 'workspace', 'document', 'default', 'generation', 'display', 'language']
+  );
 });
 
 test('settings page exposes a global workspace governance section', async () => {
@@ -35,15 +47,15 @@ test('settings page exposes a global workspace governance section', async () => 
   const nav = await readComponent('SettingsCategoryNav');
 
   assert.match(nav, /workspace/);
-  assert.match(nav, /全局能力/);
+  assert.match(nav, /settings\.categoryWorkspace/);
   assert.match(page, /workspaceOverview/);
   assert.match(page, /workspaceProfile/);
   assert.match(page, /workspaceAgents/);
   assert.doesNotMatch(page, /workspaceGovernance/);
   assert.match(page, /category === 'workspace'/);
-  assert.match(page, /全局学习画像/);
-  assert.match(page, /智能体中心/);
-  assert.match(page, /项目页布局规则/);
+  assert.match(page, /settings\.workspaceLearningProfile/);
+  assert.match(page, /settings\.workspaceAgentCenter/);
+  assert.match(page, /settings\.workspaceLayoutRules/);
 });
 
 test('global workspace settings use a dedicated focused layout instead of the service split', async () => {
@@ -83,9 +95,52 @@ test('ProviderDetail exposes connection testing and model management', async () 
 
   assert.match(source, /testProviderConnection/);
   assert.match(source, /<ModelManager\b/);
-  assert.match(source, /测试连接/);
-  assert.match(source, /Electron 桥接未加载/);
-  assert.match(models, /Electron 桥接未加载/);
+  assert.match(source, /settings\.testConnection/);
+  assert.match(source, /settings\.electronBridgeMissing/);
+  assert.match(models, /settings\.electronBridgeMissing/);
+});
+
+test('model visibility controls are reversible and keep disabled rows recoverable', async () => {
+  const models = await readComponent('ModelManager');
+
+  assert.match(models, /function setModelEnabled\(id: string, enabled: boolean\)/);
+  assert.match(models, /setModelEnabled\(model\.id, event\.target\.checked\)/);
+  assert.match(models, /setModelEnabled\(model\.id, !model\.enabled\)/);
+  assert.match(models, /model\.enabled \? t\('settings\.hideModel'\) : t\('settings\.showModel'\)/);
+  assert.match(models, /model-row hidden/);
+});
+
+test('settings switches contain checkbox focus within the scrolled panel', async () => {
+  const settingsCss = await readFile(new URL('../../styles/settings.css', import.meta.url), 'utf8');
+
+  assert.match(settingsCss, /\.settings-switch\s*\{[^}]*position:\s*relative/);
+  assert.match(settingsCss, /\.settings-switch input\s*\{[^}]*position:\s*absolute/);
+});
+
+test('default model settings expose an explicit empty selection', async () => {
+  const page = await readComponent('ProviderSettingsPage');
+
+  assert.match(page, /const selectedDefaultModelValue = useMemo/);
+  assert.match(page, /value=\{selectedDefaultModelValue\}/);
+  assert.match(page, /<option value="" disabled=\{selectableModels\.length > 0\}>\{t\('settings\.noDefaultModel'\)\}<\/option>/);
+  assert.match(page, /settings\.noSelectableModels/);
+});
+
+test('application and settings layout establish bounded scroll containers', async () => {
+  const baseCss = await readFile(new URL('../../styles/base.css', import.meta.url), 'utf8');
+  const layoutCss = await readFile(new URL('../../styles/layout.css', import.meta.url), 'utf8');
+  const settingsCss = await readFile(new URL('../../styles/settings.css', import.meta.url), 'utf8');
+
+  assert.match(baseCss, /html,\s*body,\s*#root\s*\{[\s\S]*?height:\s*100%/);
+  assert.match(baseCss, /html,\s*body,\s*#root\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(layoutCss, /\.shell\s*\{[\s\S]*?height:\s*100%/);
+  assert.match(layoutCss, /\.app-body[\s\S]*?min-height:\s*0/);
+  assert.match(layoutCss, /\.main[\s\S]*?min-height:\s*0/);
+  assert.match(layoutCss, /\.main-scroll[\s\S]*?min-height:\s*0/);
+  assert.match(settingsCss, /\.provider-settings-shell\s*\{[\s\S]*?height:\s*clamp\(520px,\s*calc\(100dvh - 250px\),\s*760px\)/);
+  assert.match(settingsCss, /\.settings-category-nav,[\s\S]*?\.provider-detail-panel\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(settingsCss, /overscroll-behavior:\s*contain/);
+  assert.match(baseCss, /@media \(max-width: 1180px\)[\s\S]*?body\s*\{[\s\S]*?min-width:\s*0/);
 });
 
 test('App mounts ProviderSettingsPage instead of the flat settings form', async () => {
@@ -94,8 +149,8 @@ test('App mounts ProviderSettingsPage instead of the flat settings form', async 
   assert.match(app, /<ProviderSettingsPage\b/);
   assert.doesNotMatch(app, /showAddProvider/);
   assert.doesNotMatch(app, /settings:fetchModels/);
-  assert.match(app, />设置</);
-  assert.match(app, /配置模型服务、默认模型和生成偏好。/);
+  assert.match(app, /t\('settings\.title'\)/);
+  assert.match(app, /t\('app\.settingsDesc'\)/);
 
   const providerPageIndex = app.indexOf('<ProviderSettingsPage');
   const settingsHeader = app.slice(Math.max(0, providerPageIndex - 320), providerPageIndex);
@@ -106,7 +161,7 @@ test('App mounts ProviderSettingsPage instead of the flat settings form', async 
 test('App shows a configured LaTeX status when an installed distribution is detected', async () => {
   const app = await readFile(new URL('../../app/App.tsx', import.meta.url), 'utf8');
 
-  assert.match(app, /配置成功/);
+  assert.match(app, /workspace\.latexConfigured/);
   assert.match(app, /latexStatus\.distribution/);
 });
 
@@ -115,5 +170,5 @@ test('App status card uses the configured provider instead of only the selected 
 
   assert.match(app, /findConfiguredProvider/);
   assert.match(app, /configuredProvider/);
-  assert.match(app, /API Key 未填写/);
+  assert.match(app, /workspace\.apiKeyMissing/);
 });

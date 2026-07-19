@@ -99,7 +99,7 @@ export function getKnowledgePoints(tree: CategoryTreeNode[]): string[] {
  */
 export function getCategoryLabels(tree: CategoryTreeNode[]): string[] {
   const labels = new Set<string>();
-  labels.add('全部');
+  labels.add('ALL_CATEGORIES');
   for (const kp of tree) {
     labels.add(kp.name);
     for (const qt of kp.children) {

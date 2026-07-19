@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html class="light" lang="zh-CN"><head>
+<html lang="zh-CN"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Cram Engine - 数学模型工作台</title>
@@ -8,444 +8,65 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Source+Serif+4:wght@600;700&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        .scholar-card {
-            background: #ffffff;
-            border: 1px solid #e2e3e0;
-            border-radius: 10px;
-            transition: all 0.2s ease;
-        }
-        .scholar-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        .active-tab-indicator {
-            position: relative;
-        }
-        .active-tab-indicator::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #5e39e0;
-        }
-        .ink-sidebar-active {
-            border-left: 2px solid #5e39e0;
-            background-color: rgba(94, 57, 224, 0.05);
-        }
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #dadad7;
-            border-radius: 10px;
-        }
-        .latex-block {
-            font-family: 'JetBrains Mono', monospace;
-            background-color: #f4f4f1;
-            padding: 2px 4px;
-            border-radius: 4px;
-        }
-        .window-control:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-        .window-control-close:hover {
-            background-color: #ff4d4d;
-            color: white;
-        }
-    </style>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "on-surface-variant": "#484555",
-                        "on-secondary": "#ffffff",
-                        "primary": "#5e39e0",
-                        "secondary-fixed": "#acedff",
-                        "background": "#f9f9f6",
-                        "on-primary-fixed": "#1c0062",
-                        "surface-container-lowest": "#ffffff",
-                        "surface-container": "#eeeeeb",
-                        "on-primary-container": "#fffbff",
-                        "tertiary-container": "#b35e00",
-                        "surface": "#f9f9f6",
-                        "on-secondary-fixed-variant": "#004e5c",
-                        "surface-bright": "#f9f9f6",
-                        "secondary-fixed-dim": "#4cd7f6",
-                        "error-container": "#ffdad6",
-                        "on-surface": "#1a1c1b",
-                        "on-background": "#1a1c1b",
-                        "primary-fixed": "#e6deff",
-                        "surface-container-high": "#e8e8e5",
-                        "on-tertiary-fixed-variant": "#6f3800",
-                        "secondary-container": "#57dffe",
-                        "on-tertiary-container": "#fffbff",
-                        "outline-variant": "#c9c4d8",
-                        "surface-container-highest": "#e2e3e0",
-                        "inverse-on-surface": "#f1f1ee",
-                        "secondary": "#00687a",
-                        "on-secondary-fixed": "#001f26",
-                        "surface-dim": "#dadad7",
-                        "tertiary-fixed": "#ffdcc4",
-                        "primary-fixed-dim": "#cabeff",
-                        "outline": "#797587",
-                        "on-secondary-container": "#006172",
-                        "surface-container-low": "#f4f4f1",
-                        "surface-tint": "#603ce2",
-                        "tertiary-fixed-dim": "#ffb780",
-                        "on-tertiary": "#ffffff",
-                        "inverse-primary": "#cabeff",
-                        "inverse-surface": "#2f312f",
-                        "error": "#ba1a1a",
-                        "on-error-container": "#93000a",
-                        "surface-variant": "#e2e3e0",
-                        "primary-container": "#7757fa",
-                        "on-primary-fixed-variant": "#4816cb",
-                        "tertiary": "#8f4a00",
-                        "on-tertiary-fixed": "#2f1400",
-                        "on-primary": "#ffffff",
-                        "on-error": "#ffffff"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "xs": "4px",
-                        "gutter": "16px",
-                        "xl": "40px",
-                        "md": "16px",
-                        "base": "4px",
-                        "container-max": "1200px",
-                        "lg": "24px",
-                        "sm": "8px"
-                    },
-                    "fontFamily": {
-                        "body-base": ["Inter"],
-                        "display-hero": ["\"Source Serif 4\""],
-                        "headline-lg": ["\"Source Serif 4\""],
-                        "body-sm": ["Inter"],
-                        "label-caps": ["Inter"],
-                        "code-snippet": ["JetBrains Mono"],
-                        "title-md": ["Inter"]
-                    },
-                    "fontSize": {
-                        "body-base": ["15px", {"lineHeight": "1.6", "fontWeight": "400"}],
-                        "display-hero": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
-                        "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
-                        "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
-                        "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
-                        "code-snippet": ["14px", {"lineHeight": "1.5", "fontWeight": "450"}],
-                        "title-md": ["18px", {"lineHeight": "1.5", "fontWeight": "600"}]
-                    }
-                },
-            },
-        }
-    </script>
+    .material-symbols-outlined { font-variation-settings:'FILL'0,'wght'400,'GRAD'0,'opsz'24; vertical-align:middle; }
+    .scholar-card { background:var(--ce-card-bg); border:1px solid var(--ce-card-border); border-radius:10px; transition:all 0.2s ease; }
+    .scholar-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+    .active-tab-indicator { position:relative; }
+    .active-tab-indicator::after { content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background-color:#5e39e0; }
+    .ink-sidebar-active { border-left:2px solid #5e39e0; background-color:rgba(94,57,224,0.05); }
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--ce-scrollbar-thumb); border-radius:10px; }
+    .latex-block { font-family:'JetBrains Mono',monospace; background-color:var(--ce-surface-container-low); padding:2px 4px; border-radius:4px; }
+    .window-control:hover { background-color:rgba(0,0,0,0.05); }
+    .window-control-close:hover { background-color:#ff4d4d; color:white; }
+    .dark .bg-white { background-color:var(--ce-card-bg); }
+</style>
+<script src="../shared/theme.js"></script>
 </head>
 <body class="bg-background text-on-surface font-body-base overflow-hidden h-screen flex flex-col">
-<!-- Window Title Bar (Native Style) -->
 <header class="flex justify-between items-center w-full px-md py-1 bg-surface-container-high border-b border-outline-variant h-8 shrink-0 select-none cursor-default">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-primary text-[18px]">school</span>
-<span class="text-[12px] font-semibold text-on-surface-variant">Cram Engine - 数学模型期末</span>
-</div>
-<div class="flex h-full items-center">
-<button class="window-control px-3 h-full flex items-center justify-center transition-colors">
-<span class="material-symbols-outlined text-[14px]">remove</span>
-</button>
-<button class="window-control px-3 h-full flex items-center justify-center transition-colors">
-<span class="material-symbols-outlined text-[14px]">check_box_outline_blank</span>
-</button>
-<button class="window-control window-control-close px-3 h-full flex items-center justify-center transition-colors">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</div>
+<div class="flex items-center gap-sm"><span class="material-symbols-outlined text-primary text-[18px]">school</span><span class="text-[12px] font-semibold text-on-surface-variant">Cram Engine - 数学模型期末</span></div>
+<div class="flex h-full items-center"><button class="window-control px-3 h-full flex items-center justify-center transition-colors"><span class="material-symbols-outlined text-[14px]">remove</span></button><button class="window-control px-3 h-full flex items-center justify-center transition-colors"><span class="material-symbols-outlined text-[14px]">check_box_outline_blank</span></button><button class="window-control window-control-close px-3 h-full flex items-center justify-center transition-colors"><span class="material-symbols-outlined text-[14px]">close</span></button></div>
 </header>
-<!-- Main App Navigation Bar -->
 <header class="flex justify-between items-center w-full px-lg py-sm sticky top-0 z-40 bg-surface-bright border-b border-outline-variant h-14 shrink-0">
-<div class="flex items-center gap-lg">
-<span class="font-headline-lg text-headline-lg font-bold text-primary">Cram Engine</span>
-<div class="h-6 w-px bg-outline-variant mx-sm"></div>
-<h1 class="font-title-md text-title-md text-on-surface-variant">数学模型期末</h1>
-</div>
-<nav class="flex items-center gap-lg h-full">
-<a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">拆解</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">讲授</a>
-<a class="text-primary border-b-2 border-primary pb-1 font-title-md text-title-md" href="#">检题</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">补漏</a>
-</nav>
-<div class="flex items-center gap-md">
-<button class="material-symbols-outlined p-xs hover:bg-surface-container rounded-full text-on-surface-variant" title="通知">notifications</button>
-<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-xs overflow-hidden cursor-pointer">
-<img alt="用户头像" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwfxKNMovrS6Yac-EfRPxYPugaadKr2hPYOFvndRKHQM1NI53L9s-rQLpYTTUJVX1irlFs44Xm8SexgRdXMG6N0d-iFGDgJOodIYv2d9z39mtoYEl4aAtFh2zWVHPwtWAPeyvDHUjZ3L_PbzA5NcC8EvNN5d1CEB__dNYLdVIN0H76lhbWq07lMxCGxf7BAb9hPOfTePrukvJhoIzKbW4US-31XrHkkgNLTTMA6fqz0q1yb4LiHXgeGq1D-2nv9ilqTbfNVUIBVFbo"/>
-</div>
-</div>
+<div class="flex items-center gap-lg"><span class="font-headline-lg text-headline-lg font-bold text-primary">Cram Engine</span><div class="h-6 w-px bg-outline-variant mx-sm"></div><h1 class="font-title-md text-title-md text-on-surface-variant">数学模型期末</h1></div>
+<nav class="flex items-center gap-lg h-full"><a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">拆解</a><a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">讲授</a><a class="text-primary border-b-2 border-primary pb-1 font-title-md text-title-md" href="#">检题</a><a class="text-on-surface-variant hover:text-primary transition-opacity font-title-md text-title-md" href="#">补漏</a></nav>
 </header>
 <div class="flex flex-1 overflow-hidden">
-<!-- Left Column: Materials & Sidebar (Narrower) -->
 <aside class="w-[240px] bg-surface border-r border-outline-variant flex flex-col shrink-0">
-<div class="p-md flex flex-col gap-sm">
-<button class="bg-primary text-on-primary px-md py-sm rounded-lg flex items-center justify-center gap-xs font-bold transition-all active:scale-95 shadow-sm">
-<span class="material-symbols-outlined">add</span>
-                新建项目
-            </button>
-</div>
-<nav class="flex border-b border-outline-variant px-md">
-<button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-primary active-tab-indicator">学习资料</button>
-<button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-on-surface-variant opacity-60">知识库</button>
-</nav>
+<div class="p-md flex flex-col gap-sm"><button class="bg-primary text-on-primary px-md py-sm rounded-lg flex items-center justify-center gap-xs font-bold transition-all active:scale-95 shadow-sm"><span class="material-symbols-outlined">add</span>新建项目</button></div>
+<nav class="flex border-b border-outline-variant px-md"><button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-primary active-tab-indicator">学习资料</button><button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-on-surface-variant opacity-60">知识库</button></nav>
 <div class="flex-1 overflow-y-auto p-sm">
 <div class="flex flex-col gap-xs">
-<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
-<span class="material-symbols-outlined">home</span>
-<span class="text-body-sm">仪表盘</span>
-</div>
-<div class="mt-sm px-md mb-xs">
-<span class="text-[10px] font-bold text-on-surface-variant opacity-50 uppercase tracking-widest">当前会话</span>
-</div>
-<div class="ink-sidebar-active rounded-r-lg group cursor-pointer transition-all">
-<div class="flex items-center gap-sm px-md py-sm">
-<span class="material-symbols-outlined text-primary">description</span>
-<div class="flex flex-col">
-<span class="text-body-sm font-bold text-primary">第三章.pdf</span>
-<span class="text-[11px] text-on-surface-variant">3 个知识点</span>
+<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"><span class="material-symbols-outlined">home</span><span class="text-body-sm">仪表盘</span></div>
+<div class="mt-sm px-md mb-xs"><span class="text-[10px] font-bold text-on-surface-variant opacity-50 uppercase tracking-widest">当前会话</span></div>
+<div class="ink-sidebar-active rounded-r-lg group cursor-pointer transition-all"><div class="flex items-center gap-sm px-md py-sm"><span class="material-symbols-outlined text-primary">description</span><div class="flex flex-col"><span class="text-body-sm font-bold text-primary">第三章.pdf</span><span class="text-[11px] text-on-surface-variant">3 个知识点</span></div></div><div class="pl-12 pb-sm flex flex-col gap-xs pr-sm"><div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary"><div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>逻辑回归</div><div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary"><div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>最优化理论</div><div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary"><div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>梯度下降</div></div></div>
+<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"><span class="material-symbols-outlined">edit_note</span><span class="text-body-sm">工作台</span></div>
 </div>
 </div>
-<div class="pl-12 pb-sm flex flex-col gap-xs pr-sm">
-<div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary">
-<div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                            逻辑回归
-                        </div>
-<div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary">
-<div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                            最优化理论
-                        </div>
-<div class="flex items-center gap-xs text-[12px] text-on-surface-variant hover:text-primary">
-<div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                            梯度下降
-                        </div>
-</div>
-</div>
-<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
-<span class="material-symbols-outlined">edit_note</span>
-<span class="text-body-sm">工作台</span>
-</div>
-</div>
-</div>
-<div class="p-sm border-t border-outline-variant">
-<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
-<span class="material-symbols-outlined">settings</span>
-<span class="text-body-sm">设置</span>
-</div>
-<div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
-<span class="material-symbols-outlined">help</span>
-<span class="text-body-sm">支持中心</span>
-</div>
-</div>
+<div class="p-sm border-t border-outline-variant"><div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"><span class="material-symbols-outlined">settings</span><span class="text-body-sm">设置</span></div><div class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"><span class="material-symbols-outlined">help</span><span class="text-body-sm">支持中心</span></div></div>
 </aside>
-<!-- Middle Column: Main Content Area -->
 <main class="flex-1 flex flex-col overflow-hidden">
-<!-- Segmented Control / Secondary Nav -->
 <div class="bg-surface-container-low px-lg py-sm border-b border-outline-variant flex items-center justify-between">
-<div class="flex bg-surface-container border border-outline-variant rounded-lg p-[2px]">
-<button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">概览</button>
-<button class="px-md py-1.5 text-body-sm rounded-md bg-surface shadow-sm text-primary font-bold">练习</button>
-<button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">词条</button>
-<button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">YAML</button>
-<button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">进度</button>
+<div class="flex bg-surface-container border border-outline-variant rounded-lg p-[2px]"><button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">概览</button><button class="px-md py-1.5 text-body-sm rounded-md bg-surface shadow-sm text-primary font-bold">练习</button><button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">词条</button><button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">YAML</button><button class="px-md py-1.5 text-body-sm rounded-md transition-colors text-on-surface-variant hover:text-on-surface">进度</button></div>
 </div>
-<div class="flex items-center gap-sm">
-<span class="text-label-caps text-on-surface-variant">批次: 12 / 50</span>
-<div class="w-32 h-1.5 bg-surface-container rounded-full overflow-hidden">
-<div class="bg-primary h-full w-[24%]"></div>
-</div>
-</div>
-</div>
-<!-- Content Area (Practice Tab) -->
 <div class="flex-1 overflow-y-auto bg-background p-lg">
-<div class="max-w-[800px] mx-auto flex flex-col gap-lg pb-10">
-<!-- Question Card -->
-<div class="scholar-card p-lg flex flex-col gap-md">
-<div class="flex justify-between items-start">
-<span class="text-[10px] font-bold px-sm py-0.5 bg-primary-container/20 text-on-primary-fixed-variant rounded tracking-widest uppercase">单选题</span>
-<span class="text-body-sm text-on-surface-variant opacity-50">Q-342</span>
-</div>
-<div class="font-body-base text-lg text-on-surface leading-relaxed">
-                        考虑由以下微分方程定义的逻辑增长模型 (Logistic Growth Model)：
-                        <div class="my-md p-md bg-surface-container-low rounded-lg font-code-snippet text-center">
-                            \frac{dP}{dt} = rP \left(1 - \frac{P}{K}\right)
-                        </div>
-                        如果初始种群为 <span class="latex-block">P(0) = P_0</span>，那么当种群恰好达到其环境容量 <span class="latex-block">K</span> 的一半时，时间 <span class="latex-block">t</span> 的值是多少？
-                    </div>
-<div class="flex flex-col gap-sm mt-md">
-<button class="flex items-center gap-md p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-container/5 text-left transition-all group">
-<span class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-high group-hover:bg-primary group-hover:text-on-primary font-bold transition-colors">A</span>
-<span class="text-body-base text-on-surface">t = \frac{1}{r} \ln \left( \frac{K - P_0}{P_0} \right)</span>
-</button>
-<button class="flex items-center gap-md p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-container/5 text-left transition-all group">
-<span class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-high group-hover:bg-primary group-hover:text-on-primary font-bold transition-colors">B</span>
-<span class="text-body-base text-on-surface">t = \frac{K}{r} \ln \left( P_0 \right)</span>
-</button>
-<button class="flex items-center gap-md p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-container/5 text-left transition-all group">
-<span class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-high group-hover:bg-primary group-hover:text-on-primary font-bold transition-colors">C</span>
-<span class="text-body-base text-on-surface">t = \ln \left( \frac{r}{K} \right)</span>
-</button>
-<button class="flex items-center gap-md p-md border border-outline-variant rounded-lg hover:border-primary hover:bg-primary-container/5 text-left transition-all group">
-<span class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-high group-hover:bg-primary group-hover:text-on-primary font-bold transition-colors">D</span>
-<span class="text-body-base text-on-surface">以上都不是</span>
-</button>
-</div>
-<div class="mt-md pt-md border-t border-outline-variant flex flex-col gap-md">
-<button class="flex items-center justify-between text-primary font-bold hover:underline transition-all" onclick="document.getElementById('analysis-panel').classList.toggle('hidden')">
-<span>显示答案与解析</span>
-<span class="material-symbols-outlined">expand_more</span>
-</button>
-<div class="hidden flex flex-col gap-md p-md bg-tertiary-fixed/10 border-l-4 border-tertiary rounded-r-lg" id="analysis-panel">
-<div>
-<span class="text-[11px] tracking-widest text-tertiary font-bold uppercase">正确答案: A</span>
-</div>
-<div class="text-body-sm text-on-surface-variant">
-<p class="mb-sm"><strong>解析:</strong> 逻辑微分方程的通解为：</p>
-<p class="font-code-snippet bg-white/50 p-sm rounded mb-sm text-center">P(t) = \frac{K}{1 + \left(\frac{K - P_0}{P_0}\right) e^{-rt}}</p>
-<p>为了求得 <span class="latex-block">P(t) = K/2</span> 时的时刻，我们将分母设为 2，这会直接得出选项 A 中的结果。</p>
-</div>
-</div>
-</div>
-</div>
-<!-- Bottom Action Bar -->
-<div class="flex items-center justify-between py-md">
-<button class="flex items-center gap-xs text-on-surface-variant hover:text-primary transition-colors">
-<span class="material-symbols-outlined">arrow_back</span>
-                        上一题
-                    </button>
-<div class="flex items-center gap-md">
-<button class="material-symbols-outlined p-sm border border-outline-variant rounded-lg hover:bg-surface-container" title="标记">flag</button>
-<button class="material-symbols-outlined p-sm border border-outline-variant rounded-lg hover:bg-surface-container" title="收藏">bookmark</button>
-<button class="bg-primary text-on-primary px-lg py-sm rounded-lg font-bold shadow-sm hover:brightness-110 transition-all">下一题</button>
-</div>
-</div>
+<div class="max-w-2xl mx-auto flex flex-col items-center justify-center gap-lg h-full text-center pt-20">
+<div class="w-24 h-24 bg-primary-container/30 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-primary text-5xl">upload_file</span></div>
+<h2 class="font-headline-lg text-2xl text-on-surface">上传学习资料</h2>
+<p class="text-body-base text-on-surface-variant max-w-md">将 PDF、PPT、Word 或 Markdown 文件拖放至此，或点击下方按钮选择文件。引擎将自动提取考点与知识结构。</p>
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-xl w-full bg-surface-container-low/30 hover:border-primary transition-colors cursor-pointer"><span class="material-symbols-outlined text-primary text-3xl mb-sm">cloud_upload</span><p class="text-body-sm text-on-surface-variant">拖放文件至此 · 单文件上限 50MB</p></div>
+<button class="px-lg py-sm bg-primary text-white rounded-lg font-semibold hover:opacity-90 transition-opacity">选择文件</button>
 </div>
 </div>
 </main>
-<!-- Right Column: AI Chat (Collapsible) -->
-<aside class="w-[360px] bg-surface-container-low border-l border-outline-variant flex flex-col shrink-0 shadow-sm z-30 transition-all duration-300 relative" id="chat-sidebar">
-<header class="p-md border-b border-outline-variant flex items-center justify-between">
-<div>
-<h2 class="font-title-md text-title-md text-on-surface">智能助手</h2>
-<p class="text-[11px] text-on-surface-variant opacity-70">AI 导师在线 • 数学建模</p><div class="mt-xs flex items-center gap-xs cursor-pointer group">
-<span class="text-[10px] font-bold text-primary uppercase tracking-widest">GPT-4o</span>
-<span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-primary transition-colors">expand_more</span>
 </div>
-</div>
-<button class="material-symbols-outlined text-on-surface-variant hover:text-primary" onclick="toggleChat()" title="折叠">close</button>
-</header>
-<nav class="flex border-b border-outline-variant">
-<button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-primary active-tab-indicator">对话</button>
-<button class="flex-1 py-sm text-[10px] tracking-wider font-bold text-on-surface-variant opacity-60">参考资料</button>
-</nav>
-<div class="flex-1 overflow-y-auto p-md flex flex-col gap-lg">
-<!-- Chat Message - User -->
-<div class="flex flex-col items-end gap-xs max-w-[85%] self-end">
-<div class="bg-primary text-on-primary p-md rounded-2xl rounded-tr-none text-body-sm shadow-sm">
-                    在这种情况下，我该如何推导时间常数 <span class="italic font-code-snippet text-xs">t</span>？
-                </div>
-<span class="text-[10px] text-on-surface-variant opacity-50">下午 14:02</span>
-</div>
-<!-- Chat Message - AI -->
-<div class="flex flex-col items-start gap-xs max-w-[90%]">
-<div class="flex items-center gap-xs mb-xs">
-<div class="w-6 h-6 rounded-full bg-on-surface flex items-center justify-center text-white text-[10px]">AI</div>
-<span class="text-[10px] font-bold text-on-surface opacity-70 tracking-widest uppercase">CRAM BOT <span class="font-normal opacity-60">(GPT-4o)</span></span>
-</div>
-<div class="bg-white border border-outline-variant p-md rounded-2xl rounded-tl-none text-body-sm shadow-sm flex flex-col gap-sm">
-<p>要推导时间 <span class="latex-block">t</span>，请按照以下步骤操作：</p>
-<ol class="list-decimal pl-sm flex flex-col gap-xs">
-<li>设 <span class="latex-block">P(t) = \frac{K}{2}</span></li>
-<li>代入通解形式：
-                            <div class="font-code-snippet bg-surface-container-low p-xs rounded my-xs text-[12px]">
-                                \frac{K}{2} = \frac{K}{1 + C e^{-rt}}
-                            </div>
-</li>
-<li>化简得 <span class="latex-block">1 + C e^{-rt} = 2</span></li>
-<li>解得 <span class="latex-block">t = \frac{1}{r} \ln(C)</span>，其中 <span class="latex-block">C = \frac{K - P_0}{P_0}</span>。</li>
-</ol>
-<p class="text-xs text-on-surface-variant italic">这是否解释清楚了为什么选项 A 是正确的？</p>
-</div>
-<span class="text-[10px] text-on-surface-variant opacity-50">下午 14:03</span>
-</div>
-</div>
-<!-- Footer Action Bar for Agent Chat -->
-<div class="p-md bg-surface-container-low border-t border-outline-variant flex flex-col gap-sm">
-<div class="flex gap-sm">
-<button class="flex-1 py-sm bg-surface border border-outline-variant rounded-lg text-[10px] font-bold tracking-widest text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-xs">
-<span class="material-symbols-outlined text-sm">auto_stories</span>
-                    同步到知识
-                </button>
-<button class="flex-1 py-sm bg-surface border border-outline-variant rounded-lg text-[10px] font-bold tracking-widest text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-xs">
-<span class="material-symbols-outlined text-sm">quiz</span>
-                    同步到题库
-                </button>
-</div>
-<div class="relative"><div class="absolute -top-6 left-0 w-full text-center pointer-events-none">
-<span class="text-[10px] text-on-surface-variant opacity-50">拖拽文件至此上传</span>
-</div>
-<button class="absolute left-3 bottom-3 material-symbols-outlined text-on-surface-variant hover:text-primary p-sm rounded-full transition-all" title="上传文件">
-    attach_file
-</button><textarea class="w-full bg-surface-container-highest border-none rounded-xl p-md pr-12 text-body-sm focus:ring-1 focus:ring-primary min-h-[80px] resize-none pl-12" placeholder="询问 AI 导师..."></textarea>
-<button class="absolute bottom-3 right-3 material-symbols-outlined text-primary hover:bg-primary-container p-sm rounded-full transition-all">send</button>
-</div>
-</div>
-</aside>
-</div>
-<!-- Status Bar Footer -->
 <footer class="fixed bottom-0 left-0 w-full flex items-center justify-between px-md h-8 z-50 bg-surface-container border-t border-outline-variant">
-<div class="flex items-center gap-md">
-<span class="text-[10px] font-bold text-on-surface uppercase tracking-widest">模型: GPT-4o | 已连接</span>
-<div class="w-2 h-2 rounded-full bg-green-500"></div>
-</div>
-<div class="flex items-center gap-lg">
-<a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">运行状态</a>
-<a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">API 接口</a>
-<a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">文档</a>
-</div>
+<div class="flex items-center gap-md"><span class="text-[10px] font-bold text-on-surface uppercase tracking-widest">模型: GPT-4o | 已连接</span><div class="w-2 h-2 rounded-full bg-green-500"></div></div>
+<div class="flex items-center gap-lg"><a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">运行状态</a><a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">API 接口</a><a class="text-[10px] font-bold text-on-surface-variant hover:text-primary uppercase tracking-widest" href="#">文档</a></div>
 </footer>
 <script>
-    // Micro-interactions and chat toggle
-    document.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('mousedown', () => {
-            btn.style.transform = 'scale(0.98)';
-        });
-        btn.addEventListener('mouseup', () => {
-            btn.style.transform = 'scale(1)';
-        });
-        btn.addEventListener('mouseleave', () => {
-            btn.style.transform = 'scale(1)';
-        });
-    });
-
-    function toggleChat() {
-        const sidebar = document.getElementById('chat-sidebar');
-        if (sidebar.style.width === '0px' || sidebar.classList.contains('w-0')) {
-            sidebar.classList.remove('w-0');
-            sidebar.classList.add('w-[360px]');
-            sidebar.style.opacity = '1';
-        } else {
-            sidebar.classList.remove('w-[360px]');
-            sidebar.classList.add('w-0');
-            sidebar.style.opacity = '0';
-        }
-    }
+document.querySelectorAll('button').forEach(function(b){b.addEventListener('mousedown',function(){b.style.transform='scale(0.98)'});b.addEventListener('mouseup',function(){b.style.transform='scale(1)'});b.addEventListener('mouseleave',function(){b.style.transform='scale(1)'})});
 </script>
 </body></html>

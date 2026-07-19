@@ -1,0 +1,61 @@
+/* ================================================================
+   dark-overrides.css
+   暗色模式 — 霓虹赛博风覆盖样式
+   仅在 .dark 生效时覆盖亮色硬编码值
+   ================================================================ */
+
+/* ---- Hero 区域背景增强 ---- */
+.dark .home-hero {
+  background:
+    radial-gradient(circle at 96% 0%, rgba(139, 95, 255, 0.15), transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(34, 211, 238, 0.06), transparent 50%),
+    var(--color-surface-container-lowest);
+  border-color: rgba(139, 95, 255, 0.2);
+}
+
+/* ---- 指标卡片 — 毛玻璃效果 ---- */
+.dark .home-hero-panel {
+  background: rgba(13, 16, 32, 0.55);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(139, 95, 255, 0.25);
+  box-shadow:
+    0 0 24px rgba(139, 95, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 卡片标题 — 霓虹紫微光 */
+.dark .home-hero-panel strong {
+  color: #c4b5ff;
+}
+
+/* ---- 指标方块 — 发光数字 ---- */
+.dark .home-hero-metrics div {
+  background: rgba(8, 10, 20, 0.6);
+  border: 1px solid rgba(139, 95, 255, 0.2);
+  transition: border-color var(--ease-out), box-shadow var(--ease-out);
+}
+
+.dark .home-hero-metrics div:hover {
+  border-color: rgba(139, 95, 255, 0.5);
+  box-shadow: 0 0 16px rgba(139, 95, 255, 0.12);
+}
+
+.dark .home-hero-metrics b {
+  color: #8b5fff;
+  text-shadow: 0 0 12px rgba(139, 95, 255, 0.4);
+}
+
+/* ---- 其他硬编码白色背景覆盖 ---- */
+.dark .home-project-mode-icon {
+  background: rgba(13, 16, 32, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(139, 95, 255, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 通用的 rgba(255,255,255,x) 在暗色下覆盖为暗色 */
+.dark .topnav-search input {
+  background: rgba(255, 255, 255, 0.06);
+}

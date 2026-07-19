@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GenerateModeArtifactInput, ModeArtifact } from '../../lib/types';
 import { parseCoursewareSlides } from '../../lib/advancedModeWorkspaces.js';
+import { useT } from '../../i18n';
 
 type CoursewareStudioPageProps = {
   artifacts: ModeArtifact[];
@@ -11,27 +12,6 @@ type CoursewareStudioPageProps = {
 };
 
 const sourceTabs = new Set(['courseware-content', 'courseware-outline', 'courseware-preview']);
-const artifactSourceLabels: Record<ModeArtifact['source'], string> = {
-  agent: 'AI生成',
-  fallback: '本地模板',
-  manual: '手动编辑'
-};
-const defaultCourseware = `# 课程导入
-写下本节课的主题、目标和导入问题。
-
-## 核心概念
-用简洁的例子解释关键知识点。
-
----
-
-## 课堂互动
-设计一个可立即回答的问题或讨论任务。
-
----
-
-## 总结与检查
-列出本节课的结论和离堂检测。`;
-
 function listCoursewareArtifacts(artifacts: ModeArtifact[]) {
   return artifacts
     .filter((artifact) => sourceTabs.has(artifact.tabId))
@@ -39,6 +19,11 @@ function listCoursewareArtifacts(artifacts: ModeArtifact[]) {
 }
 
 export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, onStatus }: CoursewareStudioPageProps) {
+  const { t } = useT();
+  const defaultCourseware = t('courseware.defaultContent');
+  const artifactSourceLabel = (source: ModeArtifact['source']) => t(
+    `mode.${source === 'agent' ? 'aiGenerated' : source === 'fallback' ? 'localTemplate' : 'manualEdit'}`
+  );
   const coursewareArtifacts = useMemo(() => listCoursewareArtifacts(artifacts), [artifacts]);
   const [selectedArtifactId, setSelectedArtifactId] = useState(coursewareArtifacts[0]?.id ?? '');
   const selectedArtifact = coursewareArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null;
@@ -99,15 +84,15 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
       let statusMessage: string;
       if (submittedArtifact) {
         next = await onSave({ ...submittedArtifact, contentMarkdown: submittedSource });
-        statusMessage = '课件已保存';
+        statusMessage = t('courseware.saved');
       } else {
         next = await onGenerate({
           tabId: 'courseware-preview',
-          artifactKind: '互动课件',
+          artifactKind: t('courseware.title'),
           prompt: submittedSource
         });
         const newestArtifact = next[0];
-        statusMessage = newestArtifact?.source === 'agent' ? 'AI 课件已生成' : '模型不可用，已生成本地模板';
+        statusMessage = newestArtifact?.source === 'agent' ? t('courseware.generated') : t('courseware.localGenerated');
       }
       onChange(next);
       if (draftRef.current === submittedSource && selectedArtifactIdRef.current === submittedArtifactId) {
@@ -122,17 +107,17 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
   return (
     <section className="panel specialized-mode-page courseware-studio-page">
       <div className="page-section-header">
-        <div><div className="section-title">互动课件</div><h3>课件工作室</h3><p className="muted">编辑 Markdown 源稿，并逐页检查课堂展示效果。</p></div>
-        <button className="primary" onClick={() => void saveCourseware()} disabled={busy || !draft.trim()}>{busy ? '保存中...' : '保存课件'}</button>
+        <div><div className="section-title">{t('courseware.title')}</div><h3>{t('courseware.studio')}</h3><p className="muted">{t('courseware.desc')}</p></div>
+        <button className="primary" onClick={() => void saveCourseware()} disabled={busy || !draft.trim()}>{busy ? t('common.saving') : t('courseware.saveCourseware')}</button>
       </div>
 
       <div className="courseware-studio-layout">
         <label className="courseware-source-editor mode-form-field wide">
-          Markdown 源稿
+          {t('courseware.source')}
           <select value={selectedArtifactId} onChange={(event) => selectArtifact(event.target.value)} disabled={busy}>
-            <option value="">新建课件</option>
+            <option value="">{t('courseware.newCourseware')}</option>
             {coursewareArtifacts.map((artifact) => (
-              <option key={artifact.id} value={artifact.id}>{artifact.title} · {artifactSourceLabels[artifact.source]}</option>
+              <option key={artifact.id} value={artifact.id}>{artifact.title} · {artifactSourceLabel(artifact.source)}</option>
             ))}
           </select>
           <textarea
@@ -148,15 +133,15 @@ export function CoursewareStudioPage({ artifacts, onGenerate, onSave, onChange, 
 
         <div className="courseware-preview-column">
           <div className="courseware-preview-toolbar">
-            <button aria-label="上一页" onClick={() => setSlideIndex((index) => Math.max(0, index - 1))} disabled={busy || slideIndex === 0}>上一页</button>
+            <button aria-label={t('courseware.prevPage')} onClick={() => setSlideIndex((index) => Math.max(0, index - 1))} disabled={busy || slideIndex === 0}>{t('courseware.prevPage')}</button>
             <strong>{slideIndex + 1} / {slides.length}</strong>
-            <button aria-label="下一页" onClick={() => setSlideIndex((index) => Math.min(slides.length - 1, index + 1))} disabled={busy || slideIndex >= slides.length - 1}>下一页</button>
+            <button aria-label={t('courseware.nextPage')} onClick={() => setSlideIndex((index) => Math.min(slides.length - 1, index + 1))} disabled={busy || slideIndex >= slides.length - 1}>{t('courseware.nextPage')}</button>
           </div>
           <article className="courseware-slide-preview" aria-live="polite">
             <div>
-              <span>第 {slideIndex + 1} 页</span>
+              <span>{t('courseware.pageNum', { num: slideIndex + 1 })}</span>
               <h4>{currentSlide.title}</h4>
-              <pre>{currentSlide.content || '本页暂无正文。'}</pre>
+              <pre>{currentSlide.content || t('courseware.noContent')}</pre>
             </div>
           </article>
         </div>

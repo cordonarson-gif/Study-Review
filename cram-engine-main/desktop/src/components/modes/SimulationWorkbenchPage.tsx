@@ -8,6 +8,7 @@ import {
   type ParameterSweepModel,
   type ParameterSweepPoint
 } from '../../lib/advancedModeWorkspaces.js';
+import { useT } from '../../i18n';
 
 type SimulationWorkbenchPageProps = {
   onGenerate: (input: GenerateModeArtifactInput) => Promise<ModeArtifact[]>;
@@ -16,12 +17,6 @@ type SimulationWorkbenchPageProps = {
 };
 
 type NumericField = Exclude<keyof ParameterSweepInput, 'model'>;
-
-const modelLabels: Record<ParameterSweepModel, string> = {
-  linear: '线性',
-  decay: '衰减',
-  saturation: '饱和'
-};
 
 const initialForm: Record<NumericField, string> & { model: ParameterSweepModel } = {
   model: 'linear',
@@ -50,6 +45,12 @@ function buildPolyline(points: ParameterSweepPoint[]) {
 }
 
 export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: SimulationWorkbenchPageProps) {
+  const { t } = useT();
+  const modelLabels: Record<ParameterSweepModel, string> = {
+    linear: t('simulation.linear'),
+    decay: t('simulation.decay'),
+    saturation: t('simulation.saturation')
+  };
   const [form, setForm] = useState(initialForm);
   const [points, setPoints] = useState<ParameterSweepPoint[]>([]);
   const [lastRunInput, setLastRunInput] = useState<ParameterSweepInput | null>(null);
@@ -85,11 +86,11 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
       setPoints(result.points);
       setLastRunInput(input);
       setError('');
-      onStatus?.(`仿真完成，共生成 ${result.points.length} 个采样点`);
+      onStatus?.(t('simulation.completed', { count: result.points.length }));
     } catch (cause) {
       setPoints([]);
       setLastRunInput(null);
-      setError(cause instanceof Error ? cause.message : '参数无效，请检查输入');
+      setError(cause instanceof Error ? cause.message : t('simulation.invalidInput'));
     }
   }
 
@@ -101,12 +102,12 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
       const rows = points.map((point) => `x=${formatSimulationNumber(point.x)}, y=${formatSimulationNumber(point.y)}`).join('\n');
       const next = await onGenerate({
         tabId: 'simulation-report',
-        artifactKind: '实验仿真报告',
+        artifactKind: t('simulation.reportKind'),
         prompt: `请根据以下确定性参数扫描结果生成实验仿真报告。\n模型：${modelLabels[input.model]}\n参数：${JSON.stringify(input)}\n结果：\n${rows}`
       });
       onChange(next);
       const newestArtifact = next[0];
-      onStatus?.(newestArtifact?.source === 'agent' ? 'AI 仿真报告已生成' : '模型不可用，已生成本地模板');
+      onStatus?.(newestArtifact?.source === 'agent' ? t('simulation.aiReportGenerated') : t('simulation.localReportGenerated'));
     } finally {
       setBusy(false);
     }
@@ -125,14 +126,14 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
     <section className="panel specialized-mode-page simulation-workbench-page">
       <div className="page-section-header">
         <div>
-          <div className="section-title">参数扫描</div>
-          <h3>实验仿真工作台</h3>
-          <p className="muted">配置确定性模型，运行后检查数据表与趋势图。</p>
+          <div className="section-title">{t('simulation.title')}</div>
+          <h3>{t('simulation.subtitle')}</h3>
+          <p className="muted">{t('simulation.desc')}</p>
         </div>
-        <button className="primary" onClick={runSimulation}>运行仿真</button>
+        <button className="primary" onClick={runSimulation}>{t('simulation.run')}</button>
       </div>
 
-      <div className="simulation-model-control segmented-control" aria-label="仿真模型">
+      <div className="simulation-model-control segmented-control" aria-label={t('simulation.simulationModel')}>
         {(Object.keys(modelLabels) as ParameterSweepModel[]).map((model) => (
           <button
             key={model}
@@ -146,23 +147,23 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
 
       <div className="simulation-parameter-grid">
         <label className="simulation-field">
-          起始值
+          {t('simulation.startValue')}
           <input type="number" value={form.start} onChange={(event) => updateNumber('start', event.target.value)} />
         </label>
         <label className="simulation-field">
-          结束值
+          {t('simulation.endValue')}
           <input type="number" value={form.end} onChange={(event) => updateNumber('end', event.target.value)} />
         </label>
         <label className="simulation-field">
-          步数
+          {t('simulation.steps')}
           <input type="number" min="2" max="50" step="1" value={form.steps} onChange={(event) => updateNumber('steps', event.target.value)} />
         </label>
         <label className="simulation-field">
-          系数
+          {t('simulation.coefficient')}
           <input type="number" step="any" value={form.coefficient} onChange={(event) => updateNumber('coefficient', event.target.value)} />
         </label>
         <label className="simulation-field">
-          初始值
+          {t('simulation.initialValue')}
           <input type="number" step="any" value={form.initialValue} onChange={(event) => updateNumber('initialValue', event.target.value)} />
         </label>
       </div>
@@ -172,15 +173,15 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
       {summary ? (
         <>
           <div className="simulation-summary-grid">
-            <div><span>采样点</span><strong>{summary.count}</strong></div>
-            <div><span>最小值</span><strong>{formatSimulationNumber(summary.minimum)}</strong></div>
-            <div><span>最大值</span><strong>{formatSimulationNumber(summary.maximum)}</strong></div>
-            <div><span>终点值</span><strong>{formatSimulationNumber(summary.final)}</strong></div>
+            <div><span>{t('simulation.samplePoints')}</span><strong>{summary.count}</strong></div>
+            <div><span>{t('simulation.minValue')}</span><strong>{formatSimulationNumber(summary.minimum)}</strong></div>
+            <div><span>{t('simulation.maxValue')}</span><strong>{formatSimulationNumber(summary.maximum)}</strong></div>
+            <div><span>{t('simulation.finalValue')}</span><strong>{formatSimulationNumber(summary.final)}</strong></div>
           </div>
 
           <div className="simulation-output-grid">
-            <div className="simulation-chart" aria-label="仿真趋势图">
-              <svg viewBox="0 0 600 320" role="img" aria-label="参数扫描折线图">
+            <div className="simulation-chart" aria-label={t('simulation.trendChart')}>
+              <svg viewBox="0 0 600 320" role="img" aria-label={t('simulation.lineChart')}>
                 <line x1="40" y1="276" x2="560" y2="276" />
                 <line x1="40" y1="24" x2="40" y2="276" />
                 <polyline points={polyline} />
@@ -188,7 +189,7 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
             </div>
             <div className="simulation-table-scroll">
               <table>
-                <thead><tr><th>序号</th><th>x</th><th>y</th></tr></thead>
+                <thead><tr><th>{t('simulation.index')}</th><th>x</th><th>y</th></tr></thead>
                 <tbody>
                   {points.map((point, index) => (
                     <tr key={`${point.x}-${index}`}><td>{index + 1}</td><td>{formatSimulationNumber(point.x)}</td><td>{formatSimulationNumber(point.y)}</td></tr>
@@ -198,11 +199,11 @@ export function SimulationWorkbenchPage({ onGenerate, onChange, onStatus }: Simu
             </div>
           </div>
           <div className="panel-actions horizontal">
-            <button onClick={() => void generateReport()} disabled={busy}>{busy ? '生成中...' : '生成实验报告'}</button>
+            <button onClick={() => void generateReport()} disabled={busy}>{busy ? t('common.generating') : t('simulation.generateReport')}</button>
           </div>
         </>
       ) : (
-        <div className="empty-slim">运行仿真后将在此显示结果。</div>
+        <div className="empty-slim">{t('simulation.emptyResult')}</div>
       )}
     </section>
   );

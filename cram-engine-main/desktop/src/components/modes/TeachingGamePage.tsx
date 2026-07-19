@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReviewQuestion } from '../../lib/types';
 import { getPlayableQuestions } from '../../lib/advancedModeWorkspaces.js';
+import { useT } from '../../i18n';
+import { RichMathContent } from '../RichMathContent';
 
 type TeachingGamePageProps = {
   questions: ReviewQuestion[];
@@ -8,6 +10,7 @@ type TeachingGamePageProps = {
 };
 
 export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProps) {
+  const { t } = useT();
   const playableQuestions = useMemo(() => getPlayableQuestions(questions), [questions]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedKey, setSelectedKey] = useState('');
@@ -52,11 +55,11 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
   if (!playableQuestions.length || !question) {
     return (
       <section className="panel specialized-mode-page teaching-game-page">
-        <div className="page-section-header"><div><div className="section-title">教学游戏</div><h3>课堂挑战</h3></div></div>
+        <div className="page-section-header"><div><div className="section-title">{t('game.title')}</div><h3>{t('game.challenge')}</h3></div></div>
         <div className="game-empty-state">
-          <strong>还没有可游玩的题目</strong>
-          <p className="muted">题目需要至少两个有效选项，并且答案与选项标识一致。</p>
-          <button className="primary" onClick={onGoToBank}>去题库准备题目</button>
+          <strong>{t('game.noQuestions')}</strong>
+          <p className="muted">{t('game.noQuestionsDesc')}</p>
+          <button className="primary" onClick={onGoToBank}>{t('game.goToBank')}</button>
         </div>
       </section>
     );
@@ -66,10 +69,10 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
     return (
       <section className="panel specialized-mode-page teaching-game-page">
         <div className="game-result-state">
-          <span className="section-title">挑战完成</span>
+          <span className="section-title">{t('game.complete')}</span>
           <strong>{score} / {playableQuestions.length}</strong>
-          <p>正确率 {Math.round((score / playableQuestions.length) * 100)}%</p>
-          <button className="primary" onClick={restart}>重新开始</button>
+          <p>{t('game.accuracy', { percent: Math.round((score / playableQuestions.length) * 100) })}</p>
+          <button className="primary" onClick={restart}>{t('game.restart')}</button>
         </div>
       </section>
     );
@@ -81,15 +84,15 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
   return (
     <section className="panel specialized-mode-page teaching-game-page">
       <div className="game-status-row">
-        <div><span>进度</span><strong>{safeQuestionIndex + 1} / {playableQuestions.length}</strong></div>
-        <div><span>得分</span><strong>{score}</strong></div>
-        <button onClick={restart}>重新开始</button>
+        <div><span>{t('game.progressLabel')}</span><strong>{safeQuestionIndex + 1} / {playableQuestions.length}</strong></div>
+        <div><span>{t('game.scoreLabel')}</span><strong>{score}</strong></div>
+        <button onClick={restart}>{t('game.restart')}</button>
       </div>
       <div className="game-progress-track"><i style={{ width: `${progress}%` }} /></div>
 
       <div className="game-question-stage">
-        <span className="upload-kind">{question.knowledgePoint || question.category || '课堂挑战'}</span>
-        <h3>{question.stem}</h3>
+        <span className="upload-kind">{question.knowledgePoint || question.category || t('game.challenge')}</span>
+        <RichMathContent content={question.stem} className="rich-math-content game-question-content" />
         <div className="game-option-list">
           {question.options.map((option) => {
             const optionIsCorrect = answered && option.key === question.answer;
@@ -101,7 +104,8 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
                 onClick={() => !answered && setSelectedKey(option.key)}
                 disabled={answered}
               >
-                <span>{option.key}</span><strong>{option.text}</strong>
+                <span>{option.key}</span>
+                <RichMathContent content={option.text} inline className="rich-math-content game-option-content" />
               </button>
             );
           })}
@@ -109,16 +113,22 @@ export function TeachingGamePage({ questions, onGoToBank }: TeachingGamePageProp
 
         {answered && (
           <div className={correct ? 'game-feedback correct' : 'game-feedback wrong'} role="status">
-            <strong>{correct ? '回答正确' : `正确答案：${question.answer}`}</strong>
-            {question.explanation && <p>{question.explanation}</p>}
+            <RichMathContent
+              content={correct ? t('game.correct') : t('game.correctAnswer', { answer: question.answer })}
+              inline
+              className="rich-math-content game-answer-content"
+            />
+            {question.explanation && (
+              <RichMathContent content={question.explanation} className="rich-math-content game-explanation-content" />
+            )}
           </div>
         )}
 
         <div className="panel-actions horizontal">
           {!answered ? (
-            <button className="primary" onClick={submitAnswer} disabled={!selectedKey}>确认答案</button>
+            <button className="primary" onClick={submitAnswer} disabled={!selectedKey}>{t('game.confirmAnswer')}</button>
           ) : (
-            <button className="primary" onClick={continueGame}>{safeQuestionIndex === playableQuestions.length - 1 ? '查看成绩' : '下一题'}</button>
+            <button className="primary" onClick={continueGame}>{safeQuestionIndex === playableQuestions.length - 1 ? t('game.viewScore') : t('game.nextQuestion')}</button>
           )}
         </div>
       </div>

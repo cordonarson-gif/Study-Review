@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GenerateModeArtifactInput, ModeArtifact, WorkspaceTabTemplate } from '../../lib/types';
+import type { GenerateModeArtifactInput, ModeArtifact, WorkspaceTabId, WorkspaceTabTemplate } from '../../lib/types';
+import { useT } from '../../i18n';
+import { RichMathContent } from '../RichMathContent';
+
+type ArtifactView = 'preview' | 'edit';
 
 type ModeModulePageProps = {
   tab: WorkspaceTabTemplate;
@@ -11,18 +15,41 @@ type ModeModulePageProps = {
   onStatus?: (message: string) => void;
 };
 
-const artifactSourceLabels: Record<ModeArtifact['source'], string> = {
-  agent: 'AI生成',
-  fallback: '本地模板',
-  manual: '手动编辑'
+// 从成果标题中提取关键字（取 trim 后最后一个字符），用于卡片左侧色块图标。
+// 例："大纲草稿" -> "稿"、"组卷" -> "卷"、"批改建议" -> "议"。
+function extractKeyChar(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) return '稿';
+  return trimmed[trimmed.length - 1];
+}
+
+const generatePromptKeys: Partial<Record<WorkspaceTabId, string>> = {
+  'paper-overview': 'mode.paperOverviewPrompt',
+  'paper-literature': 'mode.paperLiteraturePrompt',
+  'paper-outline': 'mode.paperOutlinePrompt',
+  'paper-chapters': 'mode.paperChaptersPrompt',
+  'paper-methods': 'mode.paperMethodsPrompt',
+  'paper-innovation': 'mode.paperInnovationPrompt',
+  'paper-format': 'mode.paperFormatPrompt',
+  'paper-defense': 'mode.paperDefensePrompt',
+  'assignment-overview': 'mode.assignmentOverviewPrompt',
+  'assignment-bank': 'mode.assignmentBankPrompt',
+  'assignment-paper': 'mode.assignmentPaperPrompt',
+  'assignment-online-quiz': 'mode.assignmentOnlineQuizPrompt',
+  'assignment-grading': 'mode.assignmentGradingPrompt',
+  'assignment-wrong-answers': 'mode.assignmentWrongAnswersPrompt',
+  'assignment-feedback': 'mode.assignmentFeedbackPrompt'
 };
 
 export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, onChange, onStatus }: ModeModulePageProps) {
+  const { t } = useT();
+  const generatePromptKey = generatePromptKeys[tab.id] ?? 'mode.generatePrompt';
   const tabArtifacts = useMemo(() => artifacts.filter((artifact) => artifact.tabId === tab.id), [artifacts, tab.id]);
   const [selectedId, setSelectedId] = useState(tabArtifacts[0]?.id ?? '');
   const [draft, setDraft] = useState<ModeArtifact | null>(tabArtifacts[0] ?? null);
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [artifactView, setArtifactView] = useState<ArtifactView>('preview');
 
   useEffect(() => {
     const next = tabArtifacts.find((artifact) => artifact.id === selectedId) ?? tabArtifacts[0] ?? null;
@@ -37,7 +64,12 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
       onChange(next);
       setPrompt('');
       const newestArtifact = next[0];
-      onStatus?.(newestArtifact?.source === 'agent' ? 'AI 成果已生成' : '模型不可用，已生成本地模板');
+      if (newestArtifact) {
+        setSelectedId(newestArtifact.id);
+        setDraft(newestArtifact);
+        setArtifactView('preview');
+      }
+      onStatus?.(newestArtifact?.source === 'agent' ? t('mode.generated') : t('mode.localGenerated'));
     } finally {
       setBusy(false);
     }
@@ -49,7 +81,7 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
     try {
       const next = await onSave(draft);
       onChange(next);
-      onStatus?.('模式成果已保存');
+      onStatus?.(t('mode.saved'));
     } finally {
       setBusy(false);
     }
@@ -61,7 +93,7 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
     try {
       const next = await onDelete(draft.id);
       onChange(next);
-      onStatus?.('模式成果已删除');
+      onStatus?.(t('mode.deleted'));
     } finally {
       setBusy(false);
     }
@@ -73,59 +105,82 @@ export function ModeModulePage({ tab, artifacts, onGenerate, onSave, onDelete, o
         <div>
           <div className="section-title">{tab.label}</div>
           <h3>{tab.description}</h3>
-          <p className="muted">输入当前页面的目标或补充要求，系统会生成可保存、可编辑、可交付的 Markdown 成果。</p>
+          <p className="muted">{t(generatePromptKey)}</p>
         </div>
         <button className="primary" onClick={() => void generateArtifact()} disabled={busy}>
-          {busy ? '生成中...' : '生成成果'}
+          {busy ? t('common.generating') : t('mode.generateResult')}
         </button>
       </div>
 
       <div className="mode-generation-panel">
         <label className="mode-form-field wide">
-          生成要求
+          {t('mode.generateRequirements')}
           <textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="例如：请围绕当前项目生成一版结构化内容，并给出复核清单"
+            placeholder={t('mode.generatePlaceholder')}
           />
         </label>
       </div>
 
       <div className="mode-artifact-grid">
         <aside className="mode-artifact-list">
-          <div className="subsection-title">成果库</div>
+          <div className="subsection-title">{t('mode.resultLibrary')}</div>
           {tabArtifacts.length ? tabArtifacts.map((artifact) => (
             <button
               key={artifact.id}
-              className={artifact.id === draft?.id ? 'resource-library-card active' : 'resource-library-card'}
+              className={`resource-library-card mode-artifact-card${artifact.id === draft?.id ? ' active' : ''}`}
               onClick={() => {
                 setSelectedId(artifact.id);
                 setDraft(artifact);
+                setArtifactView('preview');
               }}
             >
-              <strong>{artifact.title}</strong>
-              <small>{artifact.kind} · {artifactSourceLabels[artifact.source]} · {new Date(artifact.updatedAt).toLocaleString('zh-CN')}</small>
+              <span className="mode-artifact-icon" aria-hidden="true">{extractKeyChar(artifact.title)}</span>
+              <span className="mode-artifact-text">
+                <strong>{artifact.title}</strong>
+                <small>{artifact.kind} · {t(`mode.${artifact.source === 'agent' ? 'aiGenerated' : artifact.source === 'fallback' ? 'localTemplate' : 'manualEdit'}`)} · {new Date(artifact.updatedAt).toLocaleString('zh-CN')}</small>
+              </span>
             </button>
-          )) : <div className="empty-slim">暂无成果，点击“生成成果”创建第一份内容。</div>}
+          )) : <div className="empty-slim">{t('mode.noResults')}</div>}
         </aside>
 
         <div className="mode-artifact-editor">
           {draft ? (
             <>
-              <label className="mode-form-field">
-                标题
-                <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-              </label>
-              <label className="mode-form-field wide">
-                Markdown 内容
-                <textarea value={draft.contentMarkdown} onChange={(event) => setDraft({ ...draft, contentMarkdown: event.target.value })} />
-              </label>
+              <div className="mode-artifact-toolbar">
+                <strong>{draft.title}</strong>
+                <div className="segmented-control" aria-label={t('mode.contentView')}>
+                  <button className={artifactView === 'preview' ? 'active' : ''} onClick={() => setArtifactView('preview')}>
+                    {t('common.preview')}
+                  </button>
+                  <button className={artifactView === 'edit' ? 'active' : ''} onClick={() => setArtifactView('edit')}>
+                    {t('common.edit')}
+                  </button>
+                </div>
+              </div>
+              {artifactView === 'edit' ? (
+                <>
+                  <label className="mode-form-field">
+                    {t('mode.titleField')}
+                    <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+                  </label>
+                  <label className="mode-form-field wide">
+                    {t('mode.markdownContent')}
+                    <textarea value={draft.contentMarkdown} onChange={(event) => setDraft({ ...draft, contentMarkdown: event.target.value })} />
+                  </label>
+                </>
+              ) : (
+                <div className="mode-artifact-preview">
+                  <RichMathContent content={draft.contentMarkdown} className="rich-math-content" />
+                </div>
+              )}
               <div className="panel-actions horizontal">
-                <button className="primary" onClick={() => void saveArtifact()} disabled={busy}>保存成果</button>
-                <button onClick={() => void deleteArtifact()} disabled={busy}>删除成果</button>
+                <button className="primary" onClick={() => void saveArtifact()} disabled={busy}>{t('mode.saveResult')}</button>
+                <button onClick={() => void deleteArtifact()} disabled={busy}>{t('mode.deleteResult')}</button>
               </div>
             </>
-          ) : <div className="empty-slim">选择或生成一份成果后，可在这里编辑。</div>}
+          ) : <div className="empty-slim">{t('mode.selectOrGenerate')}</div>}
         </div>
       </div>
     </section>

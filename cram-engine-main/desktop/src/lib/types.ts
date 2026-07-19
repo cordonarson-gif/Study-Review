@@ -78,6 +78,10 @@ export type QuestionOption = {
   text: string;
 };
 
+export type AnswerSource = 'question-bank' | 'ai-inferred' | 'manual' | 'missing';
+export type ReviewStatus = 'ready' | 'needs-review';
+export type ParseConfidence = 'high' | 'medium' | 'low';
+
 export type ReviewQuestion = {
   id: string;
   stem: string;
@@ -92,6 +96,11 @@ export type ReviewQuestion = {
   questionBankId?: string;
   questionBankName?: string;
   generatedBy?: 'import' | 'ai';
+  answerSource?: AnswerSource;
+  reviewStatus?: ReviewStatus;
+  parseConfidence?: ParseConfidence;
+  sourcePages?: string[];
+  parseWarnings?: string[];
   favorite: boolean;
   wrong: boolean;
   attempts: number;
@@ -100,6 +109,23 @@ export type ReviewQuestion = {
 };
 
 export type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | 'attempts' | 'createdAt' | 'updatedAt'>;
+
+export type QuestionImportRequest = {
+  projectId: string;
+  kind: 'text' | 'file' | 'image';
+  text?: string;
+  filePaths?: string[];
+  sourceName?: string;
+  questionBankName?: string;
+};
+
+export type QuestionImportPreviewResult = {
+  drafts: QuestionDraft[];
+  aiStatus: 'not-needed' | 'not-configured' | 'completed' | 'partial' | 'failed';
+  summary: { total: number; ready: number; needsReview: number; inferred: number; missing: number };
+  failures: Array<{ sourceName: string; sourcePath?: string; message: string }>;
+  warnings: string[];
+};
 
 export type GenerateQuestionsInput = {
   requirements: string;
@@ -256,6 +282,7 @@ export type WizardField = {
   required: boolean;
   placeholder?: string;
   options?: string[];
+  optionLabels?: string[];
 };
 
 export type WorkspaceTabId =
@@ -461,6 +488,9 @@ export type LegacyAppSettings = {
   lastModelSyncAt: string | null;
 };
 
+export type ThemeMode = 'light' | 'dark' | 'auto';
+export type Locale = 'zh-CN' | 'zh-TW' | 'en';
+
 export type VersionedAppSettings = {
   version: 2;
   activeProviderId: string;
@@ -469,6 +499,8 @@ export type VersionedAppSettings = {
   maxTokens: number;
   latexEngine: 'xelatex' | 'pdflatex';
   enableLatexPreview: boolean;
+  themeMode: ThemeMode;
+  locale: Locale;
   lastModelSyncAt: string | null;
   mineru: MinerUSettings;
 };
@@ -620,6 +652,8 @@ export const defaultSettings: AppSettings = {
   maxTokens: 4096,
   latexEngine: 'xelatex',
   enableLatexPreview: true,
+  themeMode: 'auto',
+  locale: 'zh-CN',
   availableModels: presetModels,
   lastModelSyncAt: null,
   mineru: {

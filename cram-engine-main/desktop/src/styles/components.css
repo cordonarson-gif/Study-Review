@@ -221,6 +221,12 @@
   align-items: center;
 }
 
+.draft-preview-header-left {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
 .import-textarea {
   width: 100%;
   min-height: 200px;
@@ -325,6 +331,149 @@
   display: flex;
   gap: var(--space-sm);
   justify-content: flex-end;
+}
+
+.import-processing,
+.import-result-notice {
+  padding: 10px 12px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container);
+  color: var(--color-on-surface-variant);
+  font-size: 13px;
+}
+
+.import-result-notice {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid var(--color-primary);
+}
+
+.draft-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 8px;
+}
+
+.draft-status {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--color-surface-container);
+  color: var(--color-on-surface-variant);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.draft-status.warning {
+  background: #fff3d6;
+  color: #7a4b00;
+}
+
+.draft-options-editor {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-sm);
+}
+
+.draft-options-header,
+.draft-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-options-header {
+  justify-content: space-between;
+}
+
+.draft-option-row input:not(.draft-option-key) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.draft-option-key {
+  flex: 0 0 42px;
+  width: 42px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.draft-warning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.draft-warning-list span {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #fff3d6;
+  color: #7a4b00;
+  font-size: 11px;
+}
+
+.import-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 20, 24, 0.42);
+}
+
+.import-confirm-dialog {
+  width: min(520px, 100%);
+  padding: 20px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-lowest);
+  box-shadow: 0 18px 50px rgba(20, 20, 24, 0.24);
+}
+
+.import-confirm-dialog h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.import-confirm-dialog p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  line-height: 1.65;
+}
+
+.import-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+@media (max-width: 640px) {
+  .draft-card-header,
+  .draft-preview-header,
+  .draft-option-row,
+  .import-confirm-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .draft-status-badges {
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .draft-card-row {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-option-key {
+    width: 100%;
+  }
 }
 
 /* ---- PracticePanel ---- */
@@ -544,6 +693,83 @@
   color: var(--color-on-surface);
 }
 
+.rich-math-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.rich-math-content > :first-child {
+  margin-top: 0;
+}
+
+.rich-math-content > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-math-content .katex-display {
+  max-width: 100%;
+  margin: 0.75em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+.option-content,
+.answer-content {
+  align-self: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.explanation-content {
+  color: var(--color-on-surface);
+  line-height: 1.6;
+}
+
+.draft-rendered-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-outline-variant);
+}
+
+.draft-preview-stem {
+  font-weight: 650;
+  line-height: 1.6;
+}
+
+.draft-preview-options {
+  display: grid;
+  gap: 8px;
+}
+
+.draft-preview-option {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.draft-preview-option > strong {
+  color: var(--color-primary);
+}
+
+.draft-preview-answer {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-outline-variant);
+}
+
+.draft-preview-answer > span {
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* ---- Option Items (刷题) ---- */
 
 .option-grid {
@@ -562,6 +788,56 @@
   border: 1px solid var(--color-outline-variant);
   cursor: pointer;
   transition: all var(--ease-out);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.option-item.selected {
+  border-color: var(--color-primary);
+}
+
+.option-item.correct {
+  border-color: #2e7d32;
+  background: rgba(46, 125, 50, 0.08);
+}
+
+.option-item.correct .option-key {
+  background: #2e7d32;
+  color: #fff;
+}
+
+.option-item.wrong {
+  border-color: #ba1a1a;
+  background: rgba(186, 26, 26, 0.07);
+}
+
+.option-item.wrong .option-key {
+  background: #ba1a1a;
+  color: #fff;
+}
+
+.option-item:disabled,
+.option-item.disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.option-item.correct:disabled:hover,
+.option-item.wrong:disabled:hover,
+.option-item.selected:disabled:hover {
+  background: var(--color-surface-container-lowest);
+  border-color: var(--color-outline-variant);
+}
+
+.option-item.correct:disabled:hover {
+  border-color: #2e7d32;
+  background: rgba(46, 125, 50, 0.08);
+}
+
+.option-item.wrong:disabled:hover {
+  border-color: #ba1a1a;
+  background: rgba(186, 26, 26, 0.07);
 }
 
 .option-item:hover {
@@ -588,6 +864,37 @@
   background: var(--color-primary);
   color: var(--color-on-primary);
 }
+
+/* ---- Answer Feedback (答题反馈) ---- */
+
+.answer-feedback {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: fadeInCard 0.25s ease;
+}
+
+.answer-feedback.correct {
+  border-left: 4px solid #2e7d32;
+  background: rgba(46, 125, 50, 0.06);
+}
+
+.answer-feedback.wrong {
+  border-left: 4px solid #ba1a1a;
+  background: rgba(186, 26, 26, 0.05);
+}
+
+.answer-feedback .label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.answer-feedback.correct .label { color: #2e7d32; }
+.answer-feedback.wrong .label { color: #ba1a1a; }
 
 /* ---- Answer Reveal ---- */
 

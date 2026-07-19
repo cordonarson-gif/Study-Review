@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ConnectionCheckResult, ProviderProfile } from '../../lib/types';
 import { defaultProviderProfiles } from '../../lib/types';
 import ModelManager from './ModelManager';
+import { useT } from '../../i18n';
 
 type ProviderDetailProps = {
   profile: ProviderProfile;
@@ -20,15 +21,16 @@ function defaultBaseUrl(profile: ProviderProfile) {
 }
 
 export default function ProviderDetail({ profile, onChange, canDisableProvider }: ProviderDetailProps) {
+  const { t } = useT();
   const [keyVisible, setKeyVisible] = useState(false);
   const [checking, setChecking] = useState(false);
   const [connection, setConnection] = useState<ConnectionCheckResult | null>(null);
 
   const validation = useMemo(() => {
-    if (!profile.label.trim()) return '服务商名称不能为空';
-    if (!profile.baseUrl.trim()) return 'API 地址不能为空';
+    if (!profile.label.trim()) return t('settings.nameEmpty');
+    if (!profile.baseUrl.trim()) return t('settings.apiUrlEmpty');
     return '';
-  }, [profile.label, profile.baseUrl]);
+  }, [profile.label, profile.baseUrl, t]);
 
   async function handleTest() {
     setChecking(true);
@@ -38,7 +40,7 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
         setConnection({
           ok: false,
           kind: 'network',
-          message: 'Electron 桥接未加载，请在桌面应用窗口中使用此功能。'
+          message: t('settings.electronBridgeMissing')
         });
         return;
       }
@@ -48,7 +50,7 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
       setConnection({
         ok: false,
         kind: 'network',
-        message: error instanceof Error ? error.message : '测试连接失败'
+        message: error instanceof Error ? error.message : t('settings.testFailed')
       });
     } finally {
       setChecking(false);
@@ -56,7 +58,7 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
   }
 
   return (
-    <section className="provider-detail-panel" aria-label={`${profile.label} 设置`}>
+    <section className="provider-detail-panel" aria-label={t('settings.providerSettingsAria', { name: profile.label })}>
       <div className="provider-detail-header">
         <div>
           <span>{profile.provider}</span>
@@ -64,7 +66,7 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
         </div>
         <label
           className="settings-switch detail-switch"
-          title={canDisableProvider ? '启用或停用服务商' : '至少保留一个启用服务商'}
+          title={canDisableProvider ? t('settings.enableToggle') : t('settings.enableToggleMin')}
         >
           <input
             type="checkbox"
@@ -73,13 +75,13 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
             onChange={(event) => onChange({ ...profile, enabled: event.target.checked })}
           />
           <span />
-          <em>{profile.enabled ? '已启用' : '已停用'}</em>
+          <em>{profile.enabled ? t('common.enabled') : t('common.disabled')}</em>
         </label>
       </div>
 
       <div className="settings-form-grid">
         <label>
-          服务商名称
+          {t('settings.nameLabel')}
           <input value={profile.label} onChange={(event) => onChange({ ...profile, label: event.target.value })} />
         </label>
         <label>
@@ -93,32 +95,32 @@ export default function ProviderDetail({ profile, onChange, canDisableProvider }
             />
             <button
               type="button"
-              aria-label="显示或隐藏 API Key"
+              aria-label={t('settings.toggleKeyAria')}
               onClick={() => setKeyVisible((value) => !value)}
             >
-              {keyVisible ? '隐藏' : '显示'}
+              {keyVisible ? t('settings.hideKey') : t('settings.showKey')}
             </button>
           </div>
         </label>
         <label className="settings-wide-field">
-          API 地址
+          {t('settings.apiUrlLabel')}
           <div className="endpoint-row">
             <input value={profile.baseUrl} onChange={(event) => onChange({ ...profile, baseUrl: event.target.value })} />
-            <button type="button" onClick={() => onChange({ ...profile, baseUrl: defaultBaseUrl(profile) })}>重置</button>
+            <button type="button" onClick={() => onChange({ ...profile, baseUrl: defaultBaseUrl(profile) })}>{t('settings.resetUrl')}</button>
           </div>
         </label>
       </div>
 
       <div className="endpoint-preview">
-        <span>请求地址</span>
-        <code>{endpointPreview(profile) || '请先填写 API 地址'}</code>
+        <span>{t('settings.requestUrl')}</span>
+        <code>{endpointPreview(profile) || t('settings.fillApiUrl')}</code>
       </div>
 
       {validation && <div className="settings-inline-error" role="alert">{validation}</div>}
 
       <div className="connection-actions">
         <button type="button" className="primary" onClick={() => void handleTest()} disabled={checking || Boolean(validation)}>
-          {checking ? '测试中...' : '测试连接'}
+          {checking ? t('common.testing') : t('settings.testConnection')}
         </button>
         {connection && (
           <div className={connection.ok ? 'settings-inline-success' : 'settings-inline-error'} role={connection.ok ? 'status' : 'alert'}>

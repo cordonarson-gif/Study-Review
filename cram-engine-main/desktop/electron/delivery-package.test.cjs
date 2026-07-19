@@ -16,6 +16,15 @@ function sourceBetween(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
+function modeDeliveryRegistry(source) {
+  const startMarker = 'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {';
+  const start = source.indexOf(startMarker);
+  assert.notEqual(start, -1, `missing source marker: ${startMarker}`);
+  const end = source.indexOf('function selectLatestModeArtifactsByTab', start + startMarker.length);
+  assert.notEqual(end, -1, 'missing mode delivery registry boundary');
+  return source.slice(start, end);
+}
+
 test('delivery package model is declared in renderer and global contracts', () => {
   const types = fs.readFileSync(typesSourcePath, 'utf8');
   const globalTypes = fs.readFileSync(globalSourcePath, 'utf8');
@@ -68,7 +77,8 @@ test('project export produces a portable archive and import restores it as a loc
   assert.match(app, /await ce\.importProjectArchive\(\)/);
   assert.match(app, /setActiveProject\(enrichedDetail\)/);
   assert.match(app, /setProjects\(nextProjects\)/);
-  assert.match(app, /导入项目/);
+  assert.match(app, /t\('nav\.importProject'\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n', 'zh-CN.ts'), 'utf8'), /importProject: '导入项目'/);
 });
 
 test('DeliveryAgent includes mode artifacts in delivery generation', () => {
@@ -83,11 +93,7 @@ test('DeliveryAgent includes mode artifacts in delivery generation', () => {
 test('mode delivery registry mirrors every renderer template deliverable', async () => {
   const main = fs.readFileSync(mainSourcePath, 'utf8');
   const { projectModeTemplates } = await import('../src/lib/projectModes.js');
-  const registry = sourceBetween(
-    main,
-    'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
-    '\n};\n\nfunction selectLatestModeArtifactsByTab'
-  );
+  const registry = modeDeliveryRegistry(main);
 
   assert.equal(projectModeTemplates.length, 16);
   for (const [index, template] of projectModeTemplates.entries()) {
@@ -114,15 +120,11 @@ test('non-exam delivery requirements only use reachable artifact-producing templ
   const main = fs.readFileSync(mainSourcePath, 'utf8');
   const app = fs.readFileSync(appSourcePath, 'utf8');
   const { projectModeTemplates } = await import('../src/lib/projectModes.js');
-  const registry = sourceBetween(
-    main,
-    'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
-    '\n};\n\nfunction selectLatestModeArtifactsByTab'
-  );
+  const registry = modeDeliveryRegistry(main);
   const nonArtifactBlock = sourceBetween(
     main,
     'const nonArtifactWorkspaceTabs = new Set<WorkspaceTabId>([',
-    '\n]);\n\ntype ModeDeliveryDefinition'
+    '\ntype ModeDeliveryDefinition'
   );
   const nonArtifactTabs = [...nonArtifactBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]);
 
@@ -197,11 +199,7 @@ test('mode delivery status filters cross-mode history and checks tab, content, a
 
 test('structured evidence definitions do not alias specialized data to unrelated artifacts', () => {
   const main = fs.readFileSync(mainSourcePath, 'utf8');
-  const registry = sourceBetween(
-    main,
-    'const modeDeliveryDefinitions: Record<ProjectMode, ModeDeliveryDefinition[]> = {',
-    '\n};\n\nfunction selectLatestModeArtifactsByTab'
-  );
+  const registry = modeDeliveryRegistry(main);
   const gameBank = sourceBetween(registry, "id: 'delivery-game-question-bank'", '\n    },');
   const gameRules = sourceBetween(registry, "id: 'delivery-game-rules'", '\n    },');
   const mistakeLibrary = sourceBetween(registry, "id: 'delivery-mistake-library'", '\n    },');

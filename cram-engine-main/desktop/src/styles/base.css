@@ -105,11 +105,87 @@
   --ease-spring: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ---- Dark Mode Color Tokens — Neon Cyberpunk ---- */
+.dark {
+  /* 主色 — 霓虹电光紫 */
+  --color-primary: #8b5fff;
+  --color-on-primary: #080a14;
+  --color-primary-container: #3d2a8a;
+  --color-on-primary-container: #e0d4ff;
+  --color-primary-fixed: #1a0f40;
+  --color-primary-fixed-dim: #4e3bb8;
+  --color-on-primary-fixed: #e0d4ff;
+  --color-on-primary-fixed-variant: #6f5cc8;
+  --color-inverse-primary: #5e39e0;
+
+  /* 辅助 — 霓虹青 */
+  --color-secondary: #22d3ee;
+  --color-on-secondary: #05181c;
+  --color-secondary-container: #0d3a44;
+  --color-on-secondary-container: #a5f0fc;
+
+  --color-tertiary: #f59e0b;
+  --color-on-tertiary: #1a1206;
+  --color-tertiary-container: #4a2e06;
+  --color-on-tertiary-container: #fde68a;
+
+  --color-error: #f87171;
+  --color-on-error: #1a0606;
+  --color-error-container: #4a1010;
+  --color-on-error-container: #fca5a5;
+
+  /* 底色 — 深蓝黑 */
+  --color-background: #080a14;
+  --color-on-background: #e2e5f0;
+
+  --color-surface: #080a14;
+  --color-surface-dim: #050610;
+  --color-surface-bright: #0f1322;
+  --color-surface-container-lowest: #050610;
+  --color-surface-container-low: #080a14;
+  --color-surface-container: #0d1020;
+  --color-surface-container-high: #111526;
+  --color-surface-container-highest: #161a30;
+
+  --color-on-surface: #e2e5f0;
+  --color-on-surface-variant: #9ba4c4;
+
+  --color-outline: #4a5378;
+  --color-outline-variant: #2a3050;
+
+  --color-inverse-surface: #e2e5f0;
+  --color-inverse-on-surface: #111526;
+  --color-surface-tint: #8b5fff;
+  --color-surface-variant: #1a1f3a;
+
+  /* ---- Stage Semantic Colors (dark) — Neon ---- */
+  --stage-deconstruct: #8b5fff;
+  --stage-deconstruct-bg: #0d1020;
+  --stage-teach: #22d3ee;
+  --stage-teach-bg: #080a14;
+  --stage-test: #f59e0b;
+  --stage-test-bg: #0d1020;
+  --stage-fix: #f87171;
+  --stage-fix-bg: #0d1020;
+
+  /* ---- Shadows (dark) — Neon glow ---- */
+  --shadow-ambient: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 1px rgba(139, 95, 255, 0.1);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 /* ---- Global Reset ---- */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -125,6 +201,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  body {
+    min-width: 0;
+  }
 }
 
 button,

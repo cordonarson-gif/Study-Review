@@ -43,6 +43,15 @@ type GenerateQuestionsInput = {
   referenceText?: string;
 };
 
+type QuestionImportRequest = {
+  projectId: string;
+  kind: 'text' | 'file' | 'image';
+  text?: string;
+  filePaths?: string[];
+  sourceName?: string;
+  questionBankName?: string;
+};
+
 type LearningPathTaskStatus = 'todo' | 'doing' | 'done';
 
 type LearningPathTask = {
@@ -497,9 +506,11 @@ try {
     importProjectFiles: (projectId: string, filePaths: string[]) => ipcRenderer.invoke('projects:importFiles', projectId, filePaths),
     previewQuestionsFromText: (text: string, source: string, sourceName?: string) => ipcRenderer.invoke('questions:previewText', text, source, sourceName),
     previewQuestionsFromFiles: (filePaths: string[]) => ipcRenderer.invoke('questions:previewFiles', filePaths),
+    previewQuestionImport: (input: QuestionImportRequest) => ipcRenderer.invoke('questions:previewImport', input),
     addQuestions: (projectId: string, drafts: unknown[]) => ipcRenderer.invoke('questions:add', projectId, drafts),
     generateQuestions: (projectId: string, input: GenerateQuestionsInput) => ipcRenderer.invoke('questions:generate', projectId, input),
     updateQuestion: (projectId: string, question: unknown) => ipcRenderer.invoke('questions:update', projectId, question),
+    deleteQuestions: (projectId: string, questionIds: string[]) => ipcRenderer.invoke('questions:deleteMany', projectId, questionIds),
     getKnowledgeResources: (projectId: string, knowledgePoint: string) => ipcRenderer.invoke('resources:get', projectId, knowledgePoint),
     openKnowledgeResource: (projectId: string, resource: unknown) => ipcRenderer.invoke('resources:open', projectId, resource),
     getLearningProfile: (projectId: string) => ipcRenderer.invoke('profile:get', projectId),
@@ -526,6 +537,8 @@ try {
     runProjectChat: (projectId: string, input: string) => ipcRenderer.invoke('projects:chat', projectId, input),
     addKnowledgeBaseEntry: (projectId: string, entry: unknown) => ipcRenderer.invoke('knowledgeBase:addEntry', projectId, entry),
     draftKnowledgeBaseEntry: (projectId: string, source: 'chat' | 'upload', payload: unknown) => ipcRenderer.invoke('knowledgeBase:draftEntry', projectId, source, payload),
+    deleteUpload: (projectId: string, storedPath: string) => ipcRenderer.invoke('uploads:delete', projectId, storedPath),
+    deleteKnowledgeBaseEntry: (projectId: string, entryId: string) => ipcRenderer.invoke('knowledgeBase:delete', projectId, entryId),
     exportProject: (projectId: string) => ipcRenderer.invoke('projects:export', projectId),
     importProjectArchive: () => ipcRenderer.invoke('projects:importArchive'),
     readText: (projectIdOrFilePath: string, filePath?: string) => ipcRenderer.invoke('project:readText', projectIdOrFilePath, filePath),

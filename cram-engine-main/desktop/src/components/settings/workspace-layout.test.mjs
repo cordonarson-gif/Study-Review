@@ -60,19 +60,14 @@ test('home page presents the upgraded multi-mode product surface', async () => {
   const workspaceCss = await readFile(new URL('../../styles/workspace.css', import.meta.url), 'utf8');
 
   assert.match(app, /projectModeTemplates/);
-  assert.match(app, /const homeModeHighlights = projectModeTemplates/);
-  assert.match(app, /16 类项目模式/);
-  assert.match(app, /学习、科研、教学与测评的一体化工作台/);
-  assert.match(app, /论文助手/);
-  assert.match(app, /科研数据分析/);
-  assert.match(app, /教学设计/);
-  assert.match(app, /互动课件/);
-  assert.match(app, /知识图谱/);
-  assert.match(app, /错题集/);
-  assert.match(app, /配置服务/);
-  assert.match(app, /选择模式/);
-  assert.match(app, /生成成果/);
-  assert.match(app, /交付导出/);
+  assert.match(app, /localizeProjectModeTemplates\(projectModeTemplates, t\)/);
+  assert.match(app, /const homeModeHighlights = localizedProjectModeTemplates/);
+  assert.match(app, /home\.modeHighlights/);
+  assert.match(app, /home\.heroTitle/);
+  assert.match(app, /home\.configServices/);
+  assert.match(app, /home\.selectMode/);
+  assert.match(app, /home\.generateResults/);
+  assert.match(app, /home\.delivery/);
   assert.match(app, /home-mode-grid/);
   assert.match(app, /home-capability-grid/);
   assert.match(app, /home-workflow-grid/);
@@ -101,14 +96,14 @@ test('project cards show mode-specific icons and labels instead of always showin
   );
 
   assert.match(projectList, /import \{ getProjectModeDisplay \} from '\.\.\/lib\/projectDisplay'/);
-  assert.match(projectList, /const display = getProjectModeDisplay\(project\)/);
+  assert.match(projectList, /const display = getProjectModeDisplay\(project, t\)/);
   assert.match(listCardSnippet, /project-card-badge/);
   assert.match(listCardSnippet, /display\.icon/);
   assert.match(listCardSnippet, /display\.subtitle/);
   assert.doesNotMatch(listCardSnippet, /project\.examType/);
 
   assert.match(app, /import \{ getProjectModeDisplay \} from '\.\.\/lib\/projectDisplay'/);
-  assert.match(recentProjectSnippet, /const display = getProjectModeDisplay\(project\)/);
+  assert.match(recentProjectSnippet, /const display = getProjectModeDisplay\(project, t\)/);
   assert.match(recentProjectSnippet, /home-project-mode-icon/);
   assert.match(recentProjectSnippet, /display\.icon/);
   assert.match(recentProjectSnippet, /display\.subtitle/);
@@ -134,12 +129,12 @@ test('settings includes a global learning profile entry instead of a project pro
   assert.match(settingsPage, /workspaceProfile/);
   assert.match(settingsPage, /workspace-hub-tabs/);
   assert.match(settingsNav, /workspace/);
-  assert.match(settingsNav, /全局能力/);
+  assert.match(settingsNav, /settings\.categoryWorkspace/);
   assert.match(app, /getLearningProfile/);
   assert.match(app, /saveLearningProfile/);
   assert.match(app, /analyzeLearningProfile/);
 
-  for (const dimension of ['知识水平', '学习目标', '认知风格', '薄弱点', '错题模式', '资源偏好', '可用时间', '学习动机']) {
+  for (const dimension of ['profile.knowledgeLevel', 'profile.learningGoal', 'profile.cognitiveStyle', 'profile.weakPoints', 'profile.mistakePatterns', 'profile.resourcePreferences', 'profile.availableTime', 'profile.learningMotivation']) {
     assert.match(profilePage, new RegExp(dimension));
   }
 
@@ -179,7 +174,7 @@ test('resources tab renders the personalized resources page instead of a placeho
   assert.match(app, /deletePersonalizedResource/);
   assert.doesNotMatch(app, /title="个性化资源"\s+description="围绕学习画像生成讲义、例题、速记卡和补漏资料"/);
 
-  for (const text of ['生成资源', '资源类型', '资源库', 'Markdown 预览', '保存资源', '删除资源']) {
+  for (const text of ['resources.generateResources', 'resources.resourceType', 'resources.resourceLibrary', 'resources.markdownPreview', 'resources.saveResource', 'resources.deleteResource']) {
     assert.match(resourcesPage, new RegExp(text));
   }
 
@@ -200,7 +195,7 @@ test('path tab renders the learning path page instead of a placeholder', async (
   assert.match(app, /saveLearningPathPlan/);
   assert.doesNotMatch(app, /title="学习路径"\s+description="按剩余时间、薄弱点和目标自动排阶段计划"/);
 
-  for (const text of ['生成路径', '目标日期', '每日学习分钟', '阶段计划', '风险提醒', '保存路径']) {
+  for (const text of ['path.generatePath', 'path.targetDate', 'path.dailyMinutes', 'path.riskReminder', 'path.savePath']) {
     assert.match(pathPage, new RegExp(text));
   }
 
@@ -221,7 +216,7 @@ test('report tab renders the stage report page instead of a placeholder', async 
   assert.match(app, /saveStageReport/);
   assert.doesNotMatch(app, /title="阶段报告"\s+description="汇总画像变化、练习表现、知识库沉淀和下一步建议"/);
 
-  for (const text of ['生成报告', '阶段报告', '下一步动作', '风险提醒', '保存报告']) {
+  for (const text of ['report.generateReport', 'report.nextActions', 'report.riskReminder', 'report.saveReport']) {
     assert.match(reportPage, new RegExp(text));
   }
 
@@ -241,7 +236,7 @@ test('settings renders the global agent orchestration page instead of a project 
   assert.doesNotMatch(app, /editorTab === 'agents' && \(/);
   assert.doesNotMatch(app, /title="多智能体编排"\s+description="把画像、资料、题目和目标拆给不同 Agent 协同处理"/);
 
-  for (const text of ['ProfileAgent', 'ResourceAgent', 'PathAgent', 'ReportAgent', '推荐执行顺序']) {
+  for (const text of ['ProfileAgent', 'ResourceAgent', 'PathAgent', 'ReportAgent', 'agent.recommendedOrder']) {
     assert.match(agentsPage, new RegExp(text));
   }
 
@@ -265,7 +260,7 @@ test('delivery tab renders the delivery package page instead of a placeholder', 
   assert.match(app, /exportDeliveryPackage/);
   assert.doesNotMatch(app, /title="成果交付"\s+description="把最终材料组织为可导出、可复用、可检查的交付包"/);
 
-  for (const text of ['生成交付包', '交付清单', '资料包', '报告包', '题库包', '导出交付包']) {
+  for (const text of ['delivery.generate', 'delivery.checklist', 'delivery.export']) {
     assert.match(deliveryPage, new RegExp(text));
   }
 
@@ -350,10 +345,10 @@ test('top navigation shortcuts match upgraded product workflows and are actionab
 
   assert.match(app, /type TopnavShortcutId = 'modes' \| 'materials' \| 'workspace' \| 'delivery'/);
   assert.match(app, /const topnavShortcuts/);
-  assert.match(app, /label: '项目模式'/);
-  assert.match(app, /label: '资料识别'/);
-  assert.match(app, /label: '智能工作台'/);
-  assert.match(app, /label: '交付中心'/);
+  assert.match(app, /modes\.projectModes/);
+  assert.match(app, /modes\.materials/);
+  assert.match(app, /modes\.smartWorkspace/);
+  assert.match(app, /modes\.deliveryCenter/);
   assert.match(app, /function handleTopnavShortcut/);
   assert.match(app, /case 'modes':/);
   assert.match(app, /setViewMode\('home'\)/);
@@ -392,9 +387,7 @@ test('new project wizard starts with a mode selector and mode-specific fields', 
   assert.match(app, /<ProjectModeSelector\b/);
   assert.equal(registry.projectModeTemplates.length, 16);
 
-  for (const text of ['期末复习', '论文助手', '科研数据分析', '教学设计', '作业出题批改']) {
-    assert.match(selector, new RegExp(text));
-  }
+  assert.match(selector, /projectModeOptions\.map/);
 
   assert.match(workspaceCss, /\.project-mode-grid\b/);
   assert.match(workspaceCss, /\.project-mode-card\b/);
@@ -442,12 +435,12 @@ test('practice workspace uses question-bank first navigation and AI question gen
   assert.match(practicePanel, /buildQuestionBanks/);
   assert.match(practicePanel, /selectedQuestionBank/);
   assert.match(practicePanel, /className="[^"]*question-bank-sidebar/);
-  assert.match(practicePanel, /AI 出题/);
+  assert.match(practicePanel, /practice\.aiGenerate/);
   assert.match(practicePanel, /generateQuestions/);
   assert.match(practicePanel, /referenceQuestionIds/);
 
   assert.match(questionImport, /questionBankName/);
-  assert.match(questionImport, /题库名称/);
+  assert.match(questionImport, /import\.bankName/);
   assert.match(questionImport, /questionBankName:/);
 
   assert.match(componentsCss, /\.question-bank-sidebar\b/);
@@ -461,7 +454,7 @@ test('practice workspace keeps AI generation in a focused configuration page', a
   assert.match(practicePanel, /type PracticeView = 'practice' \| 'ai-generator'/);
   assert.match(practicePanel, /setPracticeView\('ai-generator'\)/);
   assert.match(practicePanel, /className="practice-ai-config-page"/);
-  assert.match(practicePanel, /返回刷题/);
+  assert.match(practicePanel, /practice\.backToPractice/);
   assert.match(practicePanel, /setPracticeView\('practice'\)/);
 
   const mainPracticeSnippet = practicePanel.slice(
@@ -482,10 +475,11 @@ test('new project wizard adapts steps, fields, and imports to the selected mode'
     assert.match(app, new RegExp(`'${mode}'`));
   }
 
-  assert.match(app, /function getWizardStepLabels\(mode: ProjectMode\)/);
-  assert.match(app, /\['项目信息', '出题要求', '题目导入'\]/);
-  assert.match(app, /\['项目信息', '工作目标', '素材导入'\]/);
-  assert.match(app, /const wizardStepLabels = getWizardStepLabels\(wizard\.mode\)/);
+  assert.match(app, /function getWizardStepLabels\(mode: ProjectMode, t:/);
+  assert.match(app, /t\('wizard\.projectInfo'\)/);
+  assert.match(app, /t\('wizard\.questionImport'\)/);
+  assert.match(app, /t\('wizard\.materialImport'\)/);
+  assert.match(app, /const wizardStepLabels = getWizardStepLabels\(wizard\.mode, t\)/);
   assert.match(app, /\{wizardStepLabels\[step - 1\]\}/);
 
   assert.match(app, /const handledWizardFieldKeys = new Set\(\['name', 'requirements', 'notes', 'textbook'\]\)/);
@@ -530,15 +524,14 @@ test('workspace renders mode-specific module pages with persistent artifacts', a
 
   assert.match(modePage, /const newestArtifact = next\[0\]/);
   assert.match(modePage, /newestArtifact\?\.source === 'agent'/);
-  assert.match(modePage, /AI 成果已生成/);
-  assert.match(modePage, /模型不可用，已生成本地模板/);
-  assert.match(modePage, /agent: 'AI生成'/);
-  assert.match(modePage, /fallback: '本地模板'/);
-  assert.match(modePage, /manual: '手动编辑'/);
-  assert.match(modePage, /artifactSourceLabels\[artifact\.source\]/);
+  assert.match(modePage, /mode\.generated/);
+  assert.match(modePage, /mode\.localGenerated/);
+  assert.match(modePage, /artifact\.source === 'agent'/);
+  assert.match(modePage, /artifact\.source === 'fallback'/);
+  assert.match(modePage, /t\(`mode\.\$\{artifact\.source/);
   assert.doesNotMatch(modePage, /error\.(?:message|stack)|String\(error\)/);
 
-  for (const text of ['生成成果', '保存成果', '删除成果', '成果库']) {
+  for (const text of ['mode.generateResult', 'mode.saveResult', 'mode.deleteResult', 'mode.resultLibrary']) {
     assert.match(modePage, new RegExp(text));
   }
 
@@ -592,24 +585,40 @@ test('advanced workspaces preserve consistent run, selection, and draft state', 
   assert.match(courseware, /const selectedArtifact = coursewareArtifacts\.find/);
 });
 
+test('question workflows share math rendering and expose editable previews', async () => {
+  const practice = await readFile(new URL('../PracticePanel.tsx', import.meta.url), 'utf8');
+  const questionImport = await readFile(new URL('../QuestionImportPanel.tsx', import.meta.url), 'utf8');
+  const game = await readFile(new URL('../modes/TeachingGamePage.tsx', import.meta.url), 'utf8');
+  const modeModule = await readFile(new URL('../modes/ModeModulePage.tsx', import.meta.url), 'utf8');
+
+  assert.match(practice, /import \{ RichMathContent \}/);
+  assert.match(questionImport, /import \{ RichMathContent \}/);
+  assert.match(game, /import \{ RichMathContent \}/);
+  assert.match(modeModule, /import \{ RichMathContent \}/);
+  assert.match(questionImport, /import\.displayPreview/);
+  assert.match(modeModule, /type ArtifactView = 'preview' \| 'edit'/);
+  assert.match(modeModule, /common\.preview/);
+  assert.match(modeModule, /common\.edit/);
+});
+
 test('specialized generators expose agent, fallback, and manual artifact sources', async () => {
   const simulation = await readFile(new URL('../modes/SimulationWorkbenchPage.tsx', import.meta.url), 'utf8');
   const courseware = await readFile(new URL('../modes/CoursewareStudioPage.tsx', import.meta.url), 'utf8');
 
   assert.match(simulation, /const newestArtifact = next\[0\]/);
   assert.match(simulation, /newestArtifact\?\.source === 'agent'/);
-  assert.match(simulation, /AI 仿真报告已生成/);
-  assert.match(simulation, /模型不可用，已生成本地模板/);
+  assert.match(simulation, /simulation\.aiReportGenerated/);
+  assert.match(simulation, /simulation\.localReportGenerated/);
 
   assert.match(courseware, /const newestArtifact = next\[0\]/);
   assert.match(courseware, /newestArtifact\?\.source === 'agent'/);
-  assert.match(courseware, /AI 课件已生成/);
-  assert.match(courseware, /模型不可用，已生成本地模板/);
-  assert.match(courseware, /课件已保存/);
-  assert.match(courseware, /agent: 'AI生成'/);
-  assert.match(courseware, /fallback: '本地模板'/);
-  assert.match(courseware, /manual: '手动编辑'/);
-  assert.match(courseware, /artifactSourceLabels\[artifact\.source\]/);
+  assert.match(courseware, /courseware\.generated/);
+  assert.match(courseware, /courseware\.localGenerated/);
+  assert.match(courseware, /courseware\.saved/);
+  assert.match(courseware, /source === 'agent'/);
+  assert.match(courseware, /source === 'fallback'/);
+  assert.match(courseware, /artifactSourceLabel\(artifact\.source\)/);
+  assert.match(courseware, /courseware\.defaultContent/);
 });
 
 test('advanced workspaces guard asynchronous and shrinking runtime state', async () => {
@@ -655,34 +664,31 @@ test('help and support opens a full handbook page with section navigation', asyn
   for (const text of [
     'help-center-page',
     'help-center-toc',
-    'href="#help-api"',
-    'href="#help-mineru"',
-    'href="#help-create-project"',
-    'href="#help-project-modes"',
-    'href="#help-workspace"',
-    'href="#help-specialized"',
-    'href="#help-assistant"',
-    'href="#help-delivery"',
-    'href="#help-troubleshooting"',
-    '从配置到交付的完整流程',
-    '配置 API 与模型服务',
-    'MinerU 文档识别',
-    '新建项目向导',
-    '所有项目模式',
-    '工作台通用功能',
-    '专用功能工作台',
-    'AI 助教与内容生成',
-    '成果交付与导出',
-    '常见问题排查'
+    "'help-api'",
+    "'help-mineru'",
+    "'help-create-project'",
+    "'help-project-modes'",
+    "'help-workspace'",
+    "'help-specialized'",
+    "'help-assistant'",
+    "'help-delivery'",
+    "'help-troubleshooting'",
+    'help.heroTitle',
+    'help.apiSection',
+    'help.mineruSection',
+    'help.createProject',
+    'help.projectModes',
+    'help.workspaceSection',
+    'help.specialized',
+    'help.assistant',
+    'help.deliverySection',
+    'help.troubleshooting'
   ]) {
     assert.match(helpPage, new RegExp(text));
   }
 
-  assert.match(helpPage, /projectModeTemplates\.map/);
-  for (const text of ['期末复习', '论文助手', '科研数据分析', '教学游戏', '知识图谱', '错题集']) {
-    assert.match(helpPage, new RegExp(text));
-  }
-
+  assert.match(helpPage, /localizeProjectModeTemplates\(projectModeTemplates, t\)/);
+  assert.match(helpPage, /localizedProjectModeTemplates\.map/);
   assert.match(workspaceCss, /\.help-center-page\b/);
   assert.match(workspaceCss, /\.help-center-layout\b/);
   assert.match(workspaceCss, /\.help-center-toc\b/);
@@ -694,22 +700,22 @@ test('help center documents the full workflow in detailed handbook sections', as
   const workspaceCss = await readFile(new URL('../../styles/workspace.css', import.meta.url), 'utf8');
 
   for (const text of [
-    'href="#help-quickstart"',
-    'href="#help-latex"',
-    'href="#help-practice"',
-    'href="#help-import-export"',
-    'href="#help-selection-ai"',
-    'href="#help-data"',
-    '十分钟上手路线',
-    'LaTeX 与公式环境',
-    '刷题、错题与 AI 出题',
-    '项目导入、导出与迁移',
-    '框选内容问 AI',
-    '本地数据与隐私边界',
-    '推荐操作顺序',
-    '适用场景',
-    '关键入口',
-    '容易踩坑'
+    "'help-quickstart'",
+    "'help-latex'",
+    "'help-practice'",
+    "'help-import-export'",
+    "'help-selection-ai'",
+    "'help-data'",
+    'help.quickstart',
+    'help.latexSection',
+    'help.practiceSection',
+    'help.importExport',
+    'help.selectionAi',
+    'help.data',
+    'help.recommendedOrder',
+    'help.useCases',
+    'help.keyEntry',
+    'help.pitfalls'
   ]) {
     assert.match(helpPage, new RegExp(text));
   }
@@ -734,11 +740,11 @@ test('AI drawer keeps project-scoped chat history searchable and resumable', asy
   assert.match(app, /activeProject\?\.chatHistory/);
   assert.match(app, /type AiTab = 'chat' \| 'history' \| 'reference'/);
   assert.match(app, /aiTab === 'history'/);
-  assert.match(app, /placeholder="搜索当前项目历史对话"/);
+  assert.match(app, /app\.searchProjectHistory/);
   assert.match(app, /function continueFromHistory/);
-  assert.match(app, /继续追问/);
-  assert.match(app, /setAgentInput\(`继续基于这条历史对话追问/);
-  assert.match(app, /setChatMessages\(toAgentMessages\(detail\)\)/);
+  assert.match(app, /app\.continueAsking/);
+  assert.match(app, /project\.continueFromHistory/);
+  assert.match(app, /setChatMessages\(toAgentMessages\(detail, t\)\)/);
 
   assert.match(layoutCss, /\.ai-history-search\b/);
   assert.match(layoutCss, /\.ai-history-list\b/);
@@ -754,8 +760,8 @@ test('selected project text can open an internal ask AI popover', async () => {
   assert.match(app, /window\.getSelection\(\)/);
   assert.match(app, /closest\('\.main-scroll, \.ai-drawer-body'\)/);
   assert.match(app, /function askAiAboutSelection/);
-  assert.match(app, /问一问 AI/);
-  assert.match(app, /请结合当前项目解释这段内容/);
+  assert.match(app, /app\.askAiSelection/);
+  assert.match(app, /project\.selectionAskPrompt/);
   assert.match(app, /setAiDrawerOpen\(true\)/);
   assert.match(app, /setAiTab\('chat'\)/);
   assert.match(app, /className="selection-ask-popover"/);

@@ -1,21 +1,23 @@
 import type { ProjectMode } from '../../lib/types';
-import { projectModeOptions } from '../../lib/projectModes';
+import { projectModeTemplates } from '../../lib/projectModes';
+import { useT } from '../../i18n';
+import { localizeProjectModeTemplates } from '../../i18n/projectModes';
 
 type ProjectModeSelectorProps = {
   selectedMode: ProjectMode;
   onSelect: (mode: ProjectMode) => void;
 };
 
-const visibleModeText = '期末复习 论文助手 科研数据分析 教学设计 作业出题批改';
-
 export function ProjectModeSelector({ selectedMode, onSelect }: ProjectModeSelectorProps) {
+  const { t } = useT();
+  const projectModeOptions = localizeProjectModeTemplates(projectModeTemplates, t);
   return (
-    <section className="project-mode-selector" aria-label={`项目类型选择：${visibleModeText}`}>
+    <section className="project-mode-selector" aria-label={t('modes.ariaLabel')}>
       <div className="page-section-header">
         <div>
-          <div className="section-title">项目类型</div>
-          <h3>先选工作流，再填写项目资料</h3>
-          <p className="muted">不同类型会自动切换向导字段、工作台页面、智能体分工和最终交付物。</p>
+          <div className="section-title">{t('modes.projectType')}</div>
+          <h3>{t('modes.selectWorkflow')}</h3>
+          <p className="muted">{t('modes.selectWorkflowDesc')}</p>
         </div>
       </div>
       <div className="project-mode-grid">

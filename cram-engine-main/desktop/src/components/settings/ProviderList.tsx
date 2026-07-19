@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ProviderKind, ProviderProfile } from '../../lib/types';
 import { filterProviders } from '../../lib/providerSettings.js';
+import { useT } from '../../i18n';
 
 type ProviderListProps = {
   providers: ProviderProfile[];
@@ -30,6 +31,7 @@ export default function ProviderList({
   onRemoveProvider,
   onToggleProvider
 }: ProviderListProps) {
+  const { t } = useT();
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState('');
@@ -53,11 +55,11 @@ export default function ProviderList({
     const trimmedLabel = label.trim();
     const trimmedBaseUrl = baseUrl.trim();
     if (!trimmedLabel || !trimmedBaseUrl) {
-      setError('请填写服务商名称和 API 地址');
+      setError(t('settings.fillNameAndUrl'));
       return;
     }
     if (providers.some((item) => item.label.toLowerCase() === trimmedLabel.toLowerCase())) {
-      setError('服务商名称已存在');
+      setError(t('settings.nameExists'));
       return;
     }
 
@@ -79,19 +81,19 @@ export default function ProviderList({
   }
 
   return (
-    <section className="provider-list-panel" aria-label="服务商列表">
+    <section className="provider-list-panel" aria-label={t('settings.providersTitle')}>
       <div className="settings-column-heading">
-        <span>Providers</span>
-        <strong>服务商</strong>
+        <span>{t('settings.providersSubtitle')}</span>
+        <strong>{t('settings.providersTitle')}</strong>
       </div>
       <div className="provider-list-toolbar">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜索服务商"
-          aria-label="搜索服务商"
+          placeholder={t('settings.searchProvider')}
+          aria-label={t('settings.searchProvider')}
         />
-        <button type="button" className="settings-icon-button" onClick={() => setAdding(true)} aria-label="添加服务商">
+        <button type="button" className="settings-icon-button" onClick={() => setAdding(true)} aria-label={t('settings.addProvider')}>
           +
         </button>
       </div>
@@ -106,8 +108,8 @@ export default function ProviderList({
                 <strong>{item.label}</strong>
                 <span>{item.provider}</span>
               </button>
-              <span className={item.enabled ? 'provider-badge on' : 'provider-badge'}>{item.enabled ? '启用' : '停用'}</span>
-              <label className="settings-switch" title={canDisable ? '启用或停用服务商' : '至少保留一个启用服务商'}>
+              <span className={item.enabled ? 'provider-badge on' : 'provider-badge'}>{item.enabled ? t('common.enabled') : t('common.disabled')}</span>
+              <label className="settings-switch" title={canDisable ? t('settings.enableToggle') : t('settings.enableToggleMin')}>
                 <input
                   type="checkbox"
                   checked={item.enabled}
@@ -120,9 +122,9 @@ export default function ProviderList({
                 <button
                   type="button"
                   className="provider-remove"
-                  aria-label={`删除 ${item.label}`}
+                  aria-label={t('settings.removeProviderAria', { name: item.label })}
                   onClick={() => {
-                    if (window.confirm(`删除服务商「${item.label}」？`)) onRemoveProvider(item.id);
+                    if (window.confirm(t('settings.confirmDeleteProvider', { name: item.label }))) onRemoveProvider(item.id);
                   }}
                 >
                   ×
@@ -136,29 +138,29 @@ export default function ProviderList({
       {adding && (
         <div className="settings-dialog-backdrop" role="presentation">
           <div className="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="add-provider-title">
-            <h3 id="add-provider-title">添加服务商</h3>
+            <h3 id="add-provider-title">{t('settings.addProviderTitle')}</h3>
             <label>
-              名称
+              {t('settings.providerName')}
               <input value={label} onChange={(event) => setLabel(event.target.value)} autoFocus />
             </label>
             <label>
-              协议
+              {t('settings.providerProtocol')}
               <select value={provider} onChange={(event) => setProvider(event.target.value as ProviderKind)}>
                 {providerKinds.map((kind) => <option key={kind.id} value={kind.id}>{kind.label}</option>)}
               </select>
             </label>
             <label>
-              API 地址
+              {t('settings.providerApiUrl')}
               <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com/v1" />
             </label>
             <label>
-              API Key
+              {t('settings.providerApiKey')}
               <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" />
             </label>
             {error && <div className="settings-inline-error" role="alert">{error}</div>}
             <div className="settings-dialog-actions">
-              <button type="button" onClick={() => { resetForm(); setAdding(false); }}>取消</button>
-              <button type="button" className="primary" onClick={submitProvider}>添加</button>
+              <button type="button" onClick={() => { resetForm(); setAdding(false); }}>{t('common.cancel')}</button>
+              <button type="button" className="primary" onClick={submitProvider}>{t('common.add')}</button>
             </div>
           </div>
         </div>

@@ -97,7 +97,7 @@ test('filterPracticeQuestions returns only wrong questions in wrong mode', () =>
     })),
     {
       mode: 'wrong',
-      selectedCategory: '全部',
+      selectedCategory: 'ALL_CATEGORIES',
       shuffleSeed: 0
     }
   );

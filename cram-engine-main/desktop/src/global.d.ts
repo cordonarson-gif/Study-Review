@@ -69,6 +69,10 @@ type QuestionOption = {
   text: string;
 };
 
+type AnswerSource = 'question-bank' | 'ai-inferred' | 'manual' | 'missing';
+type ReviewStatus = 'ready' | 'needs-review';
+type ParseConfidence = 'high' | 'medium' | 'low';
+
 type ReviewQuestion = {
   id: string;
   stem: string;
@@ -83,6 +87,11 @@ type ReviewQuestion = {
   questionBankId?: string;
   questionBankName?: string;
   generatedBy?: 'import' | 'ai';
+  answerSource?: AnswerSource;
+  reviewStatus?: ReviewStatus;
+  parseConfidence?: ParseConfidence;
+  sourcePages?: string[];
+  parseWarnings?: string[];
   favorite: boolean;
   wrong: boolean;
   attempts: number;
@@ -91,6 +100,23 @@ type ReviewQuestion = {
 };
 
 type QuestionDraft = Omit<ReviewQuestion, 'id' | 'favorite' | 'wrong' | 'attempts' | 'createdAt' | 'updatedAt'>;
+
+type QuestionImportRequest = {
+  projectId: string;
+  kind: 'text' | 'file' | 'image';
+  text?: string;
+  filePaths?: string[];
+  sourceName?: string;
+  questionBankName?: string;
+};
+
+type QuestionImportPreviewResult = {
+  drafts: QuestionDraft[];
+  aiStatus: 'not-needed' | 'not-configured' | 'completed' | 'partial' | 'failed';
+  summary: { total: number; ready: number; needsReview: number; inferred: number; missing: number };
+  failures: Array<{ sourceName: string; sourcePath?: string; message: string }>;
+  warnings: string[];
+};
 
 type GenerateQuestionsInput = {
   requirements: string;
@@ -397,6 +423,8 @@ type DeliveryPackage = {
   updatedAt: string;
 };
 
+type Locale = 'zh-CN' | 'zh-TW' | 'en';
+
 type AppSettings = {
   version: 2;
   activeProviderId: string;
@@ -405,6 +433,7 @@ type AppSettings = {
   maxTokens: number;
   latexEngine: 'xelatex' | 'pdflatex';
   enableLatexPreview: boolean;
+  locale: Locale;
   lastModelSyncAt: string | null;
   mineru: MinerUSettings;
 };
@@ -531,9 +560,11 @@ declare global {
       importProjectFiles: (projectId: string, filePaths: string[]) => Promise<ProjectSourceFile[]>;
       previewQuestionsFromText: (text: string, source: QuestionDraft['source'], sourceName?: string) => Promise<QuestionDraft[]>;
       previewQuestionsFromFiles: (filePaths: string[]) => Promise<QuestionDraft[]>;
+      previewQuestionImport: (input: QuestionImportRequest) => Promise<QuestionImportPreviewResult>;
       addQuestions: (projectId: string, drafts: QuestionDraft[]) => Promise<ReviewQuestion[]>;
       generateQuestions: (projectId: string, input: GenerateQuestionsInput) => Promise<ReviewQuestion[]>;
       updateQuestion: (projectId: string, question: ReviewQuestion) => Promise<ReviewQuestion[]>;
+      deleteQuestions: (projectId: string, questionIds: string[]) => Promise<ReviewQuestion[]>;
       getKnowledgeResources: (projectId: string, knowledgePoint: string) => Promise<KnowledgeResource[]>;
       openKnowledgeResource: (projectId: string, resource: KnowledgeResource) => Promise<KnowledgeResource[]>;
       getLearningProfile: (projectId: string) => Promise<LearningProfileState>;
@@ -560,6 +591,8 @@ declare global {
       runProjectChat: (projectId: string, input: string) => Promise<{ reply: string; history: ChatTurn[] }>;
       addKnowledgeBaseEntry: (projectId: string, entry: { title: string; summary: string; source: 'chat' | 'upload' | 'stage' | 'summary'; tags: string[]; content: string }) => Promise<KnowledgeBaseEntry>;
       draftKnowledgeBaseEntry: (projectId: string, source: 'chat' | 'upload', payload: { title?: string; content: string; fallbackTags?: string[] }) => Promise<KnowledgeDraft>;
+      deleteUpload: (projectId: string, storedPath: string) => Promise<ProjectSourceFile[]>;
+      deleteKnowledgeBaseEntry: (projectId: string, entryId: string) => Promise<KnowledgeBaseEntry[]>;
       exportProject: (projectId: string) => Promise<ExportResult>;
       importProjectArchive: () => Promise<ProjectDetail | null>;
       readText: (projectIdOrFilePath: string, filePath?: string) => Promise<string>;

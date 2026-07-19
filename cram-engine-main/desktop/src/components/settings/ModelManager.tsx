@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ProviderProfile } from '../../lib/types';
 import { addCustomModel, hideOrShowModel, removeCustomModel } from '../../lib/providerSettings.js';
+import { useT } from '../../i18n';
 
 type ModelManagerProps = {
   profile: ProviderProfile;
@@ -8,6 +9,7 @@ type ModelManagerProps = {
 };
 
 export default function ModelManager({ profile, onChange }: ModelManagerProps) {
+  const { t } = useT();
   const [modelId, setModelId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -21,14 +23,14 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
     setMessage('');
     try {
       if (!window.cramEngine?.fetchProviderModels) {
-        setError('Electron 桥接未加载，请在桌面应用窗口中使用此功能。');
+        setError(t('settings.electronBridgeMissing'));
         return;
       }
       const nextProfile = await window.cramEngine.fetchProviderModels(profile);
       onChange(nextProfile);
-      setMessage(`已获取 ${nextProfile.models.length} 个模型`);
+      setMessage(t('settings.fetchedCount', { count: nextProfile.models.length }));
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : '获取模型列表失败');
+      setError(fetchError instanceof Error ? fetchError.message : t('settings.fetchModelsFailed'));
     } finally {
       setBusy(false);
     }
@@ -37,11 +39,11 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
   function addModel() {
     const id = modelId.trim();
     if (!id) {
-      setError('模型 ID 不能为空');
+      setError(t('settings.modelIdEmpty'));
       return;
     }
     if (profile.models.some((model) => model.id === id)) {
-      setError('模型 ID 已存在');
+      setError(t('settings.modelIdExists'));
       return;
     }
     onChange(addCustomModel(profile, id, id) as ProviderProfile);
@@ -49,23 +51,29 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
     setError('');
   }
 
-  function removeModel(id: string) {
+  function setModelEnabled(id: string, enabled: boolean) {
+    onChange(hideOrShowModel(profile, id, enabled) as ProviderProfile);
+  }
+
+  function handleModelAction(id: string) {
     const model = profile.models.find((item) => item.id === id);
     if (!model) return;
-    onChange(model.source === 'custom'
-      ? removeCustomModel(profile, id) as ProviderProfile
-      : hideOrShowModel(profile, id, false) as ProviderProfile);
+    if (model.source === 'custom') {
+      onChange(removeCustomModel(profile, id) as ProviderProfile);
+      return;
+    }
+    setModelEnabled(model.id, !model.enabled);
   }
 
   return (
     <section className="model-manager">
       <div className="settings-section-header">
         <div>
-          <h3>模型列表</h3>
-          <p>{visibleCount} 个可用，{profile.models.length} 个已保存</p>
+          <h3>{t('settings.modelList')}</h3>
+          <p>{t('settings.modelAvailableCount', { visible: visibleCount, total: profile.models.length })}</p>
         </div>
         <button type="button" onClick={() => void fetchModels()} disabled={busy}>
-          {busy ? '获取中...' : '获取模型列表'}
+          {busy ? t('settings.fetching') : t('settings.fetchModels')}
         </button>
       </div>
 
@@ -73,10 +81,10 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
         <input
           value={modelId}
           onChange={(event) => setModelId(event.target.value)}
-          placeholder="手动添加模型 ID"
-          aria-label="手动添加模型 ID"
+          placeholder={t('settings.manualModelId')}
+          aria-label={t('settings.manualModelIdAria')}
         />
-        <button type="button" onClick={addModel}>手动添加模型</button>
+        <button type="button" onClick={addModel}>{t('settings.addModelManual')}</button>
       </div>
 
       {message && <div className="settings-inline-success" role="status">{message}</div>}
@@ -84,7 +92,7 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
 
       <div className="model-list">
         {profile.models.length === 0 ? (
-          <div className="settings-empty">还没有模型。可以先手动添加，或从服务商获取模型列表。</div>
+          <div className="settings-empty">{t('settings.noModels')}</div>
         ) : profile.models.map((model) => (
           <div key={model.id} className={model.enabled ? 'model-row' : 'model-row hidden'}>
             <div className="model-row-main">
@@ -95,12 +103,14 @@ export default function ModelManager({ profile, onChange }: ModelManagerProps) {
               <input
                 type="checkbox"
                 checked={model.enabled}
-                onChange={(event) => onChange(hideOrShowModel(profile, model.id, event.target.checked) as ProviderProfile)}
+                onChange={(event) => setModelEnabled(model.id, event.target.checked)}
               />
               <span />
             </label>
-            <button type="button" onClick={() => removeModel(model.id)}>
-              {model.source === 'custom' ? '删除' : '隐藏'}
+            <button type="button" onClick={() => handleModelAction(model.id)}>
+              {model.source === 'custom'
+                ? t('settings.deleteModel')
+                : model.enabled ? t('settings.hideModel') : t('settings.showModel')}
             </button>
           </div>
         ))}

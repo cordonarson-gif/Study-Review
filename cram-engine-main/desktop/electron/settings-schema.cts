@@ -2,6 +2,8 @@ export type ProviderKind = 'anthropic' | 'openai-compatible' | 'aliyun';
 export type ManagedModelSource = 'preset' | 'fetched' | 'custom';
 export type ManagedModel = { id: string; label: string; source: ManagedModelSource; enabled: boolean };
 export type MinerUMode = 'precise' | 'agent';
+export type ThemeMode = 'light' | 'dark' | 'auto';
+export type Locale = 'zh-CN' | 'zh-TW' | 'en';
 export type MinerUSettings = {
   enabled: boolean;
   mode: MinerUMode;
@@ -28,6 +30,8 @@ export type AppSettings = {
   maxTokens: number;
   latexEngine: 'xelatex' | 'pdflatex';
   enableLatexPreview: boolean;
+  themeMode: ThemeMode;
+  locale: Locale;
   lastModelSyncAt: string | null;
   mineru: MinerUSettings;
 };
@@ -135,6 +139,16 @@ function normalizeLatexEngine(value: unknown): 'xelatex' | 'pdflatex' {
   return value === 'pdflatex' ? 'pdflatex' : 'xelatex';
 }
 
+function normalizeThemeMode(value: unknown): ThemeMode {
+  if (value === 'light' || value === 'dark' || value === 'auto') return value;
+  return 'auto';
+}
+
+function normalizeLocale(value: unknown): Locale {
+  if (value === 'zh-CN' || value === 'zh-TW' || value === 'en') return value;
+  return 'zh-CN';
+}
+
 export function createDefaultMinerUSettings(): MinerUSettings {
   return {
     enabled: false,
@@ -187,6 +201,8 @@ export function createDefaultSettings(): AppSettings {
     maxTokens: 4096,
     latexEngine: 'xelatex',
     enableLatexPreview: true,
+    themeMode: 'auto',
+    locale: 'zh-CN',
     lastModelSyncAt: null,
     mineru: createDefaultMinerUSettings()
   };
@@ -249,6 +265,8 @@ export function normalizeSettings(input: AppSettings): AppSettings {
     maxTokens: normalizeNumeric(candidate.maxTokens, 4096),
     latexEngine: normalizeLatexEngine(candidate.latexEngine),
     enableLatexPreview: typeof candidate.enableLatexPreview === 'boolean' ? candidate.enableLatexPreview : true,
+    themeMode: normalizeThemeMode(candidate.themeMode),
+    locale: normalizeLocale(candidate.locale),
     lastModelSyncAt: typeof candidate.lastModelSyncAt === 'string' ? candidate.lastModelSyncAt : null,
     mineru: normalizeMinerUSettings(candidate.mineru)
   };
@@ -306,6 +324,8 @@ export function migrateSettings(input: unknown): AppSettings {
     maxTokens: normalizeNumeric(input.maxTokens, 4096),
     latexEngine: normalizeLatexEngine(input.latexEngine),
     enableLatexPreview: typeof input.enableLatexPreview === 'boolean' ? input.enableLatexPreview : true,
+    themeMode: normalizeThemeMode(input.themeMode),
+    locale: normalizeLocale(input.locale),
     lastModelSyncAt: typeof input.lastModelSyncAt === 'string' ? input.lastModelSyncAt : null,
     mineru: normalizeMinerUSettings(input.mineru)
   });

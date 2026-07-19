@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DeliveryPackage, DeliveryPackageItemStatus, ExportResult } from '../../lib/types';
+import type { DeliveryPackage, ExportResult, ProjectMode } from '../../lib/types';
+import { useT } from '../../i18n';
 
 type DeliveryPackagePageProps = {
+  mode: ProjectMode;
   deliveryPackage: DeliveryPackage | null;
   onGenerate: () => Promise<DeliveryPackage>;
   onSave: (deliveryPackage: DeliveryPackage) => Promise<DeliveryPackage>;
@@ -10,27 +12,28 @@ type DeliveryPackagePageProps = {
   onStatus?: (message: string) => void;
 };
 
-const statusLabels: Record<DeliveryPackageItemStatus, string> = {
-  ready: '可交付',
-  'needs-review': '待复核',
-  missing: '待补充'
+const descriptionKeys: Partial<Record<ProjectMode, string>> = {
+  'paper-assistant': 'delivery.paperAssistantDesc',
+  'assignment-quiz': 'delivery.assignmentQuizDesc'
 };
 
-const statusHints: Record<DeliveryPackageItemStatus, string> = {
-  ready: '内容已具备导出条件',
-  'needs-review': '建议人工确认后再导出',
-  missing: '需要回到对应页面补充'
-};
+type TFn = (key: string, params?: Record<string, string | number>) => string;
 
-function createManualFallbackPackage(): DeliveryPackage {
+function createManualFallbackPackage(t: TFn): DeliveryPackage {
   const now = new Date().toISOString();
   return {
     version: 1,
-    title: '项目成果交付包',
-    summary: '点击“生成交付包”后，系统会根据当前项目资料自动建立交付清单。',
+    title: t('delivery.defaultTitle'),
+    summary: t('delivery.defaultSummary'),
     items: [],
-    checklist: ['资料包已复核', '报告包已复核', '题库包已复核', '知识库已复核', '导出文件已生成'],
-    exportNotes: '生成后可在此补充备注，再导出 Markdown 和 JSON。',
+    checklist: [
+      t('delivery.defaultChecklistMaterials'),
+      t('delivery.defaultChecklistReports'),
+      t('delivery.defaultChecklistQuestions'),
+      t('delivery.defaultChecklistKnowledge'),
+      t('delivery.defaultChecklistExports'),
+    ],
+    exportNotes: t('delivery.defaultNotes'),
     source: 'manual',
     createdAt: now,
     updatedAt: now
@@ -38,6 +41,7 @@ function createManualFallbackPackage(): DeliveryPackage {
 }
 
 export function DeliveryPackagePage({
+  mode,
   deliveryPackage,
   onGenerate,
   onSave,
@@ -45,13 +49,15 @@ export function DeliveryPackagePage({
   onChange,
   onStatus
 }: DeliveryPackagePageProps) {
-  const [draft, setDraft] = useState<DeliveryPackage>(deliveryPackage ?? createManualFallbackPackage());
+  const { t } = useT();
+  const descriptionKey = descriptionKeys[mode] ?? 'delivery.desc';
+  const [draft, setDraft] = useState<DeliveryPackage>(() => deliveryPackage ?? createManualFallbackPackage(t));
   const [busyAction, setBusyAction] = useState<'generate' | 'save' | 'export' | null>(null);
   const [lastExport, setLastExport] = useState<ExportResult | null>(null);
 
   useEffect(() => {
-    setDraft(deliveryPackage ?? createManualFallbackPackage());
-  }, [deliveryPackage]);
+    setDraft(deliveryPackage ?? createManualFallbackPackage(t));
+  }, [deliveryPackage, t]);
 
   const summaryStats = useMemo(() => {
     const ready = draft.items.filter((item) => item.status === 'ready').length;
@@ -72,7 +78,7 @@ export function DeliveryPackagePage({
       const next = await onGenerate();
       setDraft(next);
       onChange(next);
-      onStatus?.('成果交付包已生成');
+      onStatus?.(t('delivery.generated'));
     } finally {
       setBusyAction(null);
     }
@@ -84,7 +90,7 @@ export function DeliveryPackagePage({
       const next = await onSave(draft);
       setDraft(next);
       onChange(next);
-      onStatus?.('成果交付包已保存');
+      onStatus?.(t('delivery.saved'));
     } finally {
       setBusyAction(null);
     }
@@ -98,7 +104,7 @@ export function DeliveryPackagePage({
       onChange(saved);
       const result = await onExport();
       setLastExport(result);
-      onStatus?.(`成果交付包已导出：${result.markdownPath}`);
+      onStatus?.(t('delivery.exportedMsg', { path: result.markdownPath }));
     } finally {
       setBusyAction(null);
     }
@@ -108,16 +114,16 @@ export function DeliveryPackagePage({
     <section className="panel delivery-package-page">
       <div className="page-section-header">
         <div>
-          <div className="section-title">成果交付</div>
-          <h3>把资料、报告、题库、知识库和学习路径整理成可导出的交付包</h3>
-          <p className="muted">DeliveryAgent 会读取当前项目状态，生成一份可编辑、可复核、可导出的交付清单。</p>
+          <div className="section-title">{t('delivery.title')}</div>
+          <h3>{t('delivery.subtitle')}</h3>
+          <p className="muted">{t(descriptionKey)}</p>
         </div>
         <div className="panel-actions horizontal">
           <button className="primary" onClick={() => void generatePackage()} disabled={Boolean(busyAction)}>
-            {busyAction === 'generate' ? '生成中…' : '生成交付包'}
+            {busyAction === 'generate' ? t('common.generating') : t('delivery.generate')}
           </button>
           <button onClick={() => void exportPackage()} disabled={Boolean(busyAction)}>
-            {busyAction === 'export' ? '导出中…' : '导出交付包'}
+            {busyAction === 'export' ? t('common.processing') : t('delivery.export')}
           </button>
         </div>
       </div>
@@ -125,19 +131,19 @@ export function DeliveryPackagePage({
       <div className="delivery-summary-grid">
         <div className="metric-card">
           <strong>{summaryStats.ready}</strong>
-          <span>可交付</span>
+          <span>{t('delivery.readyCount')}</span>
         </div>
         <div className="metric-card">
           <strong>{summaryStats.review}</strong>
-          <span>待复核</span>
+          <span>{t('delivery.reviewCount')}</span>
         </div>
         <div className="metric-card">
           <strong>{summaryStats.missing}</strong>
-          <span>待补充</span>
+          <span>{t('delivery.missingCount')}</span>
         </div>
         <div className="metric-card">
           <strong>{summaryStats.total}</strong>
-          <span>交付项</span>
+          <span>{t('delivery.totalCount')}</span>
         </div>
       </div>
 
@@ -145,20 +151,20 @@ export function DeliveryPackagePage({
         <div className="delivery-main-panel">
           <div className="delivery-field-grid">
             <label className="delivery-field">
-              交付包标题
+              {t('delivery.packageTitle')}
               <input value={draft.title} onChange={(event) => patchDraft({ title: event.target.value })} />
             </label>
             <label className="delivery-field">
-              来源
-              <input value={draft.source === 'agent' ? 'DeliveryAgent 自动生成' : '手动编辑'} readOnly />
+              {t('delivery.source')}
+              <input value={draft.source === 'agent' ? t('delivery.autoGenerated') : t('delivery.manualEdit')} readOnly />
             </label>
             <label className="delivery-field wide">
-              摘要
+              {t('delivery.summaryLabel')}
               <textarea value={draft.summary} onChange={(event) => patchDraft({ summary: event.target.value })} />
             </label>
           </div>
 
-          <div className="subsection-title">交付清单</div>
+          <div className="subsection-title">{t('delivery.checklist')}</div>
           <div className="delivery-item-grid">
             {draft.items.length ? draft.items.map((item) => (
               <article className={`delivery-item-card ${item.status}`} key={item.id}>
@@ -167,22 +173,22 @@ export function DeliveryPackagePage({
                     <span className="upload-kind">{item.type}</span>
                     <h4>{item.title}</h4>
                   </div>
-                  <span className="delivery-status-pill">{statusLabels[item.status]}</span>
+                  <span className="delivery-status-pill">{t(`delivery.${item.status === 'ready' ? 'ready' : item.status === 'needs-review' ? 'needsReview' : 'missing'}`)}</span>
                 </div>
                 <p>{item.description}</p>
-                <small>{statusHints[item.status]} · 来源 {item.sourceIds.length} 项</small>
+                <small>{t(`delivery.${item.status === 'ready' ? 'readyHint' : item.status === 'needs-review' ? 'needsReviewHint' : 'missingHint'}`)} · {t('delivery.sourceCount', { count: item.sourceIds.length })}</small>
                 <ul>
                   {item.checklist.map((entry) => <li key={entry}>{entry}</li>)}
                 </ul>
               </article>
             )) : (
-              <div className="empty-slim">暂无交付清单，点击“生成交付包”后会自动整理资料包、报告包、题库包等内容。</div>
+              <div className="empty-slim">{t('delivery.emptyChecklist')}</div>
             )}
           </div>
         </div>
 
         <aside className="delivery-checklist-panel">
-          <div className="subsection-title">交付清单复核</div>
+          <div className="subsection-title">{t('delivery.checklistReview')}</div>
           <div className="delivery-checklist-card">
             <ul>
               {draft.checklist.map((entry) => <li key={entry}>{entry}</li>)}
@@ -190,19 +196,19 @@ export function DeliveryPackagePage({
           </div>
 
           <label className="delivery-field wide">
-            导出备注
+            {t('delivery.exportNotes')}
             <textarea value={draft.exportNotes} onChange={(event) => patchDraft({ exportNotes: event.target.value })} />
           </label>
 
           <div className="panel-actions">
             <button className="primary" onClick={() => void savePackage()} disabled={Boolean(busyAction)}>
-              {busyAction === 'save' ? '保存中…' : '保存交付包'}
+              {busyAction === 'save' ? t('common.saving') : t('delivery.savePackage')}
             </button>
           </div>
 
           {lastExport && (
             <div className="export-result-card">
-              <strong>已导出</strong>
+              <strong>{t('delivery.exported')}</strong>
               <small>Markdown：{lastExport.markdownPath}</small>
               <small>JSON：{lastExport.jsonPath}</small>
             </div>

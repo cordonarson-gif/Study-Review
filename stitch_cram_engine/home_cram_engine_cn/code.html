@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html class="light" lang="zh-CN"><head>
+<html lang="zh-CN"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Cram Engine - 学者工作台</title>
@@ -8,110 +8,68 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        body {
-            background-color: #FAFAF7; /* Scholar's Study warm white */
-            overflow: hidden; /* Desktop app feel */
-        }
-        .app-container {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-        }
-        .sidebar {
-            background-color: #f4f4f1; /* surface-container-low */
-            width: 240px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #e5e5e1;
-            -webkit-app-region: drag; /* Mimic desktop drag area */
-        }
-        .sidebar-item {
-            -webkit-app-region: no-drag;
-        }
-        .main-canvas {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background-color: #FAFAF7;
-        }
-        .content-scroll {
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 40px;
-        }
-        .window-controls {
-            display: flex;
-            gap: 8px;
-            padding: 12px 16px;
-        }
-        .control-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-        .scholar-card {
-            background: #ffffff;
-            border: 1px solid #e5e5e1;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-        .scholar-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-            border-color: #cabeff;
-        }
-        .active-indicator {
-            width: 3px;
-            height: 60%;
-            background-color: #5e39e0;
-            position: absolute;
-            left: 0;
-            top: 20%;
-            border-radius: 0 4px 4px 0;
-        }
-    </style>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "primary": "#5e39e0",
-                        "on-primary": "#ffffff",
-                        "surface": "#FAFAF7",
-                        "surface-container-low": "#f4f4f1",
-                        "outline-variant": "#e5e5e1",
-                        "on-surface": "#1a1c1b",
-                        "on-surface-variant": "#484555",
-                        "primary-container": "#7757fa",
-                        "on-primary-container": "#fffbff"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.5rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem"
-                    },
-                    "fontFamily": {
-                        "body-base": ["Inter", "sans-serif"],
-                        "display-hero": ["\"Source Serif 4\"", "serif"],
-                        "headline-lg": ["\"Source Serif 4\"", "serif"],
-                        "title-md": ["Inter", "sans-serif"]
-                    }
-                },
-            },
-        }
-    </script>
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        vertical-align: middle;
+    }
+    body {
+        background-color: var(--ce-background);
+        overflow: hidden;
+    }
+    .app-container {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+    }
+    .sidebar {
+        background-color: var(--ce-surface-container-low);
+        width: 240px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--ce-card-border);
+        -webkit-app-region: drag;
+    }
+    .sidebar-item { -webkit-app-region: no-drag; }
+    .main-canvas {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background-color: var(--ce-background);
+    }
+    .content-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 40px;
+    }
+    .window-controls { display: flex; gap: 8px; padding: 12px 16px; }
+    .control-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .scholar-card {
+        background: var(--ce-card-bg);
+        border: 1px solid var(--ce-card-border);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .scholar-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        border-color: #cabeff;
+    }
+    .active-indicator {
+        width: 3px; height: 60%;
+        background-color: #5e39e0;
+        position: absolute; left: 0; top: 20%;
+        border-radius: 0 4px 4px 0;
+    }
+    /* dark mode overrides for built-in Tailwind classes */
+    .dark .bg-white { background-color: var(--ce-card-bg); }
+    .dark .hover\:bg-white\/50:hover { background-color: rgba(26,27,34,0.5); }
+</style>
+<script src="../shared/theme.js"></script>
 </head>
 <body class="font-body-base text-on-background">
 <div class="app-container">
-<!-- Desktop Native Sidebar -->
 <aside class="sidebar">
-<!-- Window Controls (macOS Style) -->
 <div class="window-controls sidebar-item">
 <div class="control-dot bg-[#ff5f57]"></div>
 <div class="control-dot bg-[#febc2e]"></div>
@@ -146,8 +104,8 @@
 <div class="mt-auto p-md space-y-1 sidebar-item">
 <button class="w-full mb-4 py-2 bg-primary text-on-primary rounded-md text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm">
 <span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
-                    新建项目
-                </button>
+    新建项目
+</button>
 <a class="flex items-center px-md py-1.5 text-on-surface-variant hover:text-on-surface transition-colors rounded-md hover:bg-white/50" href="#">
 <span class="material-symbols-outlined mr-sm text-[20px]" data-icon="settings">settings</span>
 <span class="text-sm">设置</span>
@@ -158,9 +116,7 @@
 </a>
 </div>
 </aside>
-<!-- Main Desktop Canvas -->
 <main class="main-canvas">
-<!-- App Top Bar -->
 <header class="flex justify-between items-center w-full px-lg py-3 border-b border-outline-variant bg-surface/80 backdrop-blur-md sticky top-0 z-40">
 <div class="flex items-center gap-8">
 <div class="relative">
@@ -181,32 +137,29 @@
 </div>
 </div>
 </header>
-<!-- Page Content Scroll Area -->
 <div class="content-scroll">
 <div class="max-w-[1000px] mx-auto px-lg pt-10">
-<!-- Hero Section -->
 <section class="mb-12 relative overflow-hidden rounded-xl bg-white p-12 border border-outline-variant shadow-sm">
 <div class="max-w-xl relative z-10">
 <h2 class="font-display-hero text-4xl text-on-surface mb-6 leading-tight italic">
-                                ✦ 把每一门课，<br/>烤成一炉好题
-                            </h2>
+    ✦ 把每一门课，<br/>烤成一炉好题
+</h2>
 <p class="text-base text-on-surface-variant mb-8 leading-relaxed">
-                                从课件到实战，AI 助力拆解知识结构、讲授核心概念、开展针对性检题，并实时追踪补漏，为你的学习旅程查缺补漏。
-                            </p>
+    从课件到实战，AI 助力拆解知识结构、讲授核心概念、开展针对性检题，并实时追踪补漏，为你的学习旅程查缺补漏。
+</p>
 <div class="flex gap-4">
 <button class="bg-primary text-on-primary px-6 py-3 rounded-md font-semibold flex items-center gap-2 hover:shadow-md transition-all">
 <span class="material-symbols-outlined text-[20px]" data-icon="upload_file">upload_file</span>
-                                    快速开始：导入 PDF
-                                </button>
+    快速开始：导入 PDF
+</button>
 <button class="border border-outline-variant text-on-surface px-6 py-3 rounded-md font-semibold flex items-center gap-2 hover:bg-surface-container-low transition-colors">
 <span class="material-symbols-outlined text-[20px]" data-icon="dashboard_customize">dashboard_customize</span>
-                                    从模板创建
-                                </button>
+    从模板创建
+</button>
 </div>
 </div>
 <div class="absolute right-[-10%] bottom-[-20%] w-80 h-80 bg-primary/5 rounded-full blur-3xl"></div>
 </section>
-<!-- Workflow Icons -->
 <section class="mb-12">
 <div class="flex items-center justify-between mb-6">
 <h3 class="font-headline-lg text-2xl">智能闭环</h3>
@@ -243,16 +196,14 @@
 </div>
 </div>
 </section>
-<!-- Projects Grid -->
 <section>
 <div class="flex items-center justify-between mb-6">
 <h3 class="font-headline-lg text-2xl">最近项目</h3>
 <button class="text-primary text-sm font-semibold flex items-center hover:underline">
-                                查看全部存档 <span class="material-symbols-outlined ml-1 text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+    查看全部存档 <span class="material-symbols-outlined ml-1 text-[18px]" data-icon="arrow_forward">arrow_forward</span>
 </button>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-<!-- Math Models Card -->
 <div class="scholar-card overflow-hidden flex flex-col relative bg-white">
 <div class="active-indicator"></div>
 <div class="h-28 bg-surface-container-low relative">
@@ -266,16 +217,14 @@
 <p class="text-xs text-on-surface-variant mb-4">微分方程与线性系统</p>
 <div class="space-y-1.5">
 <div class="flex justify-between text-[10px] font-bold text-on-surface-variant">
-<span>掌握度</span>
-<span>67%</span>
+<span>掌握度</span><span>67%</span>
 </div>
 <div class="w-full h-1 bg-surface-container-low rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 67%"></div>
+<div class="h-full bg-primary rounded-full" style="width:67%"></div>
 </div>
 </div>
 </div>
 </div>
-<!-- Data Structures Card -->
 <div class="scholar-card overflow-hidden flex flex-col bg-white">
 <div class="h-28 bg-surface-container-low relative">
 <img class="w-full h-full object-cover grayscale opacity-20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Jp56NGtNCSLPQMkEkEHm26oznbVNHG5v5yRTneBjadRxfC4uDtE0VIau45p6-2n7ulK2zjwGISrdpXe1HtVQWhUxt6Hzjk9yMpFaczIEufMRdBedXea-St1ygU0QPRgbTosS_WCz8DS5ZScmMgc1VPbtXIdFKSVo21TL3Pz5hanbncU_fqJB48bIDhMcfmsiWcCPpaWalsVspJQBotCAcnZfX6S6uS8wqrx93HTsyZ5eG9T1GFTQdqPuwQyOzfXvUlcsc1LQULwI"/>
@@ -287,12 +236,11 @@
 <h5 class="font-bold text-sm mb-1">数据结构</h5>
 <p class="text-xs text-on-surface-variant mb-4">树、图与算法复杂度</p>
 <div class="flex items-center gap-1 text-primary">
-<span class="material-symbols-outlined text-[16px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle" style="font-variation-settings:'FILL'1;">check_circle</span>
 <span class="text-[10px] font-bold">已准备好考试</span>
 </div>
 </div>
 </div>
-<!-- Empty State Card -->
 <div class="scholar-card overflow-hidden flex flex-col border-dashed bg-transparent border-2 border-outline-variant/50">
 <div class="h-28 flex items-center justify-center">
 <span class="material-symbols-outlined text-outline-variant text-4xl" data-icon="add_circle">add_circle</span>
@@ -306,7 +254,6 @@
 </section>
 </div>
 </div>
-<!-- Global Footer Status Bar -->
 <footer class="h-7 border-t border-outline-variant bg-surface-container-low px-4 flex items-center justify-between text-[10px] font-bold text-on-surface-variant/60">
 <div class="flex items-center gap-4">
 <div class="flex items-center gap-1.5">
@@ -322,7 +269,6 @@
 </div>
 </footer>
 </main>
-<!-- Right Side AI Drawer (Desktop Style) -->
 <div class="fixed right-4 top-16 bottom-10 w-[300px] bg-white border border-outline-variant rounded-lg shadow-xl z-50 flex flex-col transition-transform translate-x-[340px]" id="agent-drawer">
 <div class="p-4 border-b border-outline-variant flex justify-between items-center">
 <div>
@@ -334,15 +280,15 @@
 <div class="flex border-b border-outline-variant bg-surface-container-low/30">
 <button class="flex-1 py-2 text-primary font-bold border-b-2 border-primary text-xs flex items-center justify-center gap-1.5">
 <span class="material-symbols-outlined text-[16px]" data-icon="forum">forum</span> 聊天
-                </button>
+</button>
 <button class="flex-1 py-2 text-on-surface-variant text-xs hover:bg-surface-container-low transition-colors flex items-center justify-center gap-1.5">
 <span class="material-symbols-outlined text-[16px]" data-icon="menu_book">menu_book</span> 参考
-                </button>
+</button>
 </div>
 <div class="flex-1 p-4 overflow-y-auto space-y-4">
 <div class="bg-surface-container-low/40 p-3 rounded-md text-xs italic text-on-surface-variant leading-relaxed">
-                    “你好！我是你的 AI 学习伙伴。我可以帮你拆解课程资料，或者进行专项刷题。今天我们从哪里开始？”
-                </div>
+    "你好！我是你的 AI 学习伙伴。我可以帮你拆解课程资料，或者进行专项刷题。今天我们从哪里开始？"
+</div>
 </div>
 <div class="p-3 border-t border-outline-variant">
 <div class="relative">
@@ -351,21 +297,18 @@
 </div>
 </div>
 </div>
-<!-- Floating Chat FAB -->
 <button class="fixed bottom-12 right-6 w-12 h-12 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40" onclick="toggleDrawer()">
-<span class="material-symbols-outlined text-[22px]" data-icon="chat_bubble" style="font-variation-settings: 'FILL' 1;">chat_bubble</span>
+<span class="material-symbols-outlined text-[22px]" data-icon="chat_bubble" style="font-variation-settings:'FILL'1;">chat_bubble</span>
 </button>
 </div>
 <script>
-        function toggleDrawer() {
-            const drawer = document.getElementById('agent-drawer');
-            if (drawer.classList.contains('translate-x-[340px]')) {
-                drawer.classList.remove('translate-x-[340px]');
-                drawer.classList.add('translate-x-0');
-            } else {
-                drawer.classList.add('translate-x-[340px]');
-                drawer.classList.remove('translate-x-0');
-            }
-        }
-    </script>
+function toggleDrawer(){
+    var d=document.getElementById('agent-drawer');
+    if(d.classList.contains('translate-x-[340px]')){
+        d.classList.remove('translate-x-[340px]');d.classList.add('translate-x-0');
+    }else{
+        d.classList.add('translate-x-[340px]');d.classList.remove('translate-x-0');
+    }
+}
+</script>
 </body></html>

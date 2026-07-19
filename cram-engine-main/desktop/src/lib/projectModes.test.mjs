@@ -60,6 +60,17 @@ test('mode workspace tabs are focused to the selected workflow', () => {
   assert.ok(getWorkspaceTabsForMode('academic-formatting').some((tab) => tab.id === 'format-docx-check'));
 });
 
+test('paper assistant exposes the complete writing workflow and accepted source formats', () => {
+  const paper = getProjectModeTemplate('paper-assistant');
+
+  assert.deepEqual(paper.tabs.map((tab) => tab.id), [
+    'paper-overview', 'paper-literature', 'paper-outline', 'paper-chapters',
+    'paper-methods', 'paper-innovation', 'paper-format', 'paper-defense', 'delivery'
+  ]);
+  assert.deepEqual(paper.supportedUploads, ['pdf', 'docx', 'txt', 'md', 'ris', 'bib']);
+  assert.deepEqual(paper.deliverables.map((deliverable) => deliverable.id), ['outline', 'innovation', 'defense']);
+});
+
 test('project cards use mode-specific badges instead of exam labels for every mode', () => {
   const examDisplay = getProjectModeDisplay({
     mode: 'exam-review',

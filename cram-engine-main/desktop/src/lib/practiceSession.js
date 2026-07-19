@@ -1,4 +1,4 @@
-const ALL_CATEGORY = '全部';
+const ALL_CATEGORY = 'ALL_CATEGORIES';
 const ALL_BANK_ID = 'all';
 const CATEGORY_SEPARATOR = ' / ';
 

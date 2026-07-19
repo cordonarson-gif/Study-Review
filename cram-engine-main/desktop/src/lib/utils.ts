@@ -1,4 +1,5 @@
 import type { AppSettings, ProviderOption, ProviderProfile } from './types';
+import type { Locale } from '../i18n/types';
 
 export function joinLines(items: string[]) {
   return items.filter(Boolean).map((item) => item.trim()).filter(Boolean).join('\n');
@@ -11,13 +12,15 @@ export function splitLines(text: string) {
     .filter(Boolean);
 }
 
-export function createEmptyChatGreeting(projectName?: string) {
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+export function createEmptyChatGreeting(projectName: string | undefined, t: TFn) {
   return [
     {
       role: 'assistant' as const,
       content: projectName
-        ? `已进入 ${projectName}。你可以上传教材、图片、笔记，或让我把关键结论沉淀到该项目的独立知识库。`
-        : '新项目创建后，这里会作为项目专属 Agent 面板，支持上传文件、图片解析和知识沉淀。',
+        ? t('app.chatGreetingProject', { name: projectName })
+        : t('app.chatGreetingEmpty'),
       createdAt: new Date().toISOString()
     }
   ];
@@ -49,9 +52,9 @@ export function getProfileModelOptions(profile: ProviderProfile) {
     }));
 }
 
-export function formatDate(iso: string) {
+export function formatDate(iso: string, locale: Locale) {
   try {
-    return new Date(iso).toLocaleString('zh-CN');
+    return new Date(iso).toLocaleString(locale);
   } catch {
     return iso;
   }

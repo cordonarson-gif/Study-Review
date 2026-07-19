@@ -5,6 +5,7 @@ import {
   layoutKnowledgeGraph,
   type KnowledgeGraphNodeType
 } from '../../lib/advancedModeWorkspaces.js';
+import { useT } from '../../i18n';
 
 type KnowledgeGraphPageProps = {
   knowledgeBase: KnowledgeBaseEntry[];
@@ -14,15 +15,16 @@ type KnowledgeGraphPageProps = {
 
 const graphWidth = 760;
 const graphHeight = 440;
-const typeLabels: Record<KnowledgeGraphNodeType, string> = {
-  knowledge: '知识条目',
-  tag: '标签',
-  'knowledge-point': '知识点',
-  question: '题目',
-  artifact: '成果'
-};
 
 export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: KnowledgeGraphPageProps) {
+  const { t } = useT();
+  const typeLabels: Record<KnowledgeGraphNodeType, string> = {
+    knowledge: t('graph.knowledge'),
+    tag: t('graph.tag'),
+    'knowledge-point': t('graph.knowledgePoint'),
+    question: t('graph.question'),
+    artifact: t('graph.artifact')
+  };
   const graph = useMemo(
     () => buildKnowledgeGraph({ knowledgeBase, questions, artifacts }),
     [knowledgeBase, questions, artifacts]
@@ -74,8 +76,8 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
   if (!graph.nodes.length) {
     return (
       <section className="panel specialized-mode-page knowledge-graph-page">
-        <div className="page-section-header"><div><div className="section-title">知识关系</div><h3>知识图谱</h3></div></div>
-        <div className="empty-slim">暂无可绘制的数据。导入素材、题目或生成成果后，节点会自动建立连接。</div>
+        <div className="page-section-header"><div><div className="section-title">{t('graph.title')}</div><h3>{t('graph.subtitle')}</h3></div></div>
+        <div className="empty-slim">{t('graph.noData')}</div>
       </section>
     );
   }
@@ -83,16 +85,16 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
   return (
     <section className="panel specialized-mode-page knowledge-graph-page">
       <div className="page-section-header">
-        <div><div className="section-title">知识关系</div><h3>知识图谱</h3><p className="muted">按来源筛选节点，并选择节点检查证据连接。</p></div>
+        <div><div className="section-title">{t('graph.title')}</div><h3>{t('graph.subtitle')}</h3><p className="muted">{t('graph.desc')}</p></div>
       </div>
 
-      <div className="graph-source-counters" aria-label="节点来源统计">
+      <div className="graph-source-counters" aria-label={t('graph.nodeSourceStats')}>
         {(Object.keys(typeLabels) as KnowledgeGraphNodeType[]).map((type) => (
           <div key={type}><span>{typeLabels[type]}</span><strong>{graph.nodes.filter((node) => node.type === type).length}</strong></div>
         ))}
       </div>
 
-      <div className="graph-filter-row" aria-label="节点类型筛选">
+      <div className="graph-filter-row" aria-label={t('graph.nodeFilter')}>
         {availableTypes.map((type) => (
           <label key={type}><input type="checkbox" checked={enabledTypes.has(type)} onChange={() => toggleType(type)} />{typeLabels[type]}</label>
         ))}
@@ -101,7 +103,7 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
       <div className="knowledge-graph-layout">
         <div className="knowledge-graph-canvas">
           {positioned.nodes.length ? (
-            <svg viewBox={`0 0 ${graphWidth} ${graphHeight}`} role="group" aria-label="知识图谱节点与连接">
+            <svg viewBox={`0 0 ${graphWidth} ${graphHeight}`} role="group" aria-label={t('graph.graphAria')}>
               <g className="graph-edges">
                 {positioned.edges.map((edge) => {
                   const source = nodeById.get(edge.source);
@@ -133,7 +135,7 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
                 ))}
               </g>
             </svg>
-          ) : <div className="empty-slim">当前筛选条件下没有节点。</div>}
+          ) : <div className="empty-slim">{t('graph.noNodes')}</div>}
         </div>
 
         <aside className="graph-detail-panel">
@@ -141,14 +143,14 @@ export function KnowledgeGraphPage({ knowledgeBase, questions, artifacts }: Know
             <>
               <span className="upload-kind">{typeLabels[selected.type]}</span>
               <h4>{selected.label}</h4>
-              <p>{selected.description || '该节点暂无补充描述。'}</p>
-              {selected.sourceId && <small>来源 ID：{selected.sourceId}</small>}
-              <div className="subsection-title">关联证据</div>
+              <p>{selected.description || t('graph.noDescription')}</p>
+              {selected.sourceId && <small>{t('graph.sourceId', { id: selected.sourceId })}</small>}
+              <div className="subsection-title">{t('graph.evidence')}</div>
               {evidence.length ? (
                 <ul>{evidence.map((node) => <li key={node.id}><strong>{node.label}</strong><span>{typeLabels[node.type]}</span></li>)}</ul>
-              ) : <div className="empty-slim">暂无直接连接。</div>}
+              ) : <div className="empty-slim">{t('graph.noConnection')}</div>}
             </>
-          ) : <div className="empty-slim">选择一个节点查看详情。</div>}
+          ) : <div className="empty-slim">{t('graph.selectNode')}</div>}
         </aside>
       </div>
     </section>

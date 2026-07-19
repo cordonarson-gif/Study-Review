@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AppSettings, ProviderProfile } from '../../lib/types';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { AppSettings, ProviderProfile, ThemeMode } from '../../lib/types';
+import type { Locale } from '../../i18n/types';
 import { getSelectableModels, replaceProvider } from '../../lib/providerSettings.js';
+import { applyTheme } from '../../lib/themeManager';
 import { getActiveProviderProfile } from '../../lib/utils';
+import { useT, useLocale } from '../../i18n';
 import ProviderDetail from './ProviderDetail';
 import ProviderList from './ProviderList';
 import SettingsCategoryNav, { type SettingsCategory } from './SettingsCategoryNav';
@@ -23,17 +26,26 @@ function settingsChanged(left: AppSettings, right: AppSettings) {
   return JSON.stringify(left) !== JSON.stringify(right);
 }
 
+function settingsChangedExceptLocale(left: AppSettings, right: AppSettings) {
+  const { locale: _leftLocale, ...leftRest } = left;
+  const { locale: _rightLocale, ...rightRest } = right;
+  return JSON.stringify(leftRest) !== JSON.stringify(rightRest);
+}
+
+function applyLocaleToDraft(settings: AppSettings, locale: Locale): AppSettings {
+  return { ...settings, locale };
+}
+
 type WorkspaceSection = 'overview' | 'profile' | 'agents';
 
-const workspaceSections: Array<{
-  id: WorkspaceSection;
-  label: string;
-  description: string;
-}> = [
-  { id: 'overview', label: '总览', description: '先看当前项目与全局能力状态' },
-  { id: 'profile', label: '学习画像', description: '维护长期用户画像和偏好' },
-  { id: 'agents', label: '智能体中心', description: '查看全局智能体协作链路' }
-];
+function useWorkspaceSections() {
+  const { t } = useT();
+  return [
+    { id: 'overview' as const, label: t('settings.workspaceOverview'), description: t('settings.workspaceOverviewDesc') },
+    { id: 'profile' as const, label: t('settings.workspaceProfile'), description: t('settings.workspaceProfileDesc') },
+    { id: 'agents' as const, label: t('settings.workspaceAgents'), description: t('settings.workspaceAgentsDesc') }
+  ];
+}
 
 export default function ProviderSettingsPage({
   initialSettings,
@@ -45,16 +57,28 @@ export default function ProviderSettingsPage({
 }: ProviderSettingsPageProps) {
   const [draft, setDraft] = useState(() => cloneSettings(initialSettings));
   const [baseline, setBaseline] = useState(() => cloneSettings(initialSettings));
+  const baselineRef = useRef(cloneSettings(initialSettings));
   const [category, setCategory] = useState<SettingsCategory>('services');
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('overview');
   const [selectedProviderId, setSelectedProviderId] = useState(initialSettings.activeProviderId);
   const [busy, setBusy] = useState<'save' | 'discard' | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const { t } = useT();
+  const { locale, setLocale } = useLocale();
+  const workspaceSections = useWorkspaceSections();
 
   useEffect(() => {
-    setDraft(cloneSettings(initialSettings));
-    setBaseline(cloneSettings(initialSettings));
+    const nextSettings = cloneSettings(initialSettings);
+    if (!settingsChangedExceptLocale(baselineRef.current, nextSettings)) {
+      setDraft((current) => applyLocaleToDraft(current, nextSettings.locale));
+      setBaseline((current) => applyLocaleToDraft(current, nextSettings.locale));
+      baselineRef.current = applyLocaleToDraft(baselineRef.current, nextSettings.locale);
+      return;
+    }
+    setDraft(nextSettings);
+    setBaseline(nextSettings);
+    baselineRef.current = nextSettings;
     setSelectedProviderId(initialSettings.activeProviderId);
   }, [initialSettings]);
 
@@ -63,16 +87,24 @@ export default function ProviderSettingsPage({
     ?? getActiveProviderProfile(draft)
   ), [draft, selectedProviderId]);
   const selectableModels = useMemo(() => getSelectableModels(draft.providers), [draft.providers]);
+  const selectedDefaultModelValue = useMemo(() => {
+    const activeProfile = draft.providers.find((profile) => profile.id === draft.activeProviderId);
+    const value = activeProfile?.selectedModelId
+      ? `${activeProfile.id}:${activeProfile.selectedModelId}`
+      : '';
+    return selectableModels.some((model) => `${model.providerId}:${model.id}` === value) ? value : '';
+  }, [draft.activeProviderId, draft.providers, selectableModels]);
   const enabledProviderCount = useMemo(() => draft.providers.filter((profile) => profile.enabled).length, [draft.providers]);
   const dirty = useMemo(() => settingsChanged(draft, baseline), [draft, baseline]);
-  const scopeSummary = {
-    workspace: ['全局能力', '把用户画像、智能体编排和布局规则集中管理。'],
-    document: ['文档识别', '配置 MinerU 与上传文件解析策略。'],
-    default: ['默认模型', '设置新项目默认使用的服务商与模型。'],
-    generation: ['生成参数', '控制温度、最大输出长度等生成偏好。'],
-    display: ['显示偏好', '配置 LaTeX 预览和文档显示体验。'],
-    services: ['模型服务', '管理服务商、密钥、端点与模型列表。']
-  } satisfies Record<SettingsCategory, [string, string]>;
+  const scopeSummary: Record<SettingsCategory, [string, string]> = {
+    workspace: [t('settings.categoryWorkspace'), t('workspaceHubSubtitle')],
+    document: [t('settings.categoryDocument'), t('settings.documentDesc')],
+    default: [t('settings.categoryDefault'), t('settings.categoryDefaultDesc')],
+    generation: [t('settings.categoryGeneration'), t('settings.categoryGenerationDesc')],
+    display: [t('settings.categoryDisplay'), t('settings.categoryDisplayDesc')],
+    services: [t('settings.categoryServices'), t('settings.categoryServicesDesc')],
+    language: [t('settings.categoryLanguage'), t('settings.categoryLanguageDesc')]
+  };
 
   function updateProvider(profile: ProviderProfile) {
     setDraft((current) => ({
@@ -127,9 +159,10 @@ export default function ProviderSettingsPage({
       const saved = await onSave(draft);
       setDraft(cloneSettings(saved));
       setBaseline(cloneSettings(saved));
-      setMessage('已保存所有更改');
+      baselineRef.current = cloneSettings(saved);
+      setMessage(t('settings.savedAll'));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '保存失败');
+      setError(saveError instanceof Error ? saveError.message : t('settings.saveFailed'));
     } finally {
       setBusy(null);
     }
@@ -142,10 +175,12 @@ export default function ProviderSettingsPage({
       const reloaded = await onDiscard();
       setDraft(cloneSettings(reloaded));
       setBaseline(cloneSettings(reloaded));
+      baselineRef.current = cloneSettings(reloaded);
       setSelectedProviderId(reloaded.activeProviderId);
-      setMessage('已放弃未保存更改');
+      applyTheme(reloaded.themeMode);
+      setMessage(t('settings.discarded'));
     } catch (discardError) {
-      setError(discardError instanceof Error ? discardError.message : '放弃更改失败');
+      setError(discardError instanceof Error ? discardError.message : t('settings.discardFailed'));
     } finally {
       setBusy(null);
     }
@@ -168,17 +203,17 @@ export default function ProviderSettingsPage({
         {category !== 'services' && category !== 'workspace' && (
           <aside className="provider-list-panel settings-scope-panel">
             <div className="settings-column-heading">
-              <span>Scope</span>
+              <span>{t('settings.scopeTitle')}</span>
               <strong>{scopeSummary[category][0]}</strong>
               <small>{scopeSummary[category][1]}</small>
             </div>
             <div className="settings-scope-card">
-              <strong>当前配置状态</strong>
-              <span>{dirty ? '有未保存更改' : '所有更改已保存'}</span>
+              <strong>{t('settings.configStatus')}</strong>
+              <span>{dirty ? t('settings.unsavedChanges') : t('settings.allSaved')}</span>
             </div>
             <div className="settings-scope-card">
-              <strong>启用服务商</strong>
-              <span>{enabledProviderCount} 个</span>
+              <strong>{t('settings.enabledProviders')}</strong>
+              <span>{enabledProviderCount}{t('settings.countUnit')}</span>
             </div>
           </aside>
         )}
@@ -193,19 +228,19 @@ export default function ProviderSettingsPage({
           <section className="provider-detail-panel global-workspace-settings workspace-hub-panel">
             <div className="workspace-hub-header">
               <div>
-                <span>Workspace governance</span>
-                <h2>全局能力工作台</h2>
+                <span>{t('settings.categoryWorkspace')}</span>
+                <h2>{t('settings.workspaceHub')}</h2>
                 <p>
-                  用户画像、智能体编排和系统级布局规则集中放在这里；项目工作台只保留资料、资源、路径、刷题、报告和交付动作。
+                  {t('settings.workspaceHubSubtitle')}
                 </p>
               </div>
               <div className="workspace-hub-status">
                 <strong>{enabledProviderCount}</strong>
-                <span>启用服务商</span>
+                <span>{t('settings.workspaceEnabledProviders')}</span>
               </div>
             </div>
 
-            <nav className="workspace-hub-tabs" aria-label="全局能力设置分区">
+            <nav className="workspace-hub-tabs" aria-label={t('settings.categoryWorkspaceDesc')}>
               {workspaceSections.map((section) => (
                 <button
                   key={section.id}
@@ -224,22 +259,22 @@ export default function ProviderSettingsPage({
                 <div className="workspace-hub-overview">
                   <div className="settings-governance-grid">
                     <article>
-                      <strong>全局学习画像</strong>
-                      <span>统一维护学习基础、薄弱点、资源偏好和可用时间，供资源、路径、报告等模块调用。</span>
-                      <button type="button" onClick={() => setWorkspaceSection('profile')}>进入画像</button>
+                      <strong>{t('settings.workspaceLearningProfile')}</strong>
+                      <span>{t('settings.workspaceLearningProfileDesc')}</span>
+                      <button type="button" onClick={() => setWorkspaceSection('profile')}>{t('settings.workspaceEnterProfile')}</button>
                     </article>
                     <article>
-                      <strong>智能体中心</strong>
-                      <span>集中查看 ProfileAgent、ResourceAgent、PathAgent、ReportAgent 和 DeliveryAgent 的协作链路。</span>
-                      <button type="button" onClick={() => setWorkspaceSection('agents')}>查看智能体</button>
+                      <strong>{t('settings.workspaceAgentCenter')}</strong>
+                      <span>{t('settings.workspaceAgentCenterDesc')}</span>
+                      <button type="button" onClick={() => setWorkspaceSection('agents')}>{t('settings.workspaceViewAgents')}</button>
                     </article>
                     <article>
-                      <strong>项目页布局规则</strong>
-                      <span>工作台只放当前项目的执行动作；系统级、管理级和策略级能力集中放在设置。</span>
+                      <strong>{t('settings.workspaceLayoutRules')}</strong>
+                      <span>{t('settings.workspaceLayoutRulesDesc')}</span>
                     </article>
                   </div>
                   {workspaceOverview ?? (
-                    <div className="settings-empty">打开一个项目后，可以在这里查看当前项目与全局能力的联动状态。</div>
+                    <div className="settings-empty">{t('settings.workspaceEmptyOverview')}</div>
                   )}
                 </div>
               )}
@@ -247,7 +282,7 @@ export default function ProviderSettingsPage({
               {workspaceSection === 'profile' && (
                 <div className="workspace-hub-module">
                   {workspaceProfile ?? (
-                    <div className="settings-empty">打开一个项目后，可以维护学习画像。</div>
+                    <div className="settings-empty">{t('settings.workspaceEmptyProfile')}</div>
                   )}
                 </div>
               )}
@@ -255,7 +290,7 @@ export default function ProviderSettingsPage({
               {workspaceSection === 'agents' && (
                 <div className="workspace-hub-module">
                   {workspaceAgents ?? (
-                    <div className="settings-empty">打开一个项目后，可以查看智能体协作状态。</div>
+                    <div className="settings-empty">{t('settings.workspaceEmptyAgents')}</div>
                   )}
                 </div>
               )}
@@ -266,9 +301,9 @@ export default function ProviderSettingsPage({
           <section className="provider-detail-panel">
             <div className="provider-detail-header">
               <div>
-                <span>Document OCR</span>
-                <h2>MinerU 文档识别</h2>
-                <p>用于 PDF、图片、Office、表格等资料的文字提取；未启用时继续使用本地 OCR / 文本读取。</p>
+                <span>{t('settings.categoryDocument')}</span>
+                <h2>{t('settings.documentTitle')}</h2>
+                <p>{t('settings.documentDesc')}</p>
               </div>
             </div>
             <label className="settings-check-row">
@@ -277,7 +312,7 @@ export default function ProviderSettingsPage({
                 checked={draft.mineru.enabled}
                 onChange={(event) => updateMinerU({ enabled: event.target.checked })}
               />
-              启用 MinerU 解析服务
+              {t('settings.enableMineru')}
             </label>
             <label className="settings-check-row">
               <input
@@ -285,17 +320,17 @@ export default function ProviderSettingsPage({
                 checked={draft.mineru.preferForUploads}
                 onChange={(event) => updateMinerU({ preferForUploads: event.target.checked })}
               />
-              上传素材和导入题目时优先使用 MinerU
+              {t('settings.preferMineru')}
             </label>
             <div className="settings-form-grid">
               <label>
-                解析模式
+                {t('settings.parseMode')}
                 <select
                   value={draft.mineru.mode}
                   onChange={(event) => updateMinerU({ mode: event.target.value === 'agent' ? 'agent' : 'precise' })}
                 >
-                  <option value="precise">精准解析（API Token）</option>
-                  <option value="agent">轻量 Agent（快速预览）</option>
+                  <option value="precise">{t('settings.preciseMode')}</option>
+                  <option value="agent">{t('settings.agentMode')}</option>
                 </select>
               </label>
               <label>
@@ -313,11 +348,11 @@ export default function ProviderSettingsPage({
                 type="password"
                 value={draft.mineru.apiKey}
                 onChange={(event) => updateMinerU({ apiKey: event.target.value })}
-                placeholder="用于精准解析；不会显示在页面其他位置"
+                placeholder={t('settings.mineruApiKeyPlaceholder')}
               />
             </label>
             <p className="settings-help-text">
-              支持上传识别 PDF、PNG、JPG、WEBP、BMP、TIFF、TXT、Markdown、JSON、CSV、YAML、Word、PPT 和 Excel。没有配置 MinerU 时，非文本文件会保留文件本体并给出可读提示。
+              {t('settings.mineruHelp')}
             </p>
           </section>
         )}
@@ -325,15 +360,16 @@ export default function ProviderSettingsPage({
           <section className="provider-detail-panel">
             <div className="provider-detail-header">
               <div>
-                <span>Default</span>
-                <h2>默认模型</h2>
+                <span>{t('settings.categoryDefault')}</span>
+                <h2>{t('settings.defaultModelTitle')}</h2>
               </div>
             </div>
             <label className="settings-wide-field">
-              新项目默认模型
+              {t('settings.defaultModelForNew')}
               <select
-                value={`${draft.activeProviderId}:${getActiveProviderProfile(draft).selectedModelId}`}
+                value={selectedDefaultModelValue}
                 onChange={(event) => {
+                  if (!event.target.value) return;
                   const [providerId, modelId] = event.target.value.split(':');
                   setDraft((current) => ({
                     ...current,
@@ -345,6 +381,7 @@ export default function ProviderSettingsPage({
                   setSelectedProviderId(providerId);
                 }}
               >
+                <option value="" disabled={selectableModels.length > 0}>{t('settings.noDefaultModel')}</option>
                 {selectableModels.map((model) => (
                   <option key={`${model.providerId}:${model.id}`} value={`${model.providerId}:${model.id}`}>
                     {model.label} · {model.providerId}
@@ -352,19 +389,22 @@ export default function ProviderSettingsPage({
                 ))}
               </select>
             </label>
+            {selectableModels.length === 0 && (
+              <div className="settings-empty">{t('settings.noSelectableModels')}</div>
+            )}
           </section>
         )}
         {category === 'generation' && (
           <section className="provider-detail-panel">
             <div className="provider-detail-header">
               <div>
-                <span>Generation</span>
-                <h2>生成参数</h2>
+                <span>{t('settings.categoryGeneration')}</span>
+                <h2>{t('settings.generationTitle')}</h2>
               </div>
             </div>
             <div className="settings-form-grid">
               <label>
-                温度
+                {t('settings.temperature')}
                 <input
                   type="number"
                   min="0"
@@ -375,7 +415,7 @@ export default function ProviderSettingsPage({
                 />
               </label>
               <label>
-                最大输出 Token
+                {t('settings.maxOutputToken')}
                 <input
                   type="number"
                   min="256"
@@ -391,34 +431,89 @@ export default function ProviderSettingsPage({
           <section className="provider-detail-panel">
             <div className="provider-detail-header">
               <div>
-                <span>Display</span>
-                <h2>显示</h2>
+                <span>{t('settings.categoryDisplay')}</span>
+                <h2>{t('settings.displayTitle')}</h2>
               </div>
             </div>
+            <fieldset className="settings-theme-mode">
+              <legend>{t('settings.themeMode')}</legend>
+              <div className="theme-mode-options">
+                {([
+                  { value: 'light', labelKey: 'settings.light', icon: '☀' },
+                  { value: 'dark', labelKey: 'settings.dark', icon: '☾' },
+                  { value: 'auto', labelKey: 'settings.auto', icon: '◐' }
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={draft.themeMode === opt.value ? 'active' : ''}
+                    onClick={() => {
+                      setDraft((current) => ({ ...current, themeMode: opt.value as ThemeMode }));
+                      applyTheme(opt.value as ThemeMode);
+                    }}
+                  >
+                    <span className="theme-icon">{opt.icon}</span>
+                    <span>{t(opt.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
             <label className="settings-check-row">
               <input
                 type="checkbox"
                 checked={draft.enableLatexPreview}
                 onChange={(event) => setDraft((current) => ({ ...current, enableLatexPreview: event.target.checked }))}
               />
-              启用 LaTeX 预览
+              {t('settings.latexPreview')}
             </label>
+          </section>
+        )}
+        {category === 'language' && (
+          <section className="provider-detail-panel">
+            <div className="provider-detail-header">
+              <div>
+                <span>{t('settings.categoryLanguage')}</span>
+                <h2>{t('settings.languageTitle')}</h2>
+                <p>{t('settings.languageDesc')}</p>
+              </div>
+            </div>
+            <div className="theme-mode-options">
+              {([
+                { value: 'zh-CN' as Locale, label: t('settings.zhCN') },
+                { value: 'zh-TW' as Locale, label: t('settings.zhTW') },
+                { value: 'en' as Locale, label: t('settings.en') }
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={locale === opt.value ? 'active' : ''}
+                  onClick={() => {
+                    setDraft((current) => applyLocaleToDraft(current, opt.value));
+                    setBaseline((current) => applyLocaleToDraft(current, opt.value));
+                    baselineRef.current = applyLocaleToDraft(baselineRef.current, opt.value);
+                    setLocale(opt.value);
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </section>
         )}
       </div>
 
       <div className="settings-savebar">
         <div>
-          {dirty ? <span className="settings-dirty">有未保存更改</span> : <span>所有更改已保存</span>}
+          {dirty ? <span className="settings-dirty">{t('settings.unsavedChanges')}</span> : <span>{t('settings.allSaved')}</span>}
           {message && <small role="status">{message}</small>}
           {error && <small className="settings-inline-error" role="alert">{error}</small>}
         </div>
         <div className="settings-savebar-actions">
           <button type="button" onClick={() => void discardDraft()} disabled={!dirty || busy !== null}>
-            {busy === 'discard' ? '放弃中...' : '放弃更改'}
+            {busy === 'discard' ? t('settings.discarding') : t('settings.discard')}
           </button>
           <button type="button" className="primary" onClick={() => void saveDraft()} disabled={!dirty || busy !== null}>
-            {busy === 'save' ? '保存中...' : '保存所有更改'}
+            {busy === 'save' ? t('settings.saving') : t('settings.saveAll')}
           </button>
         </div>
       </div>

@@ -55,9 +55,10 @@ export function hideOrShowModel(profile, modelId, enabled) {
   const models = Array.isArray(profile?.models)
     ? profile.models.map((model) => model.id === modelId ? { ...model, enabled } : model)
     : [];
-  const selectedModelId = profile?.selectedModelId === modelId && !enabled
-    ? (models.find((model) => model.enabled)?.id ?? '')
-    : (profile?.selectedModelId ?? '');
+  const currentSelection = profile?.selectedModelId ?? '';
+  const selectedModelId = models.some((model) => model.id === currentSelection && model.enabled)
+    ? currentSelection
+    : (models.find((model) => model.enabled)?.id ?? '');
 
   return {
     ...profile,

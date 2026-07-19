@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '../../i18n';
 import type { GeneratePersonalizedResourcesInput, PersonalizedResource, PersonalizedResourceType } from '../../lib/types';
 
 type PersonalizedResourcesPageProps = {
@@ -10,21 +11,6 @@ type PersonalizedResourcesPageProps = {
   onStatus?: (message: string) => void;
 };
 
-const resourceTypeOptions: Array<{ value: PersonalizedResourceType | 'all'; label: string }> = [
-  { value: 'all', label: '全部类型' },
-  { value: 'handout', label: '讲义' },
-  { value: 'example', label: '例题' },
-  { value: 'flashcard', label: '速记卡' },
-  { value: 'remediation', label: '补漏清单' }
-];
-
-const typeLabels: Record<PersonalizedResourceType, string> = {
-  handout: '讲义',
-  example: '例题',
-  flashcard: '速记卡',
-  remediation: '补漏'
-};
-
 export function PersonalizedResourcesPage({
   resources,
   onGenerate,
@@ -33,6 +19,23 @@ export function PersonalizedResourcesPage({
   onChange,
   onStatus
 }: PersonalizedResourcesPageProps) {
+  const { t } = useT();
+
+  const resourceTypeOptions: Array<{ value: PersonalizedResourceType | 'all'; label: string }> = [
+    { value: 'all', label: t('resources.allTypes') },
+    { value: 'handout', label: t('resources.handout') },
+    { value: 'example', label: t('resources.example') },
+    { value: 'flashcard', label: t('resources.flashcard') },
+    { value: 'remediation', label: t('resources.remediation') }
+  ];
+
+  const typeLabels: Record<PersonalizedResourceType, string> = {
+    handout: t('resources.handout'),
+    example: t('resources.example'),
+    flashcard: t('resources.flashcard'),
+    remediation: t('resources.remediationShort')
+  };
+
   const [topic, setTopic] = useState('');
   const [generationType, setGenerationType] = useState<GeneratePersonalizedResourcesInput['type']>('all');
   const [filterType, setFilterType] = useState<PersonalizedResourceType | 'all'>('all');
@@ -56,7 +59,7 @@ export function PersonalizedResourcesPage({
       const next = await onGenerate({ topic, type: generationType });
       onChange(next);
       setTopic('');
-      onStatus?.(`已生成 ${next.length} 条个性化资源`);
+      onStatus?.(t('resources.generated', { count: next.length }));
     } finally {
       setBusy(false);
     }
@@ -68,7 +71,7 @@ export function PersonalizedResourcesPage({
     try {
       const next = await onSave(draft);
       onChange(next);
-      onStatus?.('资源已保存');
+      onStatus?.(t('resources.saved'));
     } finally {
       setBusy(false);
     }
@@ -80,7 +83,7 @@ export function PersonalizedResourcesPage({
     try {
       const next = await onDelete(draft.id);
       onChange(next);
-      onStatus?.('资源已删除');
+      onStatus?.(t('resources.deleted'));
     } finally {
       setBusy(false);
     }
@@ -90,25 +93,25 @@ export function PersonalizedResourcesPage({
     <section className="panel personalized-resources-page">
       <div className="page-section-header">
         <div>
-          <div className="section-title">个性化资源</div>
-          <h3>按学习画像生成讲义、例题、速记卡和补漏材料</h3>
-          <p className="muted">ResourceAgent 会优先使用学习画像的薄弱点、资源偏好和当前题库内容。</p>
+          <div className="section-title">{t('resources.title')}</div>
+          <h3>{t('resources.subtitle')}</h3>
+          <p className="muted">{t('resources.desc')}</p>
         </div>
       </div>
 
       <div className="resource-generation-panel">
         <label>
-          生成资源
-          <input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="输入知识点；留空则根据画像自动选择" />
+          {t('resources.generateResources')}
+          <input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder={t('resources.topicPlaceholder')} />
         </label>
         <label>
-          资源类型
+          {t('resources.resourceType')}
           <select value={generationType} onChange={(event) => setGenerationType(event.target.value as GeneratePersonalizedResourcesInput['type'])}>
             {resourceTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
         <button className="primary" onClick={() => void generateResources()} disabled={busy}>
-          {busy ? '处理中…' : '生成资源'}
+          {busy ? t('resources.processing') : t('resources.generateResources')}
         </button>
       </div>
 
@@ -116,8 +119,8 @@ export function PersonalizedResourcesPage({
         <aside className="resource-library-panel">
           <div className="resource-library-header">
             <div>
-              <div className="subsection-title">资源库</div>
-              <span className="muted">{filteredResources.length} / {resources.length} 条</span>
+              <div className="subsection-title">{t('resources.resourceLibrary')}</div>
+              <span className="muted">{filteredResources.length} / {resources.length} {t('resources.countUnit')}</span>
             </div>
             <select value={filterType} onChange={(event) => setFilterType(event.target.value as PersonalizedResourceType | 'all')}>
               {resourceTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -139,7 +142,7 @@ export function PersonalizedResourcesPage({
                 <small>{resource.knowledgePoint}</small>
                 <em>{resource.profileSignal}</em>
               </button>
-            )) : <div className="empty-slim">暂无资源，先点击上方“生成资源”。</div>}
+            )) : <div className="empty-slim">{t('resources.emptyHint')}</div>}
           </div>
         </aside>
 
@@ -148,33 +151,33 @@ export function PersonalizedResourcesPage({
             <>
               <div className="profile-inline-fields">
                 <label>
-                  标题
+                  {t('resources.titleLabel')}
                   <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
                 </label>
                 <label>
-                  知识点
+                  {t('resources.knowledgePoint')}
                   <input value={draft.knowledgePoint} onChange={(event) => setDraft({ ...draft, knowledgePoint: event.target.value })} />
                 </label>
               </div>
               <label>
-                画像信号
+                {t('resources.profileSignal')}
                 <input value={draft.profileSignal} onChange={(event) => setDraft({ ...draft, profileSignal: event.target.value })} />
               </label>
               <label>
-                Markdown 预览 / 内容编辑
+                {t('resources.markdownPreview')}
                 <textarea value={draft.contentMarkdown} onChange={(event) => setDraft({ ...draft, contentMarkdown: event.target.value })} />
               </label>
               <div className="resource-markdown-preview">
-                <div className="subsection-title">Markdown 预览</div>
+                <div className="subsection-title">{t('resources.previewTitle')}</div>
                 <pre>{draft.contentMarkdown}</pre>
               </div>
               <div className="panel-actions horizontal">
-                <button className="primary" onClick={() => void saveResource()} disabled={busy}>保存资源</button>
-                <button onClick={() => void deleteResource()} disabled={busy}>删除资源</button>
+                <button className="primary" onClick={() => void saveResource()} disabled={busy}>{t('resources.saveResource')}</button>
+                <button onClick={() => void deleteResource()} disabled={busy}>{t('resources.deleteResource')}</button>
               </div>
             </>
           ) : (
-            <div className="empty-slim">选择或生成一条资源后，可在这里编辑和保存。</div>
+            <div className="empty-slim">{t('resources.editHint')}</div>
           )}
         </div>
       </div>

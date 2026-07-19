@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useT } from '../../i18n';
 import type { StageReport } from '../../lib/types';
 
 type StageReportPageProps = {
@@ -16,6 +17,7 @@ export function StageReportPage({
   onChange,
   onStatus
 }: StageReportPageProps) {
+  const { t } = useT();
   const [selectedId, setSelectedId] = useState(reports[0]?.id ?? '');
   const [draft, setDraft] = useState<StageReport | null>(reports[0] ?? null);
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,7 @@ export function StageReportPage({
     try {
       const next = await onGenerate();
       onChange(next);
-      onStatus?.('阶段报告已生成');
+      onStatus?.(t('report.reportGenerated'));
     } finally {
       setBusy(false);
     }
@@ -45,7 +47,7 @@ export function StageReportPage({
     try {
       const next = await onSave(draft);
       onChange(next);
-      onStatus?.('阶段报告已保存');
+      onStatus?.(t('report.reportSaved'));
     } finally {
       setBusy(false);
     }
@@ -64,12 +66,12 @@ export function StageReportPage({
     <section className="panel stage-report-page">
       <div className="page-section-header">
         <div>
-          <div className="section-title">阶段报告</div>
-          <h3>汇总画像变化、练习表现、知识库沉淀和下一步动作</h3>
-          <p className="muted">ReportAgent 会读取画像、路径、资源、题库、知识库和进度页，生成一份可编辑报告。</p>
+          <div className="section-title">{t('report.title')}</div>
+          <h3>{t('report.subtitle')}</h3>
+          <p className="muted">{t('report.desc')}</p>
         </div>
         <button className="primary" onClick={() => void generateReport()} disabled={busy}>
-          {busy ? '生成中…' : '生成报告'}
+          {busy ? t('report.generating') : t('report.generateReport')}
         </button>
       </div>
 
@@ -77,8 +79,8 @@ export function StageReportPage({
         <aside className="stage-report-list">
           <div className="resource-library-header">
             <div>
-              <div className="subsection-title">历史报告</div>
-              <span className="muted">{reports.length} 份</span>
+              <div className="subsection-title">{t('report.historyReports')}</div>
+              <span className="muted">{reports.length} {t('report.reportCount', { count: reports.length }).replace(`${reports.length} `, '')}</span>
             </div>
           </div>
           {reports.length ? reports.map((report) => (
@@ -94,18 +96,18 @@ export function StageReportPage({
               <small>{report.summary}</small>
               <em>{new Date(report.updatedAt).toLocaleString('zh-CN')}</em>
             </button>
-          )) : <div className="empty-slim">暂无报告，点击右上角“生成报告”。</div>}
+          )) : <div className="empty-slim">{t('report.emptyHint')}</div>}
         </aside>
 
         <div className="stage-report-editor">
           {draft ? (
             <>
               <label>
-                报告标题
+                {t('report.reportTitle')}
                 <input value={draft.title} onChange={(event) => patchDraft({ title: event.target.value })} />
               </label>
               <label>
-                摘要
+                {t('report.summary')}
                 <textarea value={draft.summary} onChange={(event) => patchDraft({ summary: event.target.value })} />
               </label>
 
@@ -120,13 +122,13 @@ export function StageReportPage({
 
               <div className="learning-path-bottom-grid">
                 <div className="mini-section">
-                  <div className="subsection-title">下一步动作</div>
+                  <div className="subsection-title">{t('report.nextActions')}</div>
                   <ul>
                     {draft.nextActions.map((action) => <li key={action}>{action}</li>)}
                   </ul>
                 </div>
                 <div className="mini-section">
-                  <div className="subsection-title">风险提醒</div>
+                  <div className="subsection-title">{t('report.riskReminder')}</div>
                   <ul>
                     {draft.risks.map((risk) => <li key={risk}>{risk}</li>)}
                   </ul>
@@ -134,11 +136,11 @@ export function StageReportPage({
               </div>
 
               <div className="panel-actions horizontal">
-                <button className="primary" onClick={() => void saveReport()} disabled={busy}>保存报告</button>
+                <button className="primary" onClick={() => void saveReport()} disabled={busy}>{t('report.saveReport')}</button>
               </div>
             </>
           ) : (
-            <div className="empty-slim">生成第一份阶段报告后，可在这里查看和编辑。</div>
+            <div className="empty-slim">{t('report.firstReportHint')}</div>
           )}
         </div>
       </div>

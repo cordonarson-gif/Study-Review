@@ -175,6 +175,42 @@ test('normalization moves selection to an enabled provider and visible model', a
   assert.equal(settings.providers[1].selectedModelId, 'fallback-model');
 });
 
+test('normalization preserves a provider whose models are all disabled', async () => {
+  const { normalizeSettings } = await loadSettingsSchema();
+  const settings = normalizeSettings({
+    version: 2,
+    activeProviderId: 'primary',
+    providers: [
+      {
+        id: 'primary',
+        label: 'Primary',
+        provider: 'openai-compatible',
+        baseUrl: 'https://primary.example.test/v1',
+        apiKey: '',
+        enabled: true,
+        isCustom: false,
+        selectedModelId: 'model-a',
+        models: [
+          { id: 'model-a', label: 'Model A', source: 'preset', enabled: false },
+          { id: 'model-b', label: 'Model B', source: 'fetched', enabled: false }
+        ]
+      }
+    ],
+    temperature: 0.2,
+    maxTokens: 4096,
+    latexEngine: 'xelatex',
+    enableLatexPreview: true,
+    lastModelSyncAt: null
+  });
+
+  assert.equal(settings.activeProviderId, 'primary');
+  assert.equal(settings.providers[0].selectedModelId, '');
+  assert.deepEqual(
+    settings.providers[0].models.map((model) => model.enabled),
+    [false, false]
+  );
+});
+
 test('normalization deduplicates models and restores the first disabled profile', async () => {
   const { normalizeSettings } = await loadSettingsSchema();
   const settings = normalizeSettings({

@@ -1,190 +1,41 @@
 <!DOCTYPE html>
 
-<html class="light" lang="zh-CN"><head>
+<html lang="zh-CN"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Cram Engine - 知识梳理</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Source+Serif+4:wght@600;700&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind Theme Configuration -->
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                "secondary-fixed": "#acedff",
-                "outline": "#797587",
-                "inverse-on-surface": "#f1f1ee",
-                "tertiary": "#8f4a00",
-                "surface-container-high": "#e8e8e5",
-                "background": "#f9f9f6",
-                "on-error-container": "#93000a",
-                "tertiary-fixed-dim": "#ffb780",
-                "on-primary-fixed": "#1c0062",
-                "error": "#ba1a1a",
-                "on-background": "#1a1c1b",
-                "on-secondary-container": "#006172",
-                "surface-variant": "#e2e3e0",
-                "tertiary-fixed": "#ffdcc4",
-                "on-tertiary-container": "#fffbff",
-                "on-secondary-fixed-variant": "#004e5c",
-                "inverse-surface": "#2f312f",
-                "surface-container": "#eeeeeb",
-                "surface-container-low": "#f4f4f1",
-                "outline-variant": "#c9c4d8",
-                "inverse-primary": "#cabeff",
-                "on-tertiary-fixed-variant": "#6f3800",
-                "secondary-fixed-dim": "#4cd7f6",
-                "secondary": "#00687a",
-                "on-surface": "#1a1c1b",
-                "error-container": "#ffdad6",
-                "tertiary-container": "#b35e00",
-                "surface-bright": "#f9f9f6",
-                "on-primary": "#ffffff",
-                "on-secondary": "#ffffff",
-                "primary-container": "#7757fa",
-                "secondary-container": "#57dffe",
-                "on-primary-container": "#fffbff",
-                "on-error": "#ffffff",
-                "surface-dim": "#dadad7",
-                "primary": "#5e39e0",
-                "surface-container-lowest": "#ffffff",
-                "primary-fixed": "#e6deff",
-                "on-surface-variant": "#484555",
-                "on-secondary-fixed": "#001f26",
-                "on-primary-fixed-variant": "#4816cb",
-                "surface-container-highest": "#e2e3e0",
-                "on-tertiary-fixed": "#2f1400",
-                "surface": "#f9f9f6",
-                "primary-fixed-dim": "#cabeff",
-                "surface-tint": "#603ce2",
-                "on-tertiary": "#ffffff"
-            },
-            "borderRadius": {
-                "DEFAULT": "0.25rem",
-                "lg": "0.5rem",
-                "xl": "0.75rem",
-                "full": "9999px"
-            },
-            "spacing": {
-                "md": "16px",
-                "base": "4px",
-                "xl": "40px",
-                "sm": "8px",
-                "lg": "24px",
-                "gutter": "16px",
-                "container-max": "1200px",
-                "xs": "4px"
-            },
-            "fontFamily": {
-                "title-md": ["Inter"],
-                "code-snippet": ["JetBrains Mono"],
-                "body-sm": ["Inter"],
-                "headline-lg": ["\"Source Serif 4\""],
-                "display-hero": ["\"Source Serif 4\""],
-                "body-base": ["Inter"],
-                "label-caps": ["Inter"]
-            },
-            "fontSize": {
-                "title-md": ["18px", {"lineHeight": "1.5", "fontWeight": "600"}],
-                "code-snippet": ["14px", {"lineHeight": "1.5", "fontWeight": "450"}],
-                "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
-                "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
-                "display-hero": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
-                "body-base": ["15px", {"lineHeight": "1.6", "fontWeight": "400"}],
-                "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}]
-            }
-          }
-        }
-      }
-    </script>
+<script src="../shared/theme.js"></script>
 <style>
-        body {
-            background-color: #f9f9f6;
-            color: #1a1c1b;
-            font-family: 'Inter', sans-serif;
-        }
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            vertical-align: middle;
-        }
-        .node-line {
-            position: absolute;
-            background: #c9c4d8;
-            z-index: -1;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #797587;
-            border-radius: 10px;
-        }
-    </style>
+    body { background-color: var(--ce-background); color: var(--ce-on-surface); font-family:'Inter',sans-serif; }
+    .material-symbols-outlined { font-variation-settings:'FILL'0,'wght'400,'GRAD'0,'opsz'24; vertical-align:middle; }
+    .node-line { position:absolute; background:var(--ce-outline-variant); z-index:-1; }
+    .custom-scrollbar::-webkit-scrollbar { width:4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background:transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background:var(--ce-outline); border-radius:10px; }
+    .dark .bg-white { background-color:var(--ce-card-bg); }
+    .dark .bg-white\/50 { background-color:rgba(26,27,34,0.5); }
+    .dark .hover\:bg-surface-container-high:hover { background-color:var(--ce-surface-container-highest); }
+</style>
 </head>
 <body class="overflow-hidden">
-<!-- SideNavBar -->
-<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col py-lg border-r border-outline-variant bg-surface z-50">
-<div class="px-lg mb-xl">
-<h1 class="font-display-hero text-title-md text-primary">Cram Engine</h1>
-<p class="font-body-sm text-on-surface-variant opacity-70">Academic Productivity</p>
-</div>
+<aside class="h-screen w-60 fixed left-0 top-0 flex flex-col py-lg border-r border-outline-variant bg-surface z-50">
+<div class="px-lg mb-xl"><h1 class="font-display-hero text-title-md text-primary">Cram Engine</h1><p class="font-body-sm text-on-surface-variant opacity-70">Academic Productivity</p></div>
 <nav class="flex-1 space-y-1">
-<!-- Home -->
-<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#">
-<span class="material-symbols-outlined mr-md">home</span>
-<span class="font-body-base">Home</span>
-</a>
-<!-- Workbench (Active) -->
-<a class="flex items-center px-lg py-3 text-primary font-bold border-l-2 border-primary bg-surface-container-low translate-x-1 transition-transform duration-150" href="#">
-<span class="material-symbols-outlined mr-md">edit_note</span>
-<span class="font-body-base">Workbench</span>
-</a>
-<!-- Export -->
-<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#">
-<span class="material-symbols-outlined mr-md">ios_share</span>
-<span class="font-body-base">Export</span>
-</a>
-<!-- Settings -->
-<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#">
-<span class="material-symbols-outlined mr-md">settings</span>
-<span class="font-body-base">Settings</span>
-</a>
-<!-- Support -->
-<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#">
-<span class="material-symbols-outlined mr-md">help</span>
-<span class="font-body-base">Support</span>
-</a>
+<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#"><span class="material-symbols-outlined mr-md">home</span><span class="font-body-base">Home</span></a>
+<a class="flex items-center px-lg py-3 text-primary font-bold border-l-2 border-primary bg-surface-container-low" href="#"><span class="material-symbols-outlined mr-md">edit_note</span><span class="font-body-base">Workbench</span></a>
+<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#"><span class="material-symbols-outlined mr-md">ios_share</span><span class="font-body-base">Export</span></a>
+<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#"><span class="material-symbols-outlined mr-md">settings</span><span class="font-body-base">Settings</span></a>
+<a class="flex items-center px-lg py-3 text-on-surface-variant opacity-80 hover:bg-surface-container-high transition-colors" href="#"><span class="material-symbols-outlined mr-md">help</span><span class="font-body-base">Support</span></a>
 </nav>
-<div class="px-lg mt-auto pt-lg border-t border-outline-variant">
-<div class="flex items-center gap-sm">
-<img alt="User Profile Avatar" class="w-10 h-10 rounded-full bg-primary-fixed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdmO0aH_bumq0PckLxHCp3gCUdvsQyeNOi2v0_UsR1zUuUb2UDRUW8YWHTJGkbb2Je1i9PSjW4-mByq4MQLDY6LBFNnq2vsmSQQBBvHGZcpY2Pp1nrWI8kH0mT-l3_d4pEqjhurxeCGqsPrd1USI0yiLpQI4ynbMPZe0gyCVKIcqIKmvJc8WDEmkKnm4V-xrUSt1kaMo16VrvFeg4inVJFq7lLW7hldkZTpLeIDhhNy0i10Cm524J3S2NcARFL85Qu1j_Pk5TCOIHQ"/>
-<div class="overflow-hidden">
-<p class="font-title-md text-sm truncate">Researcher Li</p>
-<p class="font-body-sm text-xs text-on-surface-variant truncate">Premium Plan</p>
-</div>
-</div>
-</div>
+<div class="px-lg mt-auto pt-lg border-t border-outline-variant"><div class="flex items-center gap-sm"><img alt="User" class="w-10 h-10 rounded-full bg-primary-fixed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdmO0aH_bumq0PckLxHCp3gCUdvsQyeNOi2v0_UsR1zUuUb2UDRUW8YWHTJGkbb2Je1i9PSjW4-mByq4MQLDY6LBFNnq2vsmSQQBBvHGZcpY2Pp1nrWI8kH0mT-l3_d4pEqjhurxeCGqsPrd1USI0yiLpQI4ynbMPZe0gyCVKIcqIKmvJc8WDEmkKnm4V-xrUSt1kaMo16VrvFeg4inVJFq7lLW7hldkZTpLeIDhhNy0i10Cm524J3S2NcARFL85Qu1j_Pk5TCOIHQ"/><div class="overflow-hidden"><p class="font-title-md text-sm truncate">Researcher Li</p><p class="font-body-sm text-xs text-on-surface-variant truncate">Premium Plan</p></div></div></div>
 </aside>
-<!-- TopNavBar -->
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 flex justify-between items-center px-lg ml-64 bg-background border-b border-outline-variant z-40">
+<header class="fixed top-0 right-0 w-[calc(100%-15rem)] h-16 flex justify-between items-center px-lg ml-60 bg-background border-b border-outline-variant z-40">
 <div class="flex items-center gap-xl">
-<div class="flex items-center bg-surface-container px-md py-1.5 rounded-full border border-outline-variant">
-<span class="material-symbols-outlined text-outline text-sm mr-2">search</span>
-<input class="bg-transparent border-none focus:ring-0 text-sm w-48 font-body-base" placeholder="搜索知识点..." type="text"/>
-</div>
-<nav class="flex items-center gap-lg">
-<a class="font-body-base text-primary border-b-2 border-primary pb-1" href="#">Decompose</a>
-<a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Teach</a>
-<a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Test</a>
-<a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Fix</a>
-</nav>
+<div class="flex items-center bg-surface-container px-md py-1.5 rounded-full border border-outline-variant"><span class="material-symbols-outlined text-outline text-sm mr-2">search</span><input class="bg-transparent border-none focus:ring-0 text-sm w-48 font-body-base" placeholder="搜索知识点..." type="text"/></div>
+<nav class="flex items-center gap-lg"><a class="font-body-base text-primary border-b-2 border-primary pb-1" href="#">Decompose</a><a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Teach</a><a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Test</a><a class="font-body-base text-on-surface-variant hover:text-primary transition-colors" href="#">Fix</a></nav>
 </div>
 <div class="flex items-center gap-md">
 <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">notifications</button>
@@ -193,182 +44,50 @@
 <img alt="Scholar Profile" class="w-8 h-8 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJlvo-FNA-8k10zWXO3prOu7J_aLqyK_x94Pu41BBuq16upwUBsHHSsRUydUU-f-Tmn8CvxV0k6aJo8mxwMofDhz-1BThh8Wfu9bsEhWg4ADDFSAGUA8928uGpW4PMFN8AXG7HtIJd57kkbc76ZAjif-RFzDrAmGgU-kjSNKfeuiqJqd8kpkteDP1mn_4zxFv5qr_oy0rrtE989aSjYWvPfx_bcPwWwrQj988IwlVf7oLGgwGC4vfH_Pn7n475v5qzfgc0p61K-oIH"/>
 </div>
 </header>
-<!-- Main Content Layout -->
-<main class="ml-64 mt-16 h-[calc(100vh-4rem)] flex overflow-hidden">
-<!-- Left: Input & Source Selection -->
+<main class="ml-60 mt-16 h-[calc(100vh-4rem)] flex overflow-hidden">
 <section class="w-72 border-r border-outline-variant bg-surface flex flex-col p-md overflow-y-auto custom-scrollbar">
-<div class="mb-lg">
-<h2 class="font-title-md text-primary mb-md flex items-center gap-2">
-<span class="material-symbols-outlined text-lg">source</span>
-                    输入源 (Input Source)
-                </h2>
+<div class="mb-lg"><h2 class="font-title-md text-primary mb-md flex items-center gap-2"><span class="material-symbols-outlined text-lg">source</span>输入源 (Input Source)</h2>
 <div class="grid grid-cols-1 gap-sm">
-<button class="flex flex-col items-center justify-center p-lg border-2 border-dashed border-outline-variant rounded-xl hover:border-primary hover:bg-primary-fixed transition-all group">
-<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary mb-2">upload_file</span>
-<span class="font-title-md text-sm">上传文件</span>
-<span class="font-body-sm text-xs text-on-surface-variant">PDF, Word, TXT</span>
-</button>
-<button class="flex flex-col items-center justify-center p-lg border-2 border-outline-variant rounded-xl hover:border-primary hover:bg-primary-fixed transition-all group">
-<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary mb-2">travel_explore</span>
-<span class="font-title-md text-sm">AI 课程爬取</span>
-<span class="font-body-sm text-xs text-on-surface-variant">URL, MOOC, YouTube</span>
-</button>
+<button class="flex flex-col items-center justify-center p-lg border-2 border-dashed border-outline-variant rounded-xl hover:border-primary hover:bg-primary-fixed transition-all group"><span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary mb-2">upload_file</span><span class="font-title-md text-sm">上传文件</span><span class="font-body-sm text-xs text-on-surface-variant">PDF, Word, TXT</span></button>
+<button class="flex flex-col items-center justify-center p-lg border-2 border-outline-variant rounded-xl hover:border-primary hover:bg-primary-fixed transition-all group"><span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary mb-2">travel_explore</span><span class="font-title-md text-sm">AI 课程爬取</span><span class="font-body-sm text-xs text-on-surface-variant">URL, MOOC, YouTube</span></button>
 </div>
 </div>
-<div class="flex-1">
-<h3 class="font-label-caps text-on-surface-variant mb-sm tracking-widest uppercase">已加载资源</h3>
+<div class="flex-1"><h3 class="font-label-caps text-on-surface-variant mb-sm tracking-widest uppercase">已加载资源</h3>
 <div class="space-y-sm">
-<div class="p-sm bg-surface-container-low rounded-lg border border-outline-variant flex items-center gap-sm">
-<span class="material-symbols-outlined text-primary">description</span>
-<div class="overflow-hidden">
-<p class="font-body-sm text-xs truncate">Quantum_Physics_Intro.pdf</p>
-<p class="text-[10px] text-on-surface-variant italic">Source: User Upload</p>
-</div>
-</div>
-<div class="p-sm bg-surface-container-low rounded-lg border border-outline-variant flex items-center gap-sm">
-<span class="material-symbols-outlined text-secondary">language</span>
-<div class="overflow-hidden">
-<p class="font-body-sm text-xs truncate">Wikipedia: Schrodinger's Cat</p>
-<p class="text-[10px] text-on-surface-variant italic">Source: AI Crawled</p>
-</div>
-</div>
+<div class="p-sm bg-surface-container-low rounded-lg border border-outline-variant flex items-center gap-sm"><span class="material-symbols-outlined text-primary">description</span><div class="overflow-hidden"><p class="font-body-sm text-xs truncate">Quantum_Physics_Intro.pdf</p><p class="text-[10px] text-on-surface-variant italic">Source: User Upload</p></div></div>
+<div class="p-sm bg-surface-container-low rounded-lg border border-outline-variant flex items-center gap-sm"><span class="material-symbols-outlined text-secondary">language</span><div class="overflow-hidden"><p class="font-body-sm text-xs truncate">Wikipedia: Schrodinger's Cat</p><p class="text-[10px] text-on-surface-variant italic">Source: AI Crawled</p></div></div>
 </div>
 </div>
 </section>
-<!-- Center: Knowledge Map (Concept Tree) -->
 <section class="flex-1 relative bg-background overflow-hidden">
-<!-- Stage Navigation Header -->
-<div class="absolute top-0 left-0 right-0 p-md flex justify-center z-10 pointer-events-none">
-<div class="flex bg-surface shadow-sm rounded-full border border-outline-variant p-1 pointer-events-auto">
-<button class="px-6 py-1.5 rounded-full font-body-base text-sm transition-colors text-on-surface-variant hover:text-primary">拆解</button>
-<button class="px-6 py-1.5 rounded-full font-body-base text-sm bg-primary text-on-primary shadow-sm">梳理 (Structuring)</button>
-<button class="px-6 py-1.5 rounded-full font-body-base text-sm transition-colors text-on-surface-variant hover:text-primary">生成</button>
-</div>
-</div>
-<!-- Canvas for Knowledge Map -->
+<div class="absolute top-0 left-0 right-0 p-md flex justify-center z-10 pointer-events-none"><div class="flex bg-surface shadow-sm rounded-full border border-outline-variant p-1 pointer-events-auto"><button class="px-6 py-1.5 rounded-full font-body-base text-sm transition-colors text-on-surface-variant hover:text-primary">拆解</button><button class="px-6 py-1.5 rounded-full font-body-base text-sm bg-primary text-on-primary shadow-sm">梳理 (Structuring)</button><button class="px-6 py-1.5 rounded-full font-body-base text-sm transition-colors text-on-surface-variant hover:text-primary">生成</button></div></div>
 <div class="w-full h-full p-xl flex items-center justify-center overflow-auto custom-scrollbar">
 <div class="relative min-w-[800px] min-h-[600px] flex items-center justify-center">
-<!-- Root Node -->
-<div class="z-20 bg-primary text-on-primary px-xl py-lg rounded-xl shadow-md border border-primary-container flex flex-col items-center">
-<span class="font-label-caps text-on-primary opacity-70 mb-1">CORE SUBJECT</span>
-<h2 class="font-headline-lg text-2xl">量子力学基础</h2>
-<div class="mt-2 flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded text-[10px]">
-<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">verified</span>
-                            AI 生成
-                        </div>
-</div>
-<!-- Connectors & Branches (Simulated Visuals) -->
-<!-- L1 Branch Left -->
+<div class="z-20 bg-primary text-on-primary px-xl py-lg rounded-xl shadow-md border border-primary-container flex flex-col items-center"><span class="font-label-caps text-on-primary opacity-70 mb-1">CORE SUBJECT</span><h2 class="font-headline-lg text-2xl">量子力学基础</h2><div class="mt-2 flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded text-[10px]"><span class="material-symbols-outlined text-[12px]" style="font-variation-settings:'FILL'1;">verified</span>AI 生成</div></div>
 <div class="absolute top-1/2 left-1/4 -translate-y-1/2 flex flex-col items-end gap-xl pr-md">
-<div class="relative group">
-<div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer">
-<div class="flex justify-between items-start mb-1">
-<span class="px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-caps text-[10px]">用户上传</span>
-<span class="material-symbols-outlined text-xs text-outline">link</span>
+<div class="relative group"><div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer"><div class="flex justify-between items-start mb-1"><span class="px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-caps text-[10px]">用户上传</span><span class="material-symbols-outlined text-xs text-outline">link</span></div><h4 class="font-title-md text-sm">波函数与几率波</h4><p class="text-[10px] text-on-surface-variant mt-1">Source: Textbook.pdf</p></div></div>
+<div class="relative group"><div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer"><div class="flex justify-between items-start mb-1"><span class="px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px]">AI 生成</span><span class="material-symbols-outlined text-xs text-outline">link</span></div><h4 class="font-title-md text-sm">不确定性原理</h4><p class="text-[10px] text-on-surface-variant mt-1">Source: Wikipedia</p></div></div>
 </div>
-<h4 class="font-title-md text-sm">波函数与几率波</h4>
-<p class="text-[10px] text-on-surface-variant mt-1">Source: Textbook.pdf</p>
-</div>
-</div>
-<div class="relative group">
-<div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer">
-<div class="flex justify-between items-start mb-1">
-<span class="px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px]">AI 生成</span>
-<span class="material-symbols-outlined text-xs text-outline">link</span>
-</div>
-<h4 class="font-title-md text-sm">不确定性原理</h4>
-<p class="text-[10px] text-on-surface-variant mt-1">Source: Wikipedia</p>
-</div>
-</div>
-</div>
-<!-- L1 Branch Right -->
 <div class="absolute top-1/2 right-1/4 -translate-y-1/2 flex flex-col items-start gap-xl pl-md">
-<div class="relative group">
-<div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer">
-<div class="flex justify-between items-start mb-1">
-<span class="px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px]">AI 生成</span>
-<span class="material-symbols-outlined text-xs text-outline">link</span>
+<div class="relative group"><div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer"><div class="flex justify-between items-start mb-1"><span class="px-2 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-label-caps text-[10px]">AI 生成</span><span class="material-symbols-outlined text-xs text-outline">link</span></div><h4 class="font-title-md text-sm">薛定谔方程</h4><p class="text-[10px] text-on-surface-variant mt-1">Source: MIT OpenCourse</p></div></div>
+<div class="relative group"><div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer"><div class="flex justify-between items-start mb-1"><span class="px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-caps text-[10px]">用户上传</span><span class="material-symbols-outlined text-xs text-outline">link</span></div><h4 class="font-title-md text-sm">量子纠缠</h4><p class="text-[10px] text-on-surface-variant mt-1">Source: Lecture_Notes.docx</p></div></div>
 </div>
-<h4 class="font-title-md text-sm">薛定谔方程</h4>
-<p class="text-[10px] text-on-surface-variant mt-1">Source: MIT OpenCourse</p>
+<svg class="absolute inset-0 w-full h-full pointer-events-none opacity-40" fill="none" stroke="#797587" stroke-width="1.5"><path d="M400,300 L250,220"></path><path d="M400,300 L250,380"></path><path d="M400,300 L550,220"></path><path d="M400,300 L550,380"></path></svg>
 </div>
 </div>
-<div class="relative group">
-<div class="bg-surface border border-outline-variant p-md rounded-lg shadow-sm w-48 hover:border-primary transition-colors cursor-pointer">
-<div class="flex justify-between items-start mb-1">
-<span class="px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container font-label-caps text-[10px]">用户上传</span>
-<span class="material-symbols-outlined text-xs text-outline">link</span>
-</div>
-<h4 class="font-title-md text-sm">量子纠缠</h4>
-<p class="text-[10px] text-on-surface-variant mt-1">Source: Lecture_Notes.docx</p>
-</div>
-</div>
-</div>
-<!-- SVG Lines for tree structure -->
-<svg class="absolute inset-0 w-full h-full pointer-events-none opacity-40" fill="none" stroke="#797587" stroke-width="1.5">
-<path d="M400,300 L250,220"></path>
-<path d="M400,300 L250,380"></path>
-<path d="M400,300 L550,220"></path>
-<path d="M400,300 L550,380"></path>
-</svg>
-</div>
-</div>
-<!-- Toolbar Overlay -->
-<div class="absolute bottom-lg right-lg flex flex-col gap-sm">
-<button class="w-10 h-10 bg-surface border border-outline-variant rounded-full flex items-center justify-center shadow-sm hover:text-primary transition-colors">
-<span class="material-symbols-outlined">zoom_in</span>
-</button>
-<button class="w-10 h-10 bg-surface border border-outline-variant rounded-full flex items-center justify-center shadow-sm hover:text-primary transition-colors">
-<span class="material-symbols-outlined">zoom_out</span>
-</button>
-<button class="w-10 h-10 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform">
-<span class="material-symbols-outlined">auto_fix_high</span>
-</button>
-</div>
+<div class="absolute bottom-lg right-lg flex flex-col gap-sm"><button class="w-10 h-10 bg-surface border border-outline-variant rounded-full flex items-center justify-center shadow-sm hover:text-primary transition-colors"><span class="material-symbols-outlined">zoom_in</span></button><button class="w-10 h-10 bg-surface border border-outline-variant rounded-full flex items-center justify-center shadow-sm hover:text-primary transition-colors"><span class="material-symbols-outlined">zoom_out</span></button><button class="w-10 h-10 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-md hover:scale-105 transition-transform"><span class="material-symbols-outlined">auto_fix_high</span></button></div>
 </section>
-<!-- Right: AI Assistant Drawer -->
 <aside class="w-80 bg-surface-container-lowest border-l border-outline-variant flex flex-col p-md overflow-y-auto shadow-sm">
-<div class="mb-lg">
-<div class="flex items-center gap-2 mb-1">
-<span class="material-symbols-outlined text-primary">smart_toy</span>
-<h2 class="font-title-md text-on-surface">Study Partner</h2>
-</div>
-<p class="font-body-sm text-on-surface-variant text-xs">AI Chat &amp; Analysis</p>
-</div>
+<div class="mb-lg"><div class="flex items-center gap-2 mb-1"><span class="material-symbols-outlined text-primary">smart_toy</span><h2 class="font-title-md text-on-surface">Study Partner</h2></div><p class="font-body-sm text-on-surface-variant text-xs">AI Chat &amp; Analysis</p></div>
 <div class="flex-1 flex flex-col gap-md">
-<!-- AI Message -->
-<div class="bg-primary-container text-on-primary-container p-md rounded-lg rounded-tl-none text-sm font-body-base leading-relaxed">
-                    我已经为您整合了来自 <strong>Quantum_Physics_Intro.pdf</strong> 和 <strong>Wikipedia</strong> 的知识点。
-
-                    目前的结构显示“薛定谔方程”是核心延伸。您需要我针对“量子纠缠”部分进一步爬取相关的实验案例吗？
-                </div>
-<!-- Suggested Actions -->
-<div class="flex flex-wrap gap-2">
-<button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">🔍 搜索实验案例</button>
-<button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">📝 生成摘要笔记</button>
-<button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">🧬 寻找逻辑漏洞</button>
+<div class="bg-primary-container text-on-primary-container p-md rounded-lg rounded-tl-none text-sm font-body-base leading-relaxed">我已经为您整合了来自 <strong>Quantum_Physics_Intro.pdf</strong> 和 <strong>Wikipedia</strong> 的知识点。目前的结构显示"薛定谔方程"是核心延伸。您需要我针对"量子纠缠"部分进一步爬取相关的实验案例吗？</div>
+<div class="flex flex-wrap gap-2"><button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">🔍 搜索实验案例</button><button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">📝 生成摘要笔记</button><button class="px-3 py-1.5 border border-outline-variant rounded-full text-xs font-body-sm hover:bg-surface-container transition-colors">🧬 寻找逻辑漏洞</button></div>
 </div>
-</div>
-<div class="mt-auto pt-md">
-<div class="relative">
-<input class="w-full bg-surface border border-outline-variant rounded-lg px-md py-3 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none pr-10" placeholder="向 AI 提问..." type="text"/>
-<button class="absolute right-3 top-3 material-symbols-outlined text-primary">send</button>
-</div>
-</div>
+<div class="mt-auto pt-md"><div class="relative"><input class="w-full bg-surface border border-outline-variant rounded-lg px-md py-3 text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none pr-10" placeholder="向 AI 提问..." type="text"/><button class="absolute right-3 top-3 material-symbols-outlined text-primary">send</button></div></div>
 </aside>
 </main>
 <script>
-        // Simple micro-interactions for the canvas
-        document.querySelectorAll('.group').forEach(node => {
-            node.addEventListener('mouseenter', () => {
-                node.style.transform = 'translateY(-2px)';
-            });
-            node.addEventListener('mouseleave', () => {
-                node.style.transform = 'translateY(0)';
-            });
-        });
-
-        // Theme-aware interactions
-        console.log("Scholar's Study Interface Initialized.");
-    </script>
+document.querySelectorAll('.group').forEach(function(n){n.addEventListener('mouseenter',function(){n.style.transform='translateY(-2px)'});n.addEventListener('mouseleave',function(){n.style.transform='translateY(0)'})});
+console.log("Scholar's Study Interface Initialized.");
+</script>
 </body></html>

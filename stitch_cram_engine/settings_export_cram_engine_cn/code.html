@@ -7,127 +7,77 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Source+Serif+4:wght@600;700&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                    "on-surface-variant": "#484555",
-                    "on-secondary": "#ffffff",
-                    "primary": "#5e39e0",
-                    "secondary-fixed": "#acedff",
-                    "background": "#f9f9f6",
-                    "on-primary-fixed": "#1c0062",
-                    "surface-container-lowest": "#ffffff",
-                    "surface-container": "#eeeeeb",
-                    "on-primary-container": "#fffbff",
-                    "tertiary-container": "#b35e00",
-                    "surface": "#f9f9f6",
-                    "on-secondary-fixed-variant": "#004e5c",
-                    "surface-bright": "#f9f9f6",
-                    "secondary-fixed-dim": "#4cd7f6",
-                    "error-container": "#ffdad6",
-                    "on-surface": "#1a1c1b",
-                    "on-background": "#1a1c1b",
-                    "primary-fixed": "#e6deff",
-                    "surface-container-high": "#e8e8e5",
-                    "on-tertiary-fixed-variant": "#6f3800",
-                    "secondary-container": "#57dffe",
-                    "on-tertiary-container": "#fffbff",
-                    "outline-variant": "#c9c4d8",
-                    "surface-container-highest": "#e2e3e0",
-                    "inverse-on-surface": "#f1f1ee",
-                    "secondary": "#00687a",
-                    "on-secondary-fixed": "#001f26",
-                    "surface-dim": "#dadad7",
-                    "tertiary-fixed": "#ffdcc4",
-                    "primary-fixed-dim": "#cabeff",
-                    "outline": "#797587",
-                    "on-secondary-container": "#006172",
-                    "surface-container-low": "#f4f4f1",
-                    "surface-tint": "#603ce2",
-                    "tertiary-fixed-dim": "#ffb780",
-                    "on-tertiary": "#ffffff",
-                    "inverse-primary": "#cabeff",
-                    "inverse-surface": "#2f312f",
-                    "error": "#ba1a1a",
-                    "on-error-container": "#93000a",
-                    "surface-variant": "#e2e3e0",
-                    "primary-container": "#7757fa",
-                    "on-primary-fixed-variant": "#4816cb",
-                    "tertiary": "#8f4a00",
-                    "on-tertiary-fixed": "#2f1400",
-                    "on-primary": "#ffffff",
-                    "on-error": "#ffffff"
-            },
-            "borderRadius": {
-                    "DEFAULT": "0.25rem",
-                    "lg": "0.5rem",
-                    "xl": "0.75rem",
-                    "full": "9999px"
-            },
-            "spacing": {
-                    "xs": "4px",
-                    "gutter": "16px",
-                    "xl": "40px",
-                    "md": "16px",
-                    "base": "4px",
-                    "container-max": "1200px",
-                    "lg": "24px",
-                    "sm": "8px"
-            },
-            "fontFamily": {
-                    "body-base": ["Inter"],
-                    "display-hero": ["\"Source Serif 4\""],
-                    "headline-lg": ["\"Source Serif 4\""],
-                    "body-sm": ["Inter"],
-                    "label-caps": ["Inter"],
-                    "code-snippet": ["JetBrains Mono"],
-                    "title-md": ["Inter"]
-            },
-            "fontSize": {
-                    "body-base": ["15px", {"lineHeight": "1.6", "fontWeight": "400"}],
-                    "display-hero": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
-                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
-                    "body-sm": ["13px", {"lineHeight": "1.5", "fontWeight": "400"}],
-                    "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
-                    "code-snippet": ["14px", {"lineHeight": "1.5", "fontWeight": "450"}],
-                    "title-md": ["18px", {"lineHeight": "1.5", "fontWeight": "600"}]
-            }
-          },
-        },
-      }
-    </script>
+<script src="../shared/theme.js"></script>
 <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        body { background-color: #f9f9f6; }
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(8px);
-            border: 1px solid #e5e5e1;
-        }
-        input[type="range"] {
-            accent-color: #5e39e0;
-        }
-        /* Native desktop scrollbar feel */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #dadad7;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #c9c4d8;
-        }
-    </style>
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body { background-color: var(--ce-background); }
+    .glass-panel {
+        background: var(--ce-glass-bg);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--ce-glass-border);
+    }
+    input[type="range"] {
+        accent-color: #5e39e0;
+    }
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--ce-scrollbar-thumb);
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--ce-scrollbar-thumb-hover);
+    }
+
+    /* ── 三段式分段控件 ── */
+    .segmented-control {
+        display: inline-flex;
+        background: var(--ce-surface-container-low);
+        border: 1px solid var(--ce-outline-variant);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .segmented-control button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-family: Inter, sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ce-on-surface-variant);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+    .segmented-control button:not(:last-child) {
+        border-right: 1px solid var(--ce-outline-variant);
+    }
+    .segmented-control button:hover {
+        background: var(--ce-surface-container-highest);
+    }
+    .segmented-control button.active {
+        background: #5e39e0;
+        color: #ffffff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .segmented-control button.active:hover {
+        background: #4e2fc0;
+    }
+
+    /* header / footer sticky 暗色适配 */
+    header.sticky { background-color: var(--ce-surface-bright); }
+    footer.fixed  { background-color: var(--ce-surface-container); }
+</style>
 </head>
 <body class="font-body-base text-on-surface">
 <!-- TopAppBar -->
@@ -256,6 +206,33 @@
 </div>
 </div>
 </div>
+
+<!-- ── 系统设置（新增） ── -->
+<div class="md:col-span-2 bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
+<div class="flex items-center gap-sm mb-lg">
+<span class="material-symbols-outlined text-primary">dark_mode</span>
+<h3 class="font-title-md text-title-md">系统设置</h3>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center gap-md">
+<span class="font-body-base font-semibold text-on-surface shrink-0">主题模式</span>
+<div class="segmented-control" id="theme-segmented">
+<button data-theme="light" aria-label="浅色主题">
+<span class="material-symbols-outlined" style="font-size:18px">light_mode</span>
+浅色
+</button>
+<button data-theme="dark" aria-label="深色主题">
+<span class="material-symbols-outlined" style="font-size:18px">dark_mode</span>
+深色
+</button>
+<button data-theme="auto" aria-label="跟随系统">
+<span class="material-symbols-outlined" style="font-size:18px">settings_brightness</span>
+跟随系统
+</button>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-md" id="theme-desc">根据操作系统设置自动切换</p>
+</div>
+
 </div>
 <div class="mt-lg flex justify-end gap-md">
 <button class="px-lg py-sm font-title-md rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">舍弃更改</button>
@@ -330,8 +307,8 @@
 </div>
 <button class="w-full mt-lg py-md bg-primary text-white rounded-lg font-title-md hover:bg-primary/90 transition-all flex items-center justify-center gap-sm shadow-md active:scale-[0.98]">
 <span class="material-symbols-outlined">download</span>
-                                生成导出包
-                            </button>
+                生成导出包
+            </button>
 </div>
 </div>
 <!-- Sidebar: History -->
@@ -381,32 +358,75 @@
 </footer>
 <!-- Scripts -->
 <script>
-        function togglePassword() {
-            const input = document.getElementById('api-key-input');
-            const icon = document.getElementById('eye-icon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.innerText = 'visibility_off';
-            } else {
-                input.type = 'password';
-                icon.innerText = 'visibility';
-            }
+    function togglePassword() {
+        var input = document.getElementById('api-key-input');
+        var icon = document.getElementById('eye-icon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerText = 'visibility_off';
+        } else {
+            input.type = 'password';
+            icon.innerText = 'visibility';
+        }
+    }
+
+    // ── 导航模拟 ──
+    var navExport = document.getElementById('nav-export-btn');
+    var navSettings = document.getElementById('nav-settings-btn');
+    var exportView = document.getElementById('export-view');
+    var settingsView = document.getElementById('settings-view');
+
+    navExport.addEventListener('click', function(e) {
+        e.preventDefault();
+        exportView.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    navSettings.addEventListener('click', function(e) {
+        e.preventDefault();
+        settingsView.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // ═══════════════════════════════════════════
+    //  主题分段控件
+    // ═══════════════════════════════════════════
+    (function() {
+        var segmented = document.getElementById('theme-segmented');
+        var descEl = document.getElementById('theme-desc');
+        var buttons = segmented.querySelectorAll('button');
+
+        var labels = {
+            light: '始终使用浅色主题',
+            dark: '始终使用深色主题',
+            auto: '根据操作系统设置自动切换'
+        };
+
+        function highlight(theme) {
+            buttons.forEach(function(btn) {
+                if (btn.getAttribute('data-theme') === theme) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            descEl.textContent = labels[theme] || labels.auto;
         }
 
-        // Simple navigation simulation
-        const navExport = document.getElementById('nav-export-btn');
-        const navSettings = document.getElementById('nav-settings-btn');
-        const exportView = document.getElementById('export-view');
-        const settingsView = document.getElementById('settings-view');
-
-        navExport.addEventListener('click', (e) => {
-            e.preventDefault();
-            exportView.scrollIntoView({ behavior: 'smooth' });
+        // 点击切换
+        buttons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var theme = btn.getAttribute('data-theme');
+                window.CramEngineTheme.set(theme);
+                highlight(theme);
+            });
         });
 
-        navSettings.addEventListener('click', (e) => {
-            e.preventDefault();
-            settingsView.scrollIntoView({ behavior: 'smooth' });
+        // 初始化时同步 UI
+        highlight(window.CramEngineTheme.get());
+
+        // 监听外部变更（如系统自动切换）
+        window.addEventListener('cram-theme-change', function(e) {
+            highlight(e.detail.theme);
         });
-    </script>
+    })();
+</script>
 </body></html>
